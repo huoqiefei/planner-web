@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "P6 Professional Web",
+  "version": "1.0.0",
+  "description": "Professional CPM Scheduling Tool inspired by Oracle Primavera P6.",
+  "action": {
+    "default_icon": "vite.svg",
+    "default_title": "Open P6 Scheduler"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "storage",
+    "unlimitedStorage"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}
