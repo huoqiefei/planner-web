@@ -134,7 +134,7 @@ export const HelpModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ 
                              </ul>
                          </section>
 
-                         <section>
+                         {/* <section>
                              <h3 className="font-bold text-lg text-blue-900">2. WBS & Activities</h3>
                              <p>Build your schedule hierarchy in the <b>Activities</b> view.</p>
                              <ul className="list-disc pl-5 mt-2 space-y-1">
@@ -173,7 +173,7 @@ export const HelpModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ 
                                  <li><b>Columns:</b> Resize column headers in the table.</li>
                                  <li><b>Print:</b> Go to <b>"File > Print Preview"</b> to generate a PDF. Supported formats: A4, A3, A2, A1.</li>
                              </ul>
-                         </section>
+                         </section> */}
                      </div>
                  </div>
 
