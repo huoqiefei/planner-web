@@ -16,7 +16,7 @@ export const translations = {
         Calendars: 'Calendars',
         ProjectInfo: 'Project Information...',
         Help: 'Help',
-        About: 'About P6 Web',
+        About: 'About Planner Web',
         General: 'General',
         Defaults: 'Defaults',
         DateFormat: 'Date Format',

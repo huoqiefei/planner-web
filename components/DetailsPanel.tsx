@@ -10,18 +10,15 @@ interface DetailsPanelProps {
     onUpdate: (id: string, field: string, value: any) => void;
     onAssignUpdate: (assignments: Assignment[], activityId: string) => void;
     userSettings: UserSettings;
-    allActivities?: Activity[]; // needed for successors logic
+    allActivities?: Activity[];
 }
 
 const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assignments, calendars, onUpdate, onAssignUpdate, userSettings, allActivities = [] }) => {
     const [tab, setTab] = useState('General');
     const [selRes, setSelRes] = useState('');
     const [inputUnits, setInputUnits] = useState(8);
-    
-    // For Successors
     const [newSuccId, setNewSuccId] = useState('');
 
-    // Dynamic Font Size
     const fontSizePx = userSettings.uiFontPx || 13;
     
     if (!activity) return (
@@ -50,7 +47,6 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
     
     const delRes = (rid: string) => onAssignUpdate(assignments.filter(a => !(a.activityId === activity.id && a.resourceId === rid)), activity.id);
 
-    // Predecessors Logic
     const preds = activity.predecessors || [];
     const updatePred = (idx: number, field: keyof Predecessor, val: any) => {
         const newPreds = [...preds];
@@ -66,15 +62,12 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
         onUpdate(activity.id, 'predecessors', [...preds, newP]);
     };
 
-    // Successors Logic
-    // Successors are activities that have 'activity.id' in their predecessors list
     const successors = allActivities.filter(a => a.predecessors && a.predecessors.some(p => p.activityId === activity.id));
     
     const addSucc = () => {
         if(!newSuccId) return;
         const targetAct = allActivities.find(a => a.id === newSuccId);
         if(targetAct) {
-            // Add current activity to target's predecessors
             const newP: Predecessor = { activityId: activity.id, type: 'FS', lag: 0 };
             onUpdate(targetAct.id, 'predecessors', [...(targetAct.predecessors || []), newP]);
             setNewSuccId('');
@@ -83,12 +76,17 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
     const delSucc = (succId: string) => {
         const targetAct = allActivities.find(a => a.id === succId);
         if(targetAct) {
-            // Remove current activity from target's predecessors
             const newPreds = targetAct.predecessors.filter(p => p.activityId !== activity.id);
             onUpdate(targetAct.id, 'predecessors', newPreds);
         }
     };
 
+    const handleTypeChange = (newType: string) => {
+        onUpdate(activity.id, 'activityType', newType);
+        if (newType.includes('Milestone')) {
+            onUpdate(activity.id, 'duration', 0);
+        }
+    };
 
     const selResObj = resources.find(r => r.id === selRes);
 
@@ -117,7 +115,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
                         <div className="space-y-2">
                             <div>
                                 <label className="block text-slate-500 mb-0.5 font-semibold">Activity Type</label>
-                                <select value={activity.activityType} onChange={e => onUpdate(activity.id, 'activityType', e.target.value)} className="w-full border border-slate-300 px-1 py-1 bg-white" style={{ fontSize: `${fontSizePx}px` }}>
+                                <select value={activity.activityType} onChange={e => handleTypeChange(e.target.value)} className="w-full border border-slate-300 px-1 py-1 bg-white" style={{ fontSize: `${fontSizePx}px` }}>
                                     <option>Task</option>
                                     <option>Start Milestone</option>
                                     <option>Finish Milestone</option>
@@ -135,7 +133,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
                              <div>
                                 <label className="block text-slate-500 mb-0.5 font-semibold">Original Duration</label>
                                 <div className="flex items-center">
-                                    <input type="number" value={activity.duration} onChange={e => onUpdate(activity.id, 'duration', Number(e.target.value))} className="w-20 border border-slate-300 px-1 py-1 text-right" style={{ fontSize: `${fontSizePx}px` }} />
+                                    <input type="number" value={activity.duration} disabled={activity.activityType.includes('Milestone')} onChange={e => onUpdate(activity.id, 'duration', Number(e.target.value))} className={`w-20 border border-slate-300 px-1 py-1 text-right ${activity.activityType.includes('Milestone')?'bg-slate-100':''}`} style={{ fontSize: `${fontSizePx}px` }} />
                                     <span className="ml-2 text-slate-500">Days</span>
                                 </div>
                             </div>

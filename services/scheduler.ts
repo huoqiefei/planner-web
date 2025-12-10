@@ -1,6 +1,13 @@
 
 import { Activity, Calendar, ProjectData, ScheduleResult, Predecessor } from '../types';
 
+// Helper to normalize time to Noon to avoid DST/Timezone issues
+function normalize(date: Date): Date {
+    const d = new Date(date);
+    d.setHours(12, 0, 0, 0);
+    return d;
+}
+
 export function getCalendar(calendarId: string | undefined, data: ProjectData): Calendar {
     const calendars = data.calendars || []; 
     const def = calendars.find(c => c.id === data.meta?.defaultCalendarId) || calendars.find(c => c.isDefault);
@@ -19,8 +26,7 @@ export function isWorkingDay(date: Date, calendar: Calendar): boolean {
 }
 
 export function findNextWorkingDay(date: Date, calendar: Calendar, direction: 'forward' | 'backward' = 'forward'): Date {
-    let curr = new Date(date);
-    // If we are currently on a non-working day, move until we hit a working day
+    let curr = normalize(date);
     let loops = 0;
     while (!isWorkingDay(curr, calendar) && loops < 3650) {
         curr.setDate(curr.getDate() + (direction === 'forward' ? 1 : -1));
@@ -30,9 +36,9 @@ export function findNextWorkingDay(date: Date, calendar: Calendar, direction: 'f
 }
 
 export function addWorkingDays(start: Date, days: number, calendar: Calendar): Date {
-    let curr = new Date(start);
+    let curr = normalize(start);
     
-    // Initial check: if start is non-working, move to next working day before counting
+    // If start itself is non-working, shift to the next valid working day first
     if (!isWorkingDay(curr, calendar)) {
         curr = findNextWorkingDay(curr, calendar, days >= 0 ? 'forward' : 'backward');
     }
@@ -53,15 +59,14 @@ export function addWorkingDays(start: Date, days: number, calendar: Calendar): D
     return curr;
 }
 
-// Fixed logic: Finish date is inclusive of the work day. 
 export function calculateFinish(start: Date, duration: number, calendar: Calendar): Date {
-    if (duration <= 0) return new Date(start); // Milestones
+    if (duration <= 0) return normalize(start); 
+    // If duration is 1 day, start and finish are the same day
     return addWorkingDays(start, duration - 1, calendar);
 }
 
-// Start calculation from finish
 export function calculateStart(finish: Date, duration: number, calendar: Calendar): Date {
-    if (duration <= 0) return new Date(finish);
+    if (duration <= 0) return normalize(finish);
     return addWorkingDays(finish, -(duration - 1), calendar);
 }
 
@@ -69,18 +74,19 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
     const { activities, meta } = projectData;
     if (!activities || activities.length === 0) return { activities: [], wbsMap: {} };
     
-    const projectStartDate = meta?.projectStartDate ? new Date(meta.projectStartDate) : new Date();
+    const projectStartDate = normalize(meta?.projectStartDate ? new Date(meta.projectStartDate) : new Date());
     const activityMap: Record<string, Activity> = {};
     
     // Initialize
     const scheduledActivities: Activity[] = activities.map(a => ({
         ...a,
         predecessors: Array.isArray(a.predecessors) ? a.predecessors : [],
-        startDate: new Date(), endDate: new Date(),
-        earlyStart: new Date(0), earlyFinish: new Date(0),
-        lateStart: new Date(0), lateFinish: new Date(0),
+        startDate: normalize(new Date()), endDate: normalize(new Date()),
+        earlyStart: normalize(new Date(0)), earlyFinish: normalize(new Date(0)),
+        lateStart: normalize(new Date(0)), lateFinish: normalize(new Date(0)),
         totalFloat: 0, isCritical: false,
-        activityType: a.activityType || (a.duration === 0 ? 'Finish Milestone' : 'Task')
+        activityType: a.activityType || (a.duration === 0 ? 'Finish Milestone' : 'Task'),
+        duration: (a.activityType === 'Start Milestone' || a.activityType === 'Finish Milestone') ? 0 : a.duration
     }));
     
     scheduledActivities.forEach(act => activityMap[act.id] = act);
@@ -90,18 +96,19 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
         let changed = false;
         scheduledActivities.forEach(act => {
             const calendar = getCalendar(act.calendarId, projectData);
-            let calculatedEarlyStart = new Date(projectStartDate);
+            let calculatedEarlyStart = normalize(projectStartDate);
 
             // Predecessor Logic
             if (act.predecessors.length > 0) {
-                let maxStart = new Date(0);
+                let maxStart = new Date(-8640000000000000); 
                 act.predecessors.forEach(pred => {
                     const pAct = activityMap[pred.activityId];
                     if (!pAct) return;
-                    let constraintDate = new Date(0);
-                    const pFinish = new Date(pAct.earlyFinish);
-                    const pStart = new Date(pAct.earlyStart);
+                    
+                    const pFinish = normalize(pAct.earlyFinish);
+                    const pStart = normalize(pAct.earlyStart);
                     const lag = pred.lag || 0;
+                    let constraintDate = new Date(-8640000000000000);
 
                     if (pred.type === 'FS') {
                         // Finish to Start: Pred Finish + Lag + 1 Day (next day)
@@ -122,9 +129,10 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
                 });
                 calculatedEarlyStart = maxStart;
                 
-                if (calculatedEarlyStart < projectStartDate) calculatedEarlyStart = new Date(projectStartDate);
+                if (calculatedEarlyStart < projectStartDate) calculatedEarlyStart = normalize(projectStartDate);
                 calculatedEarlyStart = findNextWorkingDay(calculatedEarlyStart, calendar, 'forward');
             } else {
+                // If no predecessors, default to Project Start
                 calculatedEarlyStart = findNextWorkingDay(projectStartDate, calendar, 'forward');
             }
 
@@ -140,8 +148,9 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
     // --- 2. Backward Pass ---
     
     // Find Project Finish Date (Max Early Finish)
-    let maxProjectFinish = new Date(0);
+    let maxProjectFinish = new Date(-8640000000000000);
     scheduledActivities.forEach(a => { if(a.earlyFinish > maxProjectFinish) maxProjectFinish = a.earlyFinish; });
+    maxProjectFinish = normalize(maxProjectFinish);
 
     // Initialize Late dates to Project Finish
     scheduledActivities.forEach(act => {
@@ -150,7 +159,7 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
         act.lateStart = calculateStart(act.lateFinish, act.duration, calendar);
     });
 
-    // Build Successor Map for efficient backward pass
+    // Build Successor Map
     const successorMap: Record<string, { id: string, type: string, lag: number }[]> = {};
     scheduledActivities.forEach(act => {
         act.predecessors.forEach(p => {
@@ -162,7 +171,7 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
     // Backward Loop
     for (let pass = 0; pass < activities.length + 2; pass++) {
         let changed = false;
-        // Iterate roughly reverse order for speed, but loop handles convergence
+        // Reverse order
         for (let i = scheduledActivities.length - 1; i >= 0; i--) {
             const act = scheduledActivities[i];
             const successors = successorMap[act.id] || [];
@@ -171,43 +180,37 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
             let calculatedLateFinish = new Date(maxProjectFinish);
 
             if (successors.length > 0) {
-                let minLateFinish = new Date(8640000000000000); // Max Date
+                let minLateFinish = new Date(8640000000000000);
 
                 successors.forEach(succ => {
                     const sAct = activityMap[succ.id];
                     if (!sAct) return;
 
-                    const sStart = new Date(sAct.lateStart);
-                    const sFinish = new Date(sAct.lateFinish);
-                    const lag = succ.lag;
+                    const sStart = normalize(sAct.lateStart);
+                    const sFinish = normalize(sAct.lateFinish);
+                    const lag = succ.lag || 0;
                     
                     let constraintDate = new Date(maxProjectFinish);
 
-                    // Logic: Pred.LateDate <= Succ.LateDate - Relationship Logic
-                    // We reverse the forward pass logic.
-                    
+                    // Backward Constraint Logic
                     if (succ.type === 'FS') {
                         // S.Start = P.Finish + Lag + 1
                         // P.Finish = S.Start - 1 - Lag
                         let d = new Date(sStart);
-                        d.setDate(d.getDate() - 1); // Reverse the +1 day gap
+                        d.setDate(d.getDate() - 1); 
                         d = addWorkingDays(d, -lag, calendar);
-                        // Ensure it's a valid working day for finish
                         d = findNextWorkingDay(d, calendar, 'backward');
                         constraintDate = d;
                     } else if (succ.type === 'SS') {
                         // S.Start = P.Start + Lag
-                        // P.Start = S.Start - Lag
-                        // We need P.Finish, so calculate from P.Start
+                        // P.Start = S.Start - Lag -> We need P.Finish
                         let pStart = addWorkingDays(sStart, -lag, calendar);
                         constraintDate = calculateFinish(pStart, act.duration, calendar);
                     } else if (succ.type === 'FF') {
-                        // S.Finish = P.Finish + Lag
-                        // P.Finish = S.Finish - Lag
+                        // S.Finish = P.Finish + Lag -> P.Finish = S.Finish - Lag
                         constraintDate = addWorkingDays(sFinish, -lag, calendar);
                     } else if (succ.type === 'SF') {
-                         // S.Finish = P.Start + Lag
-                         // P.Start = S.Finish - Lag
+                         // S.Finish = P.Start + Lag -> P.Start = S.Finish - Lag
                          let pStart = addWorkingDays(sFinish, -lag, calendar);
                          constraintDate = calculateFinish(pStart, act.duration, calendar);
                     }
@@ -215,12 +218,8 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
                     if (constraintDate < minLateFinish) minLateFinish = constraintDate;
                 });
                 calculatedLateFinish = minLateFinish;
-            } else {
-                // No successors, constrained by project finish
-                calculatedLateFinish = new Date(maxProjectFinish);
             }
             
-            // Apply Late Finish
             if (Math.abs(calculatedLateFinish.getTime() - act.lateFinish.getTime()) > 1000) {
                  act.lateFinish = calculatedLateFinish;
                  act.lateStart = calculateStart(act.lateFinish, act.duration, calendar);
@@ -232,18 +231,21 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
 
     // --- 3. Finalize ---
     scheduledActivities.forEach(act => {
-        // Total Float = Late Finish - Early Finish (or Late Start - Early Start)
+        // Total Float = Late Finish - Early Finish
         const floatMs = act.lateFinish.getTime() - act.earlyFinish.getTime();
         act.totalFloat = Math.round(floatMs / (1000 * 60 * 60 * 24));
-        // Critical if float <= 0 (allowing for minor calc jitter)
+        
+        // Ensure float isn't negative due to minor date math issues (unless real negative float exists)
+        if(Math.abs(act.totalFloat) < 0.1) act.totalFloat = 0;
+        
         act.isCritical = act.totalFloat <= 0;
         
         act.startDate = act.earlyStart;
         act.endDate = act.earlyFinish;
     });
 
-    // WBS Rollup Logic
-    const wbsMap: Record<string, { startDate: Date; endDate: Date }> = {};
+    // WBS Rollup
+    const wbsMap: Record<string, { startDate: Date; endDate: Date; duration: number }> = {};
     const processWBS = (nodeId: string): { start: number | null, end: number | null } => {
         const childWBS = projectData.wbs.filter(w => w.parentId === nodeId);
         const childActs = scheduledActivities.filter(a => a.wbsId === nodeId);
@@ -260,9 +262,16 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
         const minStart = startDates.length ? new Date(Math.min(...startDates)) : null;
         const maxEnd = endDates.length ? new Date(Math.max(...endDates)) : null;
         
+        // Calculate WBS Duration (Span)
+        let duration = 0;
         if(minStart && maxEnd) {
-            wbsMap[nodeId] = { startDate: minStart, endDate: maxEnd };
+             const diffMs = maxEnd.getTime() - minStart.getTime();
+             duration = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
+             wbsMap[nodeId] = { startDate: minStart, endDate: maxEnd, duration };
+        } else {
+             wbsMap[nodeId] = { startDate: new Date(), endDate: new Date(), duration: 0 };
         }
+        
         return { start: minStart?.getTime() || null, end: maxEnd?.getTime() || null };
     }
     

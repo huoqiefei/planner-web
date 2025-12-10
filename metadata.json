@@ -1,5 +1,6 @@
+
 {
-  "name": "Primavera P6 Project Planner Clone",
-  "description": "A web-based project management tool inspired by Oracle Primavera P6, featuring a Work Breakdown Structure (WBS), activity management, and a dynamic Gantt chart. It leverages the Gemini API to intelligently generate initial project plans from a simple text prompt.",
+  "name": "Planner Web",
+  "description": "A professional web-based project management tool by Planner.cn, featuring a Work Breakdown Structure (WBS), activity management, and a dynamic Gantt chart.",
   "requestFramePermissions": []
 }

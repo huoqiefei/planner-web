@@ -9,7 +9,6 @@ import MenuBar from './components/MenuBar';
 import CombinedView from './components/CombinedView';
 import DetailsPanel from './components/DetailsPanel';
 import ResourcesPanel from './components/ResourcesPanel';
-import CalendarView from './components/CalendarView';
 import ProjectSettingsModal from './components/ProjectSettingsModal';
 import { AlertModal, ConfirmModal, AboutModal, UserSettingsModal, PrintSettingsModal, BatchAssignModal } from './components/Modals';
 
@@ -18,7 +17,7 @@ const App: React.FC = () => {
     const [data, setData] = useState<ProjectData | null>(null);
     const [schedule, setSchedule] = useState<ScheduleResult>({ activities: [], wbsMap: {} });
     const [selIds, setSelIds] = useState<string[]>([]);
-    const [view, setView] = useState<'activities' | 'resources' | 'calendars'>('activities');
+    const [view, setView] = useState<'activities' | 'resources'>('activities');
     const [ganttZoom, setGanttZoom] = useState<'day' | 'week' | 'month' | 'quarter' | 'year'>('day');
     
     // Modals State
@@ -48,11 +47,13 @@ const App: React.FC = () => {
     }, [data]);
 
     const createNew = () => {
+        const pCode = 'PROJ-01';
+        const pName = 'New Project';
         const defCal = { id: 'cal-1', name: 'Standard 5-Day', isDefault:true, weekDays:[false,true,true,true,true,true,false], hoursPerDay:8, exceptions:[] };
         setData({
-            wbs: [{id:'PROJ.1', name:'Root', parentId:null}], activities: [], resources: [], assignments: [], calendars: [defCal],
+            wbs: [{id: pCode, name: pName, parentId:null}], activities: [], resources: [], assignments: [], calendars: [defCal],
             meta: { 
-                title:'New Project', projectCode:'PROJ', defaultCalendarId: defCal.id, projectStartDate: new Date().toISOString().split('T')[0], 
+                title: pName, projectCode: pCode, defaultCalendarId: defCal.id, projectStartDate: new Date().toISOString().split('T')[0], 
                 activityIdPrefix:'A', activityIdIncrement:10, resourceIdPrefix:'R', resourceIdIncrement:10 
             }
         });
@@ -119,6 +120,40 @@ const App: React.FC = () => {
                 setData(p => p ? { ...p, activities: p.activities.map(a => a.id === id ? { ...a, [field]: (field === 'duration' || field === 'budgetedCost') ? Number(val) : val } : a) } : null);
             }
         }
+    };
+    
+    // Updates Project Meta and synchronizes Root WBS Node if needed
+    const handleProjectUpdate = (meta: ProjectData['meta'], calendars: ProjectData['calendars']) => {
+        setData(prev => {
+            if(!prev) return null;
+            let newWbs = [...prev.wbs];
+            let newActs = [...prev.activities];
+
+            // 1. Sync Root Node Name with Project Title
+            if (meta.title !== prev.meta.title) {
+                newWbs = newWbs.map(w => (!w.parentId || w.parentId === 'null') ? { ...w, name: meta.title } : w);
+            }
+
+            // 2. Sync Root Node ID with Project Code (Cascade update)
+            if (meta.projectCode !== prev.meta.projectCode) {
+                const root = newWbs.find(w => !w.parentId || w.parentId === 'null');
+                if (root) {
+                    const oldId = root.id;
+                    const newId = meta.projectCode;
+                    // Check if new ID already exists (collision)
+                    if (!newWbs.some(w => w.id === newId)) {
+                         newWbs = newWbs.map(w => {
+                             if (w.id === oldId) return { ...w, id: newId };
+                             if (w.parentId === oldId) return { ...w, parentId: newId };
+                             return w;
+                         });
+                         newActs = newActs.map(a => a.wbsId === oldId ? { ...a, wbsId: newId } : a);
+                    }
+                }
+            }
+
+            return { ...prev, meta, calendars, wbs: newWbs, activities: newActs };
+        });
     };
 
     const handleCtxAction = (act: string) => {
@@ -309,7 +344,6 @@ const App: React.FC = () => {
             case 'project_info': setActiveModal('project_settings'); break;
             case 'view_activities': setView('activities'); break;
             case 'view_resources': setView('resources'); break;
-            case 'view_calendars': setView('calendars'); break;
             case 'settings': setActiveModal('user_settings'); break;
             case 'help': setActiveModal('about'); break;
         }
@@ -351,7 +385,7 @@ const App: React.FC = () => {
 
     if (!data) return (
         <div className="flex h-full items-center justify-center bg-slate-50 flex-col gap-4">
-            <h1 className="text-3xl font-bold text-blue-900 tracking-tight">P6 Professional Web</h1>
+            <h1 className="text-3xl font-bold text-blue-900 tracking-tight">Planner Web</h1>
             <button onClick={createNew} className="bg-blue-600 text-white px-8 py-4 rounded shadow hover:bg-blue-700 flex items-center gap-2 text-lg">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
                 Create New Project
@@ -377,7 +411,7 @@ const App: React.FC = () => {
 
             <div className="flex-grow flex flex-col overflow-hidden">
                 <div className="bg-slate-300 border-b flex px-2 pt-1 gap-1 shrink-0" style={{ fontSize: `${userSettings.uiFontPx || 13}px` }}>
-                    {['Activities', 'Resources', 'Calendars'].map(v => (
+                    {['Activities', 'Resources'].map(v => (
                         <button key={v} onClick={() => setView(v.toLowerCase() as any)} className={`px-4 py-1 font-bold rounded-t ${view === v.toLowerCase() ? 'bg-white text-blue-900' : 'text-slate-600 hover:bg-slate-200'}`}>
                             {v}
                         </button>
@@ -421,12 +455,6 @@ const App: React.FC = () => {
                         userSettings={userSettings}
                     />
                 )}
-                {view === 'calendars' && (
-                    <CalendarView 
-                        calendars={data.calendars} 
-                        onUpdateCalendars={(c) => setData(p => p ? { ...p, calendars: c } : null)} 
-                    />
-                )}
             </div>
 
             <ContextMenu data={ctx} onClose={() => setCtx(null)} onAction={handleCtxAction} />
@@ -461,7 +489,7 @@ const App: React.FC = () => {
                 isOpen={activeModal === 'project_settings'} 
                 onClose={() => setActiveModal(null)}
                 projectData={data}
-                onUpdateProject={(meta, calendars) => setData(p => p ? { ...p, meta, calendars } : null)}
+                onUpdateProject={handleProjectUpdate}
             />
             
             <BatchAssignModal 

@@ -64,9 +64,9 @@ export const AboutModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({
         <button onClick={onClose} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Close</button>
     }>
         <div className="text-center p-4">
-            <h2 className="text-lg font-bold text-blue-900 mb-2">P6 Professional Web</h2>
+            <h2 className="text-lg font-bold text-blue-900 mb-2">Planner Web</h2>
             <p className="mb-4">Professional CPM Scheduling Tool</p>
-            <p className="font-bold text-slate-500 border-t pt-2">Powered by Planner.cn</p>
+            <p className="font-bold text-slate-500 border-t pt-2">Powered by planner.cn</p>
         </div>
     </BaseModal>
 );

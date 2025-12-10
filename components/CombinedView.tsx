@@ -6,7 +6,7 @@ import GanttChart from './GanttChart';
 interface CombinedViewProps {
     projectData: ProjectData;
     schedule: Activity[];
-    wbsMap: Record<string, { startDate: Date; endDate: Date }>;
+    wbsMap: Record<string, { startDate: Date; endDate: Date; duration: number }>;
     onUpdate: (id: string, field: string, val: any) => void;
     selectedIds: string[];
     onSelect: (id: string, multi: boolean) => void;
@@ -52,6 +52,7 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
 
     const tableBodyRef = useRef<HTMLDivElement>(null);
     const ganttBodyRef = useRef<HTMLDivElement>(null);
+    const isScrolling = useRef<'table'|'gantt'|null>(null);
 
     // Dynamic Sizes based on User Settings
     const fontSizePx = userSettings.uiFontPx || 13;
@@ -75,14 +76,10 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
         return `${y}-${m}-${day}`;
     };
 
-    // Enhanced Parser: Handles "A1010FS-3", "A1030", "A1020SS+5"
     const parsePredecessors = (input: string) => {
         if (!input.trim()) return [];
         return input.split(/[,;]/).map(part => {
             const clean = part.trim();
-            
-            // Try matching with explicit relationship type first (lazy match on ID)
-            // Group 1: ID, Group 2: Type, Group 3: Lag
             let match = clean.match(/^(.*?)(FS|SS|FF|SF)([+\-]?\d+)?$/i);
             
             if (match) {
@@ -92,15 +89,12 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
                     lag: match[3] ? parseInt(match[3]) : 0
                 };
             }
-            
-            // Fallback: Assume just ID (FS, Lag 0)
             return { activityId: clean, type: 'FS', lag: 0 };
-        }).filter(x => x && x.activityId); // Filter valid objects
+        }).filter(x => x && x.activityId); 
     };
 
     const flatRows = useMemo(() => {
         const rows: any[] = [];
-        
         const isHidden = (nodeId: string, parentId: string | null) => {
             if (!parentId) return false;
             if (collapsedWbs.includes(parentId)) return true;
@@ -116,14 +110,21 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
             const children = projectData.wbs.filter(w => w.parentId === pid);
             children.forEach(node => {
                 if (isHidden(node.id, pid)) return;
+                
+                // Inject calculated duration into the WBS node for display
+                const wbsCalc = wbsMap[node.id];
+                const nodeWithDuration = { 
+                    ...node, 
+                    duration: wbsCalc?.duration || 0 
+                };
 
                 rows.push({ 
                     type: 'WBS', 
-                    data: node, 
+                    data: nodeWithDuration, 
                     id: node.id, 
                     depth, 
-                    startDate: wbsMap[node.id]?.startDate, 
-                    endDate: wbsMap[node.id]?.endDate,
+                    startDate: wbsCalc?.startDate, 
+                    endDate: wbsCalc?.endDate,
                     collapsed: collapsedWbs.includes(node.id)
                 });
                 
@@ -140,28 +141,27 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
         return rows;
     }, [projectData.wbs, schedule, wbsMap, collapsedWbs]);
 
-    // Vertical Scroll Sync
-    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-        const scrollTop = e.currentTarget.scrollTop;
-        
-        // If scrolling Table, sync Gantt
-        if (e.currentTarget === tableBodyRef.current && ganttBodyRef.current) {
-            ganttBodyRef.current.scrollTop = scrollTop;
-        }
-        
-        // If scrolling Gantt, sync Table (Called via callback from GanttChart)
-        if (e.currentTarget !== tableBodyRef.current && tableBodyRef.current) {
-             tableBodyRef.current.scrollTop = scrollTop;
-        }
+    // Robust Vertical Scroll Sync
+    const handleTableScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        if (isScrolling.current === 'gantt') return;
+        isScrolling.current = 'table';
+        if (ganttBodyRef.current) ganttBodyRef.current.scrollTop = e.currentTarget.scrollTop;
+        // Reset flag after small timeout to allow other scroll to take over later
+        setTimeout(() => { if (isScrolling.current === 'table') isScrolling.current = null; }, 50);
+    };
+
+    const handleGanttScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        if (isScrolling.current === 'table') return;
+        isScrolling.current = 'gantt';
+        if (tableBodyRef.current) tableBodyRef.current.scrollTop = e.currentTarget.scrollTop;
+        setTimeout(() => { if (isScrolling.current === 'gantt') isScrolling.current = null; }, 50);
     };
 
     const startEdit = (id: string, field: string, v: any) => {
         setEditing({ id, field });
         if (field === 'predecessors') {
             const act = schedule.find(a => a.id === id);
-            // Format for display: A1FS-2, B2SS+3
             const s = act?.predecessors.map(p => {
-                // If Lag exists, force Type display (e.g. FS-3), otherwise hide FS if lag is 0
                 const typeStr = (p.type !== 'FS' || p.lag !== 0) ? p.type : '';
                 let lagStr = '';
                 if (p.lag > 0) lagStr = '+' + p.lag;
@@ -193,7 +193,6 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
 
     return (
         <div className="flex flex-col h-full overflow-hidden combined-view-container" style={{ fontSize: `${fontSizePx}px` }}>
-             {/* Toolbar / Controls Row */}
              <div className="bg-slate-50 border-b border-slate-300 px-2 py-1 flex justify-between items-center h-10 shrink-0">
                 <div className="flex gap-4 items-center">
                     <div className="flex gap-1 items-center">
@@ -211,11 +210,9 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
                 </div>
              </div>
 
-            {/* Split Pane: Table Left, Gantt Right */}
             <div className="flex flex-grow overflow-hidden h-full">
-                {/* TABLE (Left Pane) */}
+                {/* TABLE */}
                 <div className="border-r border-slate-300 flex flex-col bg-white shrink-0 shadow-lg z-10" style={{ width: (Object.values(colWidths) as number[]).reduce((a, b) => a + b, 0) + 20 }}>
-                    {/* Fixed Header */}
                     <div className="p6-header select-none shrink-0" style={{ height: HEADER_HEIGHT }}>
                         <ResizableHeader colId="id" width={colWidths.id} onResize={w => setColWidths({...colWidths, id: w})}>ID</ResizableHeader>
                         <ResizableHeader colId="name" width={colWidths.name} onResize={w => setColWidths({...colWidths, name: w})}>Name</ResizableHeader>
@@ -225,11 +222,12 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
                         <ResizableHeader colId="float" width={colWidths.float} onResize={w => setColWidths({...colWidths, float: w})} align="center">Float</ResizableHeader>
                         <ResizableHeader colId="preds" width={colWidths.preds} onResize={w => setColWidths({...colWidths, preds: w})}>Predecessors</ResizableHeader>
                     </div>
-                    {/* Scrollable Body */}
-                    <div ref={tableBodyRef} className="flex-grow overflow-y-auto overflow-x-hidden custom-scrollbar bg-white" onScroll={handleScroll}>
+                    <div ref={tableBodyRef} className="flex-grow overflow-y-auto overflow-x-hidden custom-scrollbar bg-white" onScroll={handleTableScroll}>
                         {flatRows.map(row => {
                             const isSel = selectedIds.includes(row.id);
                             const isWBS = row.type === 'WBS';
+                            const isMilestone = !isWBS && row.data.duration === 0;
+                            
                             return (
                                 <div key={row.id}
                                     className={`p6-row ${isSel ? 'selected' : (isWBS ? 'wbs' : '')}`}
@@ -243,7 +241,11 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
                                                 <span className="mr-1 text-slate-500 text-[10px] w-3">{row.collapsed ? '▶' : '▼'}</span>
                                                 <span className="mr-1 text-yellow-600">📁</span>
                                             </div>
-                                        ) : null}
+                                        ) : (
+                                            <span className={`mr-1 ${isMilestone ? 'text-black' : 'text-green-600'}`}>
+                                                {isMilestone ? '◆' : '▬'}
+                                            </span>
+                                        )}
                                         {editing?.id === row.id && editing.field === 'id' ? 
                                             <input autoFocus className="w-full h-full px-1" value={val} onChange={e => setVal(e.target.value)} onBlur={saveEdit} onKeyDown={e => e.key === 'Enter' && saveEdit()} /> : 
                                             <span onDoubleClick={() => startEdit(row.id, 'id', row.id)} className="truncate">{row.id}</span>
@@ -256,9 +258,13 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
                                         }
                                     </div>
                                     <div className="p6-cell justify-center" style={{ width: colWidths.duration }} data-col="duration">
-                                        {!isWBS && (editing?.id === row.id && editing.field === 'duration' ? 
+                                        {/* Display Duration for Activities AND WBS */}
+                                        {!isWBS ? (
+                                            editing?.id === row.id && editing.field === 'duration' ? 
                                             <input autoFocus className="w-full h-full text-center" value={val} onChange={e => setVal(e.target.value)} onBlur={saveEdit} onKeyDown={e => e.key === 'Enter' && saveEdit()} /> : 
                                             <span onDoubleClick={() => startEdit(row.id, 'duration', row.data.duration)}>{row.data.duration}</span>
+                                        ) : (
+                                            <span>{row.data.duration}</span>
                                         )}
                                     </div>
                                     <div className="p6-cell justify-center" style={{ width: colWidths.start }} data-col="start">{formatDate(row.startDate)}</div>
@@ -279,12 +285,11 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
                                 </div>
                             )
                         })}
-                        {/* Buffer */}
                         <div style={{ height: 200 }}></div>
                     </div>
                 </div>
 
-                {/* GANTT (Right Pane) */}
+                {/* GANTT */}
                 <GanttChart 
                     ref={ganttBodyRef}
                     rows={flatRows}
@@ -295,7 +300,7 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
                     showCritical={showCritical}
                     showGrid={showGrid}
                     zoomLevel={zoomLevel}
-                    onScroll={handleScroll}
+                    onScroll={handleGanttScroll}
                     userSettings={userSettings}
                     rowHeight={ROW_HEIGHT}
                     fontSize={fontSizePx}

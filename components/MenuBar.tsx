@@ -45,7 +45,6 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx }) =
         [t('Project')]: [
             { label: t('Activities'), action: 'view_activities' },
             { label: t('Resources'), action: 'view_resources' },
-            { label: t('Calendars'), action: 'view_calendars' },
             { type: 'separator' },
             { label: t('ProjectInfo'), action: 'project_info' },
         ],
