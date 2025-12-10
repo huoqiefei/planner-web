@@ -14,6 +14,7 @@ interface CombinedViewProps {
     userSettings: UserSettings;
     zoomLevel: 'day' | 'week' | 'month' | 'quarter' | 'year';
     onZoomChange: (level: 'day' | 'week' | 'month' | 'quarter' | 'year') => void;
+    onDeleteItems: (ids: string[]) => void;
 }
 
 const ResizableHeader: React.FC<{ width: number, minWidth?: number, onResize: (w: number) => void, children: React.ReactNode, align?: 'left'|'center'|'right', colId?: string }> = ({ width, minWidth=50, onResize, children, align='left', colId }) => {
@@ -37,7 +38,14 @@ const ResizableHeader: React.FC<{ width: number, minWidth?: number, onResize: (w
     );
 };
 
-const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsMap, onUpdate, selectedIds, onSelect, onCtx, userSettings, zoomLevel, onZoomChange }) => {
+// Icons for Toggles
+const ToggleIcons = {
+    Logic: (active: boolean) => <svg className={`w-4 h-4 ${active ? 'text-blue-600' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>,
+    Critical: (active: boolean) => <svg className={`w-4 h-4 ${active ? 'text-red-600' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" /></svg>,
+    Grid: (active: boolean) => <svg className={`w-4 h-4 ${active ? 'text-slate-700' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+};
+
+const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsMap, onUpdate, selectedIds, onSelect, onCtx, userSettings, zoomLevel, onZoomChange, onDeleteItems }) => {
     const [editing, setEditing] = useState<{id: string, field: string} | null>(null);
     const [val, setVal] = useState('');
     const [collapsedWbs, setCollapsedWbs] = useState<string[]>([]);
@@ -141,20 +149,33 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
         return rows;
     }, [projectData.wbs, schedule, wbsMap, collapsedWbs]);
 
-    // Robust Vertical Scroll Sync
+    // Enhanced Robust Vertical Scroll Sync
     const handleTableScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const scrollTop = e.currentTarget.scrollTop;
         if (isScrolling.current === 'gantt') return;
+        
         isScrolling.current = 'table';
-        if (ganttBodyRef.current) ganttBodyRef.current.scrollTop = e.currentTarget.scrollTop;
-        // Reset flag after small timeout to allow other scroll to take over later
-        setTimeout(() => { if (isScrolling.current === 'table') isScrolling.current = null; }, 50);
+        if (ganttBodyRef.current && Math.abs(ganttBodyRef.current.scrollTop - scrollTop) > 1) {
+            ganttBodyRef.current.scrollTop = scrollTop;
+        }
+        
+        // Clear lock with delay
+        clearTimeout((window as any).tableScrollTimer);
+        (window as any).tableScrollTimer = setTimeout(() => { isScrolling.current = null; }, 50);
     };
 
     const handleGanttScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const scrollTop = e.currentTarget.scrollTop;
         if (isScrolling.current === 'table') return;
+        
         isScrolling.current = 'gantt';
-        if (tableBodyRef.current) tableBodyRef.current.scrollTop = e.currentTarget.scrollTop;
-        setTimeout(() => { if (isScrolling.current === 'gantt') isScrolling.current = null; }, 50);
+        if (tableBodyRef.current && Math.abs(tableBodyRef.current.scrollTop - scrollTop) > 1) {
+            tableBodyRef.current.scrollTop = scrollTop;
+        }
+
+        // Clear lock with delay
+        clearTimeout((window as any).ganttScrollTimer);
+        (window as any).ganttScrollTimer = setTimeout(() => { isScrolling.current = null; }, 50);
     };
 
     const startEdit = (id: string, field: string, v: any) => {
@@ -186,14 +207,25 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
         setEditing(null);
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Delete' && selectedIds.length > 0 && !editing) {
+            onDeleteItems(selectedIds);
+        }
+    };
+
     const projectStartDate = projectData.meta.projectStartDate ? new Date(projectData.meta.projectStartDate) : new Date();
     let maxDate = projectStartDate;
     schedule.forEach(a => { if(a.endDate > maxDate) maxDate = a.endDate; });
     const totalDuration = Math.ceil((maxDate.getTime() - projectStartDate.getTime()) / (1000 * 3600 * 24)) + 30;
 
     return (
-        <div className="flex flex-col h-full overflow-hidden combined-view-container" style={{ fontSize: `${fontSizePx}px` }}>
-             <div className="bg-slate-50 border-b border-slate-300 px-2 py-1 flex justify-between items-center h-10 shrink-0">
+        <div 
+            className="flex flex-col h-full overflow-hidden combined-view-container outline-none" 
+            style={{ fontSize: `${fontSizePx}px` }} 
+            tabIndex={0} 
+            onKeyDown={handleKeyDown}
+        >
+             <div className="bg-slate-50 border-b border-slate-300 px-2 py-1 flex justify-between items-center h-10 shrink-0 select-none">
                 <div className="flex gap-4 items-center">
                     <div className="flex gap-1 items-center">
                         <span className="font-bold text-slate-500 mr-1">Zoom:</span>
@@ -202,10 +234,16 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
                         ))}
                     </div>
                     <div className="w-px h-5 bg-slate-300"></div>
-                    <div className="flex gap-3 items-center select-none">
-                        <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" checked={showRelations} onChange={e=>setShowRelations(e.target.checked)} /> Logic</label>
-                        <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" checked={showCritical} onChange={e=>setShowCritical(e.target.checked)} /> Critical</label>
-                        <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" checked={showGrid} onChange={e=>setShowGrid(e.target.checked)} /> Grid</label>
+                    <div className="flex gap-4 items-center">
+                        <button title="Toggle Logic Lines" onClick={() => setShowRelations(!showRelations)} className={`p-1 rounded hover:bg-slate-200 border border-transparent ${showRelations ? 'bg-slate-200 border-slate-300' : ''}`}>
+                            {ToggleIcons.Logic(showRelations)}
+                        </button>
+                        <button title="Toggle Critical Path" onClick={() => setShowCritical(!showCritical)} className={`p-1 rounded hover:bg-slate-200 border border-transparent ${showCritical ? 'bg-slate-200 border-slate-300' : ''}`}>
+                            {ToggleIcons.Critical(showCritical)}
+                        </button>
+                        <button title="Toggle Grid Lines" onClick={() => setShowGrid(!showGrid)} className={`p-1 rounded hover:bg-slate-200 border border-transparent ${showGrid ? 'bg-slate-200 border-slate-300' : ''}`}>
+                            {ToggleIcons.Grid(showGrid)}
+                        </button>
                     </div>
                 </div>
              </div>

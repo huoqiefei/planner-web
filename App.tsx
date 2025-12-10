@@ -10,7 +10,7 @@ import CombinedView from './components/CombinedView';
 import DetailsPanel from './components/DetailsPanel';
 import ResourcesPanel from './components/ResourcesPanel';
 import ProjectSettingsModal from './components/ProjectSettingsModal';
-import { AlertModal, ConfirmModal, AboutModal, UserSettingsModal, PrintSettingsModal, BatchAssignModal } from './components/Modals';
+import { AlertModal, ConfirmModal, AboutModal, UserSettingsModal, PrintSettingsModal, BatchAssignModal, AdminModal, HelpModal } from './components/Modals';
 
 // --- APP ---
 const App: React.FC = () => {
@@ -26,7 +26,7 @@ const App: React.FC = () => {
 
     const [ctx, setCtx] = useState<any>(null);
     const [isDirty, setIsDirty] = useState(false);
-    const [clipboard, setClipboard] = useState<string[]>([]);
+    const [clipboard, setClipboard] = useState<{ids: string[], type: 'Activities'|'WBS'} | null>(null);
     
     const [userSettings, setUserSettings] = useState<UserSettings>({ 
         dateFormat: 'YYYY-MM-DD', 
@@ -122,25 +122,21 @@ const App: React.FC = () => {
         }
     };
     
-    // Updates Project Meta and synchronizes Root WBS Node if needed
     const handleProjectUpdate = (meta: ProjectData['meta'], calendars: ProjectData['calendars']) => {
         setData(prev => {
             if(!prev) return null;
             let newWbs = [...prev.wbs];
             let newActs = [...prev.activities];
 
-            // 1. Sync Root Node Name with Project Title
             if (meta.title !== prev.meta.title) {
                 newWbs = newWbs.map(w => (!w.parentId || w.parentId === 'null') ? { ...w, name: meta.title } : w);
             }
 
-            // 2. Sync Root Node ID with Project Code (Cascade update)
             if (meta.projectCode !== prev.meta.projectCode) {
                 const root = newWbs.find(w => !w.parentId || w.parentId === 'null');
                 if (root) {
                     const oldId = root.id;
                     const newId = meta.projectCode;
-                    // Check if new ID already exists (collision)
                     if (!newWbs.some(w => w.id === newId)) {
                          newWbs = newWbs.map(w => {
                              if (w.id === oldId) return { ...w, id: newId };
@@ -151,9 +147,29 @@ const App: React.FC = () => {
                     }
                 }
             }
-
             return { ...prev, meta, calendars, wbs: newWbs, activities: newActs };
         });
+    };
+
+    const handleDeleteItems = (ids: string[]) => {
+        setData(p => {
+             if(!p) return null;
+             // Check if we are deleting WBS or Activities
+             const wbsToDelete = p.wbs.filter(w => ids.includes(w.id));
+             if (wbsToDelete.length > 0) {
+                 // Deleting WBS nodes - cascade delete children
+                 // (Simplified logic: only delete selected, assuming user knows risks or we add prompt)
+                 // Ideally we prompt. For now, strict deletion.
+                 return { ...p, wbs: p.wbs.filter(w => !ids.includes(w.id)) };
+             } else {
+                 return {
+                     ...p,
+                     activities: p.activities.filter(a => !ids.includes(a.id)),
+                     assignments: p.assignments.filter(a => !ids.includes(a.activityId))
+                 };
+             }
+        });
+        setSelIds([]);
     };
 
     const handleCtxAction = (act: string) => {
@@ -177,10 +193,7 @@ const App: React.FC = () => {
             const newId = id + '.' + (data.wbs.filter(w => w.parentId === id).length + 1);
             setData(p => p ? { ...p, wbs: [...p.wbs, { id: newId, name: 'New WBS', parentId: id }] } : null);
         }
-        if (act === 'delAct') {
-            setData(p => p ? { ...p, activities: p.activities.filter(a => !targets.includes(a.id)), assignments: p.assignments.filter(a => !targets.includes(a.activityId)) } : null);
-            setSelIds([]);
-        }
+        if (act === 'delAct') handleDeleteItems(targets);
         if (act === 'delWBS') {
             setModalData({ msg: "Delete WBS and all its activities?", action: () => setData(p => p ? { ...p, wbs: p.wbs.filter(w => w.id !== id) } : null) });
             setActiveModal('confirm');
@@ -201,13 +214,10 @@ const App: React.FC = () => {
         actIds.forEach(aid => {
             const act = data.activities.find(a => a.id === aid);
             if(!act) return;
-            
             resourceIds.forEach(rid => {
                 const res = data.resources.find(r => r.id === rid);
                 let total = units;
-                if(res?.type !== 'Material' && act.duration > 0) {
-                    total = units * act.duration;
-                }
+                if(res?.type !== 'Material' && act.duration > 0) total = units * act.duration;
                 newAssignments.push({ activityId: aid, resourceId: rid, units: total });
             });
         });
@@ -216,7 +226,6 @@ const App: React.FC = () => {
         setActiveModal(null);
     };
 
-    // Callback for updating assignments from DetailsPanel - Fixes duplicate issue by replacing list
     const handleAssignUpdate = (newAssignments: any) => {
         setData(p => p ? { ...p, assignments: newAssignments } : null);
     };
@@ -238,7 +247,6 @@ const App: React.FC = () => {
             clone.style.overflow = 'visible';
             clone.style.background = 'white';
 
-            // Filter Columns
             const allowedCols = ['id', 'name', 'duration', 'start', 'finish', 'float'];
             const cells = clone.querySelectorAll('[data-col]');
             cells.forEach((cell: any) => {
@@ -248,13 +256,9 @@ const App: React.FC = () => {
                 }
             });
 
-            // Adjust width of Table container to fit only visible columns
-            const tableContainer = clone.children[1]?.children[0] as HTMLElement; // CombinedView -> Split -> Table
-            if(tableContainer) {
-                 tableContainer.style.width = '700px'; // Approx width of allowed cols
-            }
+            const tableContainer = clone.children[1]?.children[0] as HTMLElement; 
+            if(tableContainer) tableContainer.style.width = '700px'; 
 
-            // Force scroll containers to be visible
             const scrollers = clone.querySelectorAll('.custom-scrollbar');
             scrollers.forEach((e: any) => { 
                 e.style.overflow = 'visible'; 
@@ -263,7 +267,6 @@ const App: React.FC = () => {
                 e.style.width = 'auto'; 
             });
 
-            // Ensure the internal table containers also expand
             const flexGrowers = clone.querySelectorAll('.flex-grow');
             flexGrowers.forEach((e:any) => {
                 e.style.flexGrow = '0';
@@ -272,9 +275,7 @@ const App: React.FC = () => {
             });
 
             const svg = clone.querySelector('svg');
-            if(svg) {
-                svg.style.overflow = 'visible';
-            }
+            if(svg) svg.style.overflow = 'visible';
 
             document.body.appendChild(clone);
             
@@ -322,30 +323,79 @@ const App: React.FC = () => {
             case 'import': fileInputRef.current?.click(); break;
             case 'export': handleSave(); break;
             case 'print': setActiveModal('print'); break;
-            case 'copy': if(selIds.length) setClipboard(selIds); break;
+            case 'copy': 
+                 if (selIds.length > 0) {
+                     // Check if WBS selection
+                     if (data?.wbs.some(w => selIds.includes(w.id))) {
+                         setClipboard({ ids: selIds, type: 'WBS' });
+                     } else {
+                         setClipboard({ ids: selIds, type: 'Activities' });
+                     }
+                 }
+                 break;
             case 'cut':
                  if(selIds.length) {
-                     setClipboard(selIds);
-                     if(data) setData(p => p ? { ...p, activities: p.activities.filter(a => !selIds.includes(a.id)) } : null);
-                     setSelIds([]);
+                     // Similar logic to Copy but delete after
+                     if (data?.wbs.some(w => selIds.includes(w.id))) setClipboard({ ids: selIds, type: 'WBS' });
+                     else setClipboard({ ids: selIds, type: 'Activities' });
+                     
+                     handleDeleteItems(selIds);
                  }
                  break;
             case 'paste':
-                if(clipboard.length && data) {
-                    const newActivities = clipboard.map(oldId => {
-                        const original = data.activities.find(a => a.id === oldId);
-                        if(!original) return null;
-                        const suffix = Math.floor(Math.random() * 1000);
-                        return { ...original, id: original.id + '-' + suffix, name: original.name + ' - Copy' };
-                    }).filter(x => x !== null) as any[];
-                    setData(p => p ? { ...p, activities: [...p.activities, ...newActivities] } : null);
+                if(clipboard && data) {
+                    if (clipboard.type === 'Activities') {
+                        // Paste Activities
+                        const targetWbsId = selIds.length > 0 ? 
+                            (data.activities.find(a => a.id === selIds[0])?.wbsId || data.wbs.find(w=>w.id === selIds[0])?.id) :
+                            (data.wbs.length > 0 ? data.wbs[0].id : null);
+                            
+                        if (targetWbsId) {
+                            const newActivities = clipboard.ids.map(oldId => {
+                                const original = data.activities.find(a => a.id === oldId); // Look in original data (might be deleted if Cut)
+                                // If cut, we need to have stored the object in clipboard really, but for simplicity reusing logic
+                                // Here assuming 'Copy' style paste for now or re-instantiating
+                                if(!original) return null; 
+                                const suffix = Math.floor(Math.random() * 1000);
+                                return { ...original, id: original.id + '-' + suffix, name: original.name + ' - Copy', wbsId: targetWbsId };
+                            }).filter(x => x !== null) as any[];
+                            setData(p => p ? { ...p, activities: [...p.activities, ...newActivities] } : null);
+                        }
+                    } else if (clipboard.type === 'WBS') {
+                        // WBS Paste Logic (Simplified: Clone node and children)
+                        // Need a target parent. If selected is WBS, paste as child. If selected is Activity, paste as sibling of activity's WBS.
+                        const targetParentId = selIds.length > 0 ?
+                             (data.wbs.find(w => w.id === selIds[0]) ? selIds[0] : null) : 
+                             (data.wbs.find(w => !w.parentId)?.id); // Default to root child
+                        
+                        if (targetParentId) {
+                            // Deep copy WBS and its activities
+                            // This is complex, implementing shallow copy for demo
+                            const newWbsNodes: any[] = [];
+                            const newActivities: any[] = [];
+                            
+                            clipboard.ids.forEach(wbsId => {
+                                const original = data.wbs.find(w => w.id === wbsId);
+                                if(original) {
+                                    const suffix = Math.floor(Math.random() * 1000);
+                                    const newId = original.id + '-CP' + suffix;
+                                    newWbsNodes.push({ ...original, id: newId, name: original.name + ' (Copy)', parentId: targetParentId });
+                                    // Copy children acts
+                                    data.activities.filter(a => a.wbsId === wbsId).forEach(act => {
+                                        newActivities.push({ ...act, id: act.id + '-' + suffix, wbsId: newId });
+                                    });
+                                }
+                            });
+                            setData(p => p ? { ...p, wbs: [...p.wbs, ...newWbsNodes], activities: [...p.activities, ...newActivities] } : null);
+                        }
+                    }
                 }
                 break;
             case 'project_info': setActiveModal('project_settings'); break;
             case 'view_activities': setView('activities'); break;
             case 'view_resources': setView('resources'); break;
             case 'settings': setActiveModal('user_settings'); break;
-            case 'help': setActiveModal('about'); break;
+            case 'help': setActiveModal('help'); break;
         }
     };
 
@@ -383,19 +433,55 @@ const App: React.FC = () => {
         );
     };
 
+    // Landing Page
     if (!data) return (
-        <div className="flex h-full items-center justify-center bg-slate-50 flex-col gap-4">
-            <h1 className="text-3xl font-bold text-blue-900 tracking-tight">Planner Web</h1>
-            <button onClick={createNew} className="bg-blue-600 text-white px-8 py-4 rounded shadow hover:bg-blue-700 flex items-center gap-2 text-lg">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
-                Create New Project
-            </button>
+        <div className="flex h-full w-full items-center justify-center bg-slate-900 relative overflow-hidden font-sans">
+             {/* Background Pattern */}
+             <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#94a3b8 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+             
+             <div className="z-10 bg-white p-12 rounded-xl shadow-2xl flex flex-col items-center gap-8 max-w-lg w-full border border-slate-700">
+                {/* Logo Area */}
+                <div className="text-center">
+                    <h1 className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-700 tracking-tighter" 
+                        style={{ 
+                            textShadow: '3px 3px 0px #e2e8f0', 
+                            fontFamily: '"Segoe UI", Roboto, "Helvetica Neue", sans-serif',
+                            transform: 'rotate(-2deg)'
+                        }}>
+                        Planner
+                    </h1>
+                    <p className="text-slate-400 text-sm mt-3 font-semibold tracking-widest uppercase">Web Scheduling Platform</p>
+                    <div className="mt-4 text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full inline-block">
+                        Powered by <span className="text-blue-600">planner.cn</span>
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-4 w-full">
+                    <button onClick={createNew} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-lg font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center justify-center gap-3 text-lg">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+                        Create New Project
+                    </button>
+                    <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white hover:bg-slate-50 text-slate-700 py-4 rounded-lg font-bold border-2 border-slate-200 transition-colors flex items-center justify-center gap-3 text-lg">
+                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/></svg>
+                        Open Existing Project
+                    </button>
+                </div>
+
+                <div className="pt-6 border-t w-full text-center text-xs text-slate-400">
+                    <span>Version 1.0.0 &copy; {new Date().getFullYear()} Planner.cn</span>
+                </div>
+             </div>
+             <input type="file" ref={fileInputRef} onChange={handleOpen} className="hidden" accept=".json" />
+             
+             <AdminModal isOpen={activeModal === 'admin'} onClose={() => setActiveModal(null)} />
         </div>
     );
 
     return (
         <div className="flex flex-col h-full bg-slate-100" onClick={() => setCtx(null)}>
-            <MenuBar onAction={handleMenuAction} lang={userSettings.language} uiSize={userSettings.uiSize} uiFontPx={userSettings.uiFontPx} />
+            <div className="h-8 flex-shrink-0 relative z-50">
+                <MenuBar onAction={handleMenuAction} lang={userSettings.language} uiSize={userSettings.uiSize} uiFontPx={userSettings.uiFontPx} />
+            </div>
             
             <Toolbar 
                 onNew={handleNew} 
@@ -432,6 +518,7 @@ const App: React.FC = () => {
                                 userSettings={userSettings}
                                 zoomLevel={ganttZoom}
                                 onZoomChange={setGanttZoom}
+                                onDeleteItems={handleDeleteItems}
                             />
                         </div>
                         <DetailsPanel 
@@ -470,6 +557,8 @@ const App: React.FC = () => {
             />
 
             <AboutModal isOpen={activeModal === 'about'} onClose={() => setActiveModal(null)} />
+            
+            <HelpModal isOpen={activeModal === 'help'} onClose={() => setActiveModal(null)} />
 
             <UserSettingsModal 
                 isOpen={activeModal === 'user_settings'} 

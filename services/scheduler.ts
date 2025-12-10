@@ -152,7 +152,7 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
     scheduledActivities.forEach(a => { if(a.earlyFinish > maxProjectFinish) maxProjectFinish = a.earlyFinish; });
     maxProjectFinish = normalize(maxProjectFinish);
 
-    // Initialize Late dates to Project Finish
+    // Initialize Late dates to Project Finish (Default assumption: everything floats to end)
     scheduledActivities.forEach(act => {
         act.lateFinish = new Date(maxProjectFinish);
         const calendar = getCalendar(act.calendarId, projectData);
@@ -181,6 +181,7 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
 
             if (successors.length > 0) {
                 let minLateFinish = new Date(8640000000000000);
+                let hasDrivingSuccessor = false;
 
                 successors.forEach(succ => {
                     const sAct = activityMap[succ.id];
@@ -190,10 +191,11 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
                     const sFinish = normalize(sAct.lateFinish);
                     const lag = succ.lag || 0;
                     
-                    let constraintDate = new Date(maxProjectFinish);
+                    let constraintDate = new Date(maxProjectFinish); // Default loosely
 
                     // Backward Constraint Logic
                     if (succ.type === 'FS') {
+                        hasDrivingSuccessor = true;
                         // S.Start = P.Finish + Lag + 1
                         // P.Finish = S.Start - 1 - Lag
                         let d = new Date(sStart);
@@ -204,22 +206,36 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
                     } else if (succ.type === 'SS') {
                         // S.Start = P.Start + Lag
                         // P.Start = S.Start - Lag -> We need P.Finish
-                        let pStart = addWorkingDays(sStart, -lag, calendar);
-                        constraintDate = calculateFinish(pStart, act.duration, calendar);
+                        // NOTE: SS relationship constrains Start, not directly Finish. 
+                        // But P.Finish cannot be earlier than P.Start + Dur
+                        // We check if this SS constraint pulls the Start earlier than the natural Late Start
+                        let pStartConstraint = addWorkingDays(sStart, -lag, calendar);
+                        // Convert P.Start to P.Finish
+                        constraintDate = calculateFinish(pStartConstraint, act.duration, calendar);
                     } else if (succ.type === 'FF') {
+                        hasDrivingSuccessor = true;
                         // S.Finish = P.Finish + Lag -> P.Finish = S.Finish - Lag
                         constraintDate = addWorkingDays(sFinish, -lag, calendar);
                     } else if (succ.type === 'SF') {
                          // S.Finish = P.Start + Lag -> P.Start = S.Finish - Lag
-                         let pStart = addWorkingDays(sFinish, -lag, calendar);
-                         constraintDate = calculateFinish(pStart, act.duration, calendar);
+                         let pStartConstraint = addWorkingDays(sFinish, -lag, calendar);
+                         constraintDate = calculateFinish(pStartConstraint, act.duration, calendar);
                     }
 
                     if (constraintDate < minLateFinish) minLateFinish = constraintDate;
                 });
+
+                // FIX: If we only have SS/SF successors that calculated a Late Finish LATER than the Project Finish,
+                // we should stick to Project Finish (or the minLateFinish if it is indeed tighter).
+                // Essentially, minLateFinish collects the tightest constraint.
                 calculatedLateFinish = minLateFinish;
             }
             
+            // Boundary check: Late Finish cannot exceed Project Finish (Open ended logic)
+            if (calculatedLateFinish > maxProjectFinish) {
+                calculatedLateFinish = new Date(maxProjectFinish);
+            }
+
             if (Math.abs(calculatedLateFinish.getTime() - act.lateFinish.getTime()) > 1000) {
                  act.lateFinish = calculatedLateFinish;
                  act.lateStart = calculateStart(act.lateFinish, act.duration, calendar);

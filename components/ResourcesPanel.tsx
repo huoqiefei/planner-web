@@ -82,6 +82,12 @@ const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ resources, assignments,
         setEditing(null);
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if(e.key === 'Delete' && selResId && !editing) {
+            deleteRes(selResId);
+        }
+    };
+
     const histogramData = useMemo(() => {
         if (!selectedResource || !activities.length) return [];
         
@@ -158,7 +164,7 @@ const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ resources, assignments,
     };
 
     return (
-        <div className="flex flex-col h-full bg-white select-none" onClick={() => setCtx(null)} style={{ fontSize: `${fontSizePx}px` }}>
+        <div className="flex flex-col h-full bg-white select-none outline-none" onClick={() => setCtx(null)} style={{ fontSize: `${fontSizePx}px` }} tabIndex={0} onKeyDown={handleKeyDown}>
             {/* Top: Resource Table */}
             <div className="flex-grow flex flex-col h-1/2 overflow-hidden border-b-4 border-slate-300">
                 <div className="p6-header">
