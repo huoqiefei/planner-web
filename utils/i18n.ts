@@ -1,4 +1,5 @@
 
+
 export const translations = {
     en: {
         File: 'File',
@@ -10,6 +11,7 @@ export const translations = {
         Cut: 'Cut',
         Paste: 'Paste',
         UserPreferences: 'User Preferences...',
+        ColumnsSetup: 'Columns Setup...',
         Project: 'Project',
         Activities: 'Activities',
         Resources: 'Resources',
@@ -63,7 +65,11 @@ export const translations = {
         Work: 'Work',
         NonWork: 'Non-Work',
         Apply: 'Apply Changes',
-        Close: 'Close'
+        Close: 'Close',
+        AvailableCols: 'Available Columns',
+        VisibleCols: 'Visible Columns',
+        MoveRight: 'Add >',
+        MoveLeft: '< Remove'
     },
     zh: {
         File: '文件',
@@ -75,6 +81,7 @@ export const translations = {
         Cut: '剪切',
         Paste: '粘贴',
         UserPreferences: '用户设置...',
+        ColumnsSetup: '栏位设置...',
         Project: '项目',
         Activities: '作业',
         Resources: '资源',
@@ -128,7 +135,11 @@ export const translations = {
         Work: '工作日',
         NonWork: '非工作日',
         Apply: '应用更改',
-        Close: '关闭'
+        Close: '关闭',
+        AvailableCols: '可用列',
+        VisibleCols: '显示列',
+        MoveRight: '添加 >',
+        MoveLeft: '< 移除'
     }
 };
 

@@ -227,10 +227,6 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                     <svg width={chartWidth} height={Math.max(rows.length * rowHeight, 100)} xmlns="http://www.w3.org/2000/svg">
                         <defs>
                             <marker id="arrow" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#64748b" /></marker>
-                            <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-                                <feGaussianBlur in="SourceAlpha" stdDeviation="1" /><feOffset dx="1" dy="1" result="offsetblur" />
-                                <feMerge><feMergeNode in="offsetblur"/><feMergeNode in="SourceGraphic" /></feMerge>
-                            </filter>
                         </defs>
                         
                         {/* Background Grid */}
@@ -284,12 +280,9 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                                     return (
                                         <g key={activity.id}>
                                             {isMilestone ? (
-                                                 <path d={`M ${left} ${y + rowHeight/2} l 6 -6 l 6 6 l -6 6 z`} fill="#1e293b" stroke={strokeColor} strokeWidth="1" filter="url(#shadow)" />
+                                                 <path d={`M ${left} ${y + rowHeight/2} l 6 -6 l 6 6 l -6 6 z`} fill="#1e293b" stroke={strokeColor} strokeWidth="1" />
                                             ) : (
-                                                <>
-                                                    <rect x={left} y={barY} width={width} height={barH} rx="1" fill={barColor} stroke={strokeColor} strokeWidth="1" filter="url(#shadow)" className="cursor-pointer hover:brightness-110 transition-all" />
-                                                    <rect x={left} y={barY + barH/2 - 1} width={width} height="1" fill="rgba(255,255,255,0.3)" />
-                                                </>
+                                                <rect x={left} y={barY} width={width} height={barH} rx="1" fill={barColor} stroke={strokeColor} strokeWidth="1" className="cursor-pointer hover:brightness-110 transition-all" />
                                             )}
                                             <text x={Math.max(right, left + 12) + 5} y={y + rowHeight/2 + 4} fontSize={fontSize - 1} fill="#475569" fontWeight="500">{activity.name}</text>
                                         </g>

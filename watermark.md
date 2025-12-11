@@ -1,2 +1,1 @@
-planner tool
-Powered by Planner.cn
+Copyright © Planner.cn. All rights reserved.

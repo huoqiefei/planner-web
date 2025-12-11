@@ -40,6 +40,7 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx }) =
             { label: t('Cut'), action: 'cut' },
             { label: t('Paste'), action: 'paste' },
             { type: 'separator' },
+            { label: t('ColumnsSetup'), action: 'columns' },
             { label: t('UserPreferences'), action: 'settings' },
         ],
         [t('Project')]: [
@@ -50,6 +51,7 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx }) =
         ],
         [t('Help')]: [
             { label: t('About'), action: 'help' },
+            { label: 'System Configuration', action: 'admin' },
         ]
     };
 

@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserSettings, PrintSettings, Resource } from '../types';
+import { UserSettings, PrintSettings, Resource, AdminConfig } from '../types';
 import { useTranslation } from '../utils/i18n';
+import AdminDashboard from './AdminDashboard';
 
 interface ModalProps {
     isOpen: boolean;
@@ -92,7 +93,7 @@ export const ConfirmModal: React.FC<{ isOpen: boolean, msg: string, onConfirm: (
     );
 };
 
-export const AboutModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpen, onClose }) => {
+export const AboutModal: React.FC<{ isOpen: boolean, onClose: () => void, customCopyright?: string }> = ({ isOpen, onClose, customCopyright }) => {
     const [content, setContent] = useState('');
 
     useEffect(() => {
@@ -106,7 +107,10 @@ export const AboutModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({
 
     return (
         <BaseModal isOpen={isOpen} title="About" onClose={onClose} footer={
-            <button onClick={onClose} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Close</button>
+            <div className="w-full flex justify-between items-center">
+                 <span className="text-[10px] text-slate-400">{customCopyright || 'Powered by Planner.cn'}</span>
+                 <button onClick={onClose} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Close</button>
+            </div>
         }>
             <div className="max-h-[60vh] overflow-y-auto">
                  <SimpleMarkdown content={content} />
@@ -115,10 +119,34 @@ export const AboutModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({
     );
 };
 
-export const AdminModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpen, onClose }) => {
-    if (!isOpen) return null;
-    return null; 
+export const AdminModal: React.FC<{ isOpen: boolean, onClose: () => void, onSave: (c: AdminConfig) => void }> = ({ isOpen, onClose, onSave }) => {
+    return <AdminDashboard isOpen={isOpen} onClose={onClose} onSave={onSave} />; 
 };
+
+const DEFAULT_MANUAL = `# Planner Web - User Operation Manual
+
+## 1. Getting Started
+- Click **"Create New Project"** or **"File > New"**.
+- Open projects via **"File > Import"**.
+
+## 2. WBS & Activities
+- **Right-click** to add WBS/Activities.
+- **Double-click** cells to edit.
+- **Delete** key to remove items.
+
+## 3. Logic (CPM)
+- Enter predecessors (e.g., A100FS+5).
+- Use **Relationships** tab in details.
+
+## 4. Resources
+- Define resources in **Resources** view.
+- Assign in **Details > Resources**.
+
+## 5. Printing
+- **File > Print Preview**.
+- Select columns and paper size.
+- Auto-scales Gantt to fit.
+`;
 
 export const HelpModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpen, onClose }) => {
     const [content, setContent] = useState('');
@@ -126,9 +154,12 @@ export const HelpModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ 
     useEffect(() => {
         if (isOpen) {
             fetch('manual.md')
-                .then(res => res.text())
+                .then(res => {
+                    if(!res.ok) throw new Error("File not found");
+                    return res.text();
+                })
                 .then(text => setContent(text))
-                .catch(() => setContent('# Error\nCould not load manual.md'));
+                .catch(() => setContent(DEFAULT_MANUAL));
         }
     }, [isOpen]);
 
@@ -155,6 +186,80 @@ export const HelpModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ 
         </div>
     )
 }
+
+export const ColumnSetupModal: React.FC<{ isOpen: boolean, onClose: () => void, visibleColumns: string[], onSave: (cols: string[]) => void, lang?: 'en'|'zh' }> = ({ isOpen, onClose, visibleColumns, onSave, lang='en' }) => {
+    const [selected, setSelected] = useState<string[]>([]);
+    const { t } = useTranslation(lang as 'en' | 'zh');
+
+    useEffect(() => {
+        if(isOpen) setSelected(visibleColumns);
+    }, [isOpen, visibleColumns]);
+
+    const allCols = [
+        { id: 'id', label: 'Activity ID' },
+        { id: 'name', label: 'Activity Name' },
+        { id: 'duration', label: 'Duration' },
+        { id: 'start', label: 'Start Date' },
+        { id: 'finish', label: 'Finish Date' },
+        { id: 'float', label: 'Total Float' },
+        { id: 'preds', label: 'Predecessors' },
+        { id: 'budget', label: 'Budget Cost' }
+    ];
+
+    const available = allCols.filter(c => !selected.includes(c.id));
+    const visible = selected.map(id => allCols.find(c => c.id === id)).filter(c => c !== undefined) as typeof allCols;
+
+    const addToVisible = (id: string) => setSelected([...selected, id]);
+    const removeFromVisible = (id: string) => setSelected(selected.filter(x => x !== id));
+    
+    // Simple drag and drop replacement with click
+    const moveUp = (idx: number) => {
+        if(idx === 0) return;
+        const newSel = [...selected];
+        [newSel[idx-1], newSel[idx]] = [newSel[idx], newSel[idx-1]];
+        setSelected(newSel);
+    }
+
+    if(!isOpen) return null;
+
+    return (
+        <BaseModal isOpen={isOpen} title={t('ColumnsSetup')} onClose={onClose} footer={
+            <>
+                <button onClick={onClose} className="px-3 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50">{t('Cancel')}</button>
+                <button onClick={() => { onSave(selected); onClose(); }} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">{t('Save')}</button>
+            </>
+        }>
+            <div className="flex gap-4 h-64">
+                <div className="flex-1 flex flex-col">
+                    <div className="font-bold mb-1 border-b text-slate-600">{t('AvailableCols')}</div>
+                    <div className="flex-grow border bg-slate-50 overflow-y-auto p-1">
+                        {available.map(c => (
+                            <div key={c.id} className="p-1 hover:bg-blue-100 cursor-pointer text-slate-700" onClick={() => addToVisible(c.id)}>
+                                {c.label}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="flex flex-col justify-center gap-2">
+                     <span className="text-slate-400">⇨</span>
+                </div>
+                <div className="flex-1 flex flex-col">
+                    <div className="font-bold mb-1 border-b text-slate-600">{t('VisibleCols')}</div>
+                    <div className="flex-grow border bg-white overflow-y-auto p-1">
+                        {visible.map((c, i) => (
+                            <div key={c.id} className="p-1 hover:bg-blue-100 cursor-pointer flex justify-between group" onClick={() => removeFromVisible(c.id)}>
+                                <span>{c.label}</span>
+                                <div className="hidden group-hover:flex gap-1" onClick={e=>e.stopPropagation()}>
+                                    <button onClick={()=>moveUp(i)} className="text-[10px] bg-slate-200 px-1 rounded">▲</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </BaseModal>
+    );
+};
 
 export const UserSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void, settings: UserSettings, onSave: (s: UserSettings) => void }> = ({ isOpen, onClose, settings, onSave }) => {
     const [local, setLocal] = useState(settings);
@@ -256,26 +361,9 @@ export const UserSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void,
 export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void, onPrint: (s: PrintSettings) => void, lang?: 'en'|'zh' }> = ({ isOpen, onClose, onPrint, lang='en' }) => {
     const [settings, setSettings] = useState<PrintSettings>({ 
         paperSize: 'a3', 
-        orientation: 'landscape',
-        selectedColumns: ['id', 'name', 'duration', 'start', 'finish', 'float'] 
+        orientation: 'landscape'
     });
     const { t } = useTranslation(lang as 'en' | 'zh');
-
-    const availableCols = [
-        { id: 'id', label: 'Activity ID' },
-        { id: 'name', label: 'Activity Name' },
-        { id: 'duration', label: 'Duration' },
-        { id: 'start', label: 'Start Date' },
-        { id: 'finish', label: 'Finish Date' },
-        { id: 'float', label: 'Total Float' },
-        { id: 'preds', label: 'Predecessors' },
-    ];
-
-    const toggleCol = (id: string) => {
-        const cols = settings.selectedColumns || [];
-        if (cols.includes(id)) setSettings({...settings, selectedColumns: cols.filter(c => c !== id)});
-        else setSettings({...settings, selectedColumns: [...cols, id]});
-    };
 
     return (
         <BaseModal isOpen={isOpen} title={t('PageSetup')} onClose={onClose} footer={
@@ -303,22 +391,6 @@ export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void
                         <label className="flex items-center gap-1">
                             <input type="radio" name="orient" checked={settings.orientation === 'portrait'} onChange={() => setSettings({...settings, orientation: 'portrait'})} /> {t('Portrait')}
                         </label>
-                    </div>
-                </div>
-                
-                <div className="border-t pt-2">
-                    <label className="block mb-2 font-bold">Columns to Print</label>
-                    <div className="grid grid-cols-2 gap-1 max-h-32 overflow-y-auto border p-2 bg-slate-50">
-                        {availableCols.map(col => (
-                            <label key={col.id} className="flex items-center gap-2 cursor-pointer">
-                                <input 
-                                    type="checkbox" 
-                                    checked={settings.selectedColumns?.includes(col.id)} 
-                                    onChange={() => toggleCol(col.id)} 
-                                />
-                                {col.label}
-                            </label>
-                        ))}
                     </div>
                 </div>
 

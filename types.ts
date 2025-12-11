@@ -87,15 +87,6 @@ export interface ScheduleResult {
     wbsMap: Record<string, { startDate: Date; endDate: Date; duration: number }>;
 }
 
-export type AIProvider = 'google' | 'openai' | 'deepseek';
-
-export interface AISettings {
-    provider: AIProvider;
-    apiKey: string;
-    model: string;
-    baseUrl?: string;
-}
-
 export interface GridSettings {
     showVertical: boolean;
     showHorizontal: boolean;
@@ -111,10 +102,29 @@ export interface UserSettings {
     uiSize: UISize;
     uiFontPx?: number;
     gridSettings: GridSettings;
+    visibleColumns: string[]; // Added
 }
 
 export interface PrintSettings {
     paperSize: 'a4' | 'a3' | 'a2' | 'a1';
     orientation: 'landscape' | 'portrait';
-    selectedColumns?: string[];
+    // selectedColumns removed, uses visibleColumns
+}
+
+export interface AdminConfig {
+    appName: string;
+    copyrightText: string;
+    enableWatermark: boolean;
+    watermarkText?: string;
+    watermarkFontSize?: number;
+    ganttBarRatio: number; // 0.1 to 0.8
+}
+
+export type AIProvider = 'google' | 'openai' | 'deepseek';
+
+export interface AISettings {
+    provider: AIProvider;
+    apiKey: string;
+    model: string;
+    baseUrl?: string;
 }

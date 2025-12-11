@@ -11,9 +11,11 @@ interface DetailsPanelProps {
     onAssignUpdate: (assignments: Assignment[], activityId: string) => void;
     userSettings: UserSettings;
     allActivities?: Activity[];
+    isVisible?: boolean;
+    onToggle?: () => void;
 }
 
-const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assignments, calendars, onUpdate, onAssignUpdate, userSettings, allActivities = [] }) => {
+const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assignments, calendars, onUpdate, onAssignUpdate, userSettings, allActivities = [], isVisible = true, onToggle }) => {
     const [tab, setTab] = useState('General');
     const [selRes, setSelRes] = useState('');
     const [inputUnits, setInputUnits] = useState(8);
@@ -21,9 +23,28 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
 
     const fontSizePx = userSettings.uiFontPx || 13;
     
+    // Collapsed State View
+    if (!isVisible) {
+        return (
+            <div className="h-8 border-t bg-slate-100 flex items-center justify-between px-2 flex-shrink-0 cursor-pointer hover:bg-slate-200 transition-colors border-slate-300" onClick={onToggle}>
+                <span className="font-bold text-slate-500 text-xs uppercase tracking-wider">Activity Details</span>
+                <button className="text-slate-500 hover:text-blue-600">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"/></svg>
+                </button>
+            </div>
+        );
+    }
+
     if (!activity) return (
         <div className="h-64 border-t bg-slate-50 flex flex-col" style={{ fontSize: `${fontSizePx}px` }}>
-            <div className="bg-slate-200 border-b border-slate-300 px-1 pt-1 h-8"></div>
+            <div className="bg-slate-200 border-b border-slate-300 px-1 pt-1 h-8 flex justify-between items-center">
+                 <div className="flex gap-1 h-full items-end">
+                    <button className="px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm bg-white text-black border-b-white -mb-px">General</button>
+                 </div>
+                 <button onClick={onToggle} className="mr-2 text-slate-500 hover:text-blue-600">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
+                 </button>
+            </div>
             <div className="flex-grow flex items-center justify-center text-slate-400">
                 No activity selected
             </div>
@@ -91,11 +112,16 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
     const selResObj = resources.find(r => r.id === selRes);
 
     return (
-        <div className="h-64 border-t-4 border-slate-300 bg-white flex flex-col flex-shrink-0 shadow-[0_-2px_5px_rgba(0,0,0,0.05)]" style={{ fontSize: `${fontSizePx}px` }}>
-            <div className="flex bg-slate-100 border-b border-slate-300 px-1 gap-1 pt-1 select-none h-8 items-end">
-                {['General', 'Status', 'Resources', 'Relationships'].map(t => (
-                    <button key={t} onClick={() => setTab(t)} className={`px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm outline-none focus:outline-none ${tab === t ? 'bg-white text-black border-b-white -mb-px' : 'text-slate-500 bg-slate-100 border-b-slate-300 hover:bg-slate-50'}`}>{t}</button>
-                ))}
+        <div className="h-64 border-t-4 border-slate-300 bg-white flex flex-col flex-shrink-0 shadow-[0_-2px_5px_rgba(0,0,0,0.05)] transition-all" style={{ fontSize: `${fontSizePx}px` }}>
+            <div className="flex bg-slate-100 border-b border-slate-300 px-1 pt-1 gap-1 select-none h-8 items-end justify-between">
+                <div className="flex gap-1 h-full items-end">
+                    {['General', 'Status', 'Resources', 'Relationships'].map(t => (
+                        <button key={t} onClick={() => setTab(t)} className={`px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm outline-none focus:outline-none ${tab === t ? 'bg-white text-black border-b-white -mb-px' : 'text-slate-500 bg-slate-100 border-b-slate-300 hover:bg-slate-50'}`}>{t}</button>
+                    ))}
+                </div>
+                <button onClick={onToggle} className="mr-2 mb-1 text-slate-500 hover:text-blue-600" title="Collapse">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
             </div>
             <div className="p-2 overflow-y-auto flex-grow font-sans">
                 <div className="font-bold text-slate-700 border-b pb-1 mb-2 uppercase">{tab} - {activity.id} : {activity.name}</div>

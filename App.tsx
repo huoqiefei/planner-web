@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-import { ProjectData, ScheduleResult, UserSettings, PrintSettings } from './types';
+import { ProjectData, ScheduleResult, UserSettings, PrintSettings, AdminConfig } from './types';
 import { calculateSchedule } from './services/scheduler';
 import Toolbar from './components/Toolbar';
 import MenuBar from './components/MenuBar';
@@ -10,7 +10,7 @@ import CombinedView from './components/CombinedView';
 import DetailsPanel from './components/DetailsPanel';
 import ResourcesPanel from './components/ResourcesPanel';
 import ProjectSettingsModal from './components/ProjectSettingsModal';
-import { AlertModal, ConfirmModal, AboutModal, UserSettingsModal, PrintSettingsModal, BatchAssignModal, AdminModal, HelpModal } from './components/Modals';
+import { AlertModal, ConfirmModal, AboutModal, UserSettingsModal, PrintSettingsModal, BatchAssignModal, AdminModal, HelpModal, ColumnSetupModal } from './components/Modals';
 
 // --- APP ---
 const App: React.FC = () => {
@@ -20,23 +20,73 @@ const App: React.FC = () => {
     const [view, setView] = useState<'activities' | 'resources'>('activities');
     const [ganttZoom, setGanttZoom] = useState<'day' | 'week' | 'month' | 'quarter' | 'year'>('day');
     
+    // View State
+    const [showDetails, setShowDetails] = useState(true);
+
     // Modals State
     const [activeModal, setActiveModal] = useState<string | null>(null);
     const [modalData, setModalData] = useState<any>(null);
 
     const [ctx, setCtx] = useState<any>(null);
     const [isDirty, setIsDirty] = useState(false);
-    const [clipboard, setClipboard] = useState<{ids: string[], type: 'Activities'|'WBS'} | null>(null);
+    const [clipboard, setClipboard] = useState<{ids: string[], type: 'Activities'|'WBS'|'Resources'} | null>(null);
     
+    // Admin Config
+    const [adminConfig, setAdminConfig] = useState<AdminConfig>({
+        appName: 'Planner Web',
+        copyrightText: 'Copyright © Planner.cn. All rights reserved.',
+        enableWatermark: true,
+        watermarkText: '',
+        watermarkFontSize: 40,
+        ganttBarRatio: 0.35
+    });
+
     const [userSettings, setUserSettings] = useState<UserSettings>({ 
         dateFormat: 'YYYY-MM-DD', 
         language: 'en',
         uiSize: 'small',
         uiFontPx: 13,
-        gridSettings: { showVertical: true, verticalInterval: 'auto', showHorizontal: true, showWBSLines: true } 
+        gridSettings: { showVertical: true, verticalInterval: 'auto', showHorizontal: true, showWBSLines: true },
+        visibleColumns: ['id', 'name', 'duration', 'start', 'finish', 'float', 'preds'] 
     });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Global Shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Check if user is typing in an input
+            const tag = (e.target as HTMLElement).tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+            // Copy (Ctrl+C)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+                e.preventDefault();
+                handleMenuAction('copy');
+            }
+            // Cut (Ctrl+X)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
+                e.preventDefault();
+                handleMenuAction('cut');
+            }
+            // Paste (Ctrl+V)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+                e.preventDefault();
+                handleMenuAction('paste');
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selIds, data, view, clipboard]);
+
+    // Load Admin Config on Mount
+    useEffect(() => {
+        const saved = localStorage.getItem('planner_admin_config');
+        if(saved) {
+            try { setAdminConfig(JSON.parse(saved)); } catch(e) {}
+        }
+    }, []);
 
     useEffect(() => { 
         if(data) { 
@@ -154,6 +204,11 @@ const App: React.FC = () => {
     const handleDeleteItems = (ids: string[]) => {
         setData(p => {
              if(!p) return null;
+             // Check if deleting resources (from Resources view)
+             if(view === 'resources') {
+                 return { ...p, resources: p.resources.filter(r => !ids.includes(r.id)) };
+             }
+             // Activities/WBS
              const wbsToDelete = p.wbs.filter(w => ids.includes(w.id));
              if (wbsToDelete.length > 0) {
                  return { ...p, wbs: p.wbs.filter(w => !ids.includes(w.id)) };
@@ -168,12 +223,54 @@ const App: React.FC = () => {
         setSelIds([]);
     };
 
+    const handleRenumberActivities = () => {
+        if (!data) return;
+        const prefix = data.meta.activityIdPrefix || 'A';
+        const increment = data.meta.activityIdIncrement || 10;
+        
+        let counter = 0;
+        const newActivities = data.activities.map((act) => {
+             counter += increment;
+             return { ...act, newId: `${prefix}${counter}` };
+        });
+        
+        const idMap: Record<string, string> = {};
+        newActivities.forEach(a => idMap[a.id] = a.newId);
+        
+        const finalActivities = newActivities.map(act => ({
+            ...act,
+            id: act.newId,
+            predecessors: act.predecessors.map(p => ({
+                ...p,
+                activityId: idMap[p.activityId] || p.activityId
+            }))
+        }));
+        
+        const cleanActivities = finalActivities.map(({newId, ...rest}) => rest);
+        
+        const newAssignments = data.assignments.map(asg => ({
+             ...asg,
+             activityId: idMap[asg.activityId] || asg.activityId
+        }));
+
+        setData({ ...data, activities: cleanActivities, assignments: newAssignments });
+        setCtx(null);
+    };
+
     const handleCtxAction = (act: string) => {
         const { id, selIds: contextSelIds } = ctx; 
         const targets = (contextSelIds && contextSelIds.length > 0) ? contextSelIds : [id];
         setCtx(null);
 
         if (!data) return;
+
+        if (act === 'renumber') {
+            setModalData({ 
+                msg: `Renumber all activities starting with "${data.meta.activityIdPrefix}${data.meta.activityIdIncrement}"? This cannot be undone.`, 
+                action: handleRenumberActivities 
+            });
+            setActiveModal('confirm');
+        }
 
         if (act === 'addAct' || act === 'addActSame') {
             const wbsId = act === 'addActSame' ? data.activities.find(a => a.id === id)?.wbsId : id;
@@ -228,54 +325,60 @@ const App: React.FC = () => {
 
     const executePrint = async (settings: PrintSettings) => {
         if (view !== 'activities') setView('activities');
-        
-        // Wait for view to settle
         await new Promise(r => setTimeout(r, 200));
 
         const original = document.querySelector('.combined-view-container');
         if (!original) return;
         
-        // Get the computed height of a row from the live DOM
         const firstRow = original.querySelector('.p6-row') as HTMLElement;
         const computedRowHeight = firstRow ? firstRow.offsetHeight : 0;
         
-        // Clone for printing
         const clone = original.cloneNode(true) as HTMLElement;
         clone.style.height = 'auto';
         clone.style.width = 'fit-content'; 
-        clone.style.minWidth = '1000px';
+        clone.style.minWidth = '0px'; 
         clone.style.position = 'absolute';
         clone.style.top = '-10000px';
         clone.style.left = '-10000px';
         clone.style.overflow = 'visible';
         clone.style.background = 'white';
-        // Add Border and Padding
-        clone.style.border = '1px solid #cbd5e1'; // Light thin line
-        clone.style.padding = '15px'; // 15px margin around content
+        clone.style.border = '1px solid #cbd5e1'; 
+        clone.style.padding = '15px'; 
         clone.style.boxSizing = 'border-box';
 
-        // 1. FILTER COLUMNS
-        const allowedCols = settings.selectedColumns || ['id', 'name', 'duration', 'start', 'finish', 'float', 'preds'];
+        // 1. STRICT COLUMN HIDING based on VISIBLE COLUMNS
+        const allowedCols = userSettings.visibleColumns;
         const cells = clone.querySelectorAll('[data-col]');
-        let tableWidth = 0;
         
         cells.forEach((cell: any) => {
             const colId = cell.getAttribute('data-col');
             if (colId && !allowedCols.includes(colId)) {
                 cell.style.display = 'none';
+                cell.style.width = '0px';
+                cell.style.minWidth = '0px';
+                cell.style.padding = '0px';
+                cell.style.border = 'none';
+                cell.innerHTML = '';
             }
         });
 
+        // Calculate visible table width strictly
+        let tableWidth = 0;
         const headerCells = clone.querySelectorAll('.p6-header > div');
         headerCells.forEach((cell: any) => {
-            if(cell.style.display !== 'none') {
-                tableWidth += parseFloat(cell.style.width || '0');
+            const colId = cell.getAttribute('data-col');
+            if(colId && allowedCols.includes(colId)) {
+                const w = parseFloat(cell.style.width || '0');
+                if(w > 0) tableWidth += w;
+            } else {
+                 cell.style.display = 'none';
             }
         });
         
         const tableContainer = clone.children[1]?.children[0] as HTMLElement; 
         if(tableContainer) {
-            tableContainer.style.width = `${tableWidth + 20}px`;
+            tableContainer.style.width = `${tableWidth}px`;
+            tableContainer.style.minWidth = `${tableWidth}px`;
         }
 
         // 2. FORCE GANTT WIDTH
@@ -290,33 +393,50 @@ const App: React.FC = () => {
             if(ganttContainer) {
                 ganttContainer.style.width = `${requiredWidth}px`;
                 ganttContainer.style.overflow = 'visible';
+                // Important for centering watermark relative to this container
+                ganttContainer.style.position = 'relative'; 
             }
         }
 
-        // --- INJECT WATERMARK AT MAIN CONTAINER LEVEL ---
-        try {
-            const wmRes = await fetch('watermark.md');
-            let wmText = 'Powered by Planner.cn';
-            if (wmRes.ok) wmText = await wmRes.text();
-            
-            const wmDiv = document.createElement('div');
-            wmDiv.style.position = 'absolute';
-            // Position Top Right - Below header which is usually ~45-50px.
-            wmDiv.style.top = '55px';
-            wmDiv.style.right = '20px';
-            // Light grey
-            wmDiv.style.color = '#cbd5e1'; 
-            wmDiv.style.fontSize = '12px';
-            wmDiv.style.fontWeight = 'bold';
-            wmDiv.style.zIndex = '9999';
-            wmDiv.style.pointerEvents = 'none';
-            wmDiv.innerText = wmText;
-            
-            clone.style.position = 'relative'; 
-            clone.appendChild(wmDiv);
-        } catch(e) { console.warn("Could not load watermark", e); }
+        // --- INJECT WATERMARK ---
+        if (adminConfig.enableWatermark) {
+            try {
+                let wmText = adminConfig.watermarkText; 
+                if (!wmText) {
+                    const wmRes = await fetch('watermark.md');
+                    if (wmRes.ok) wmText = await wmRes.text();
+                    else wmText = adminConfig.appName;
+                }
+                
+                const wmDiv = document.createElement('div');
+                wmDiv.style.position = 'absolute';
+                // CENTER POSITIONING
+                wmDiv.style.top = '50%';
+                wmDiv.style.left = '50%';
+                wmDiv.style.transform = 'translate(-50%, -50%)';
+                
+                wmDiv.style.color = '#e2e8f0'; 
+                wmDiv.style.fontSize = `${adminConfig.watermarkFontSize || 40}px`;
+                wmDiv.style.fontWeight = 'bold';
+                wmDiv.style.zIndex = '9999';
+                wmDiv.style.pointerEvents = 'none';
+                wmDiv.style.whiteSpace = 'nowrap';
+                wmDiv.innerText = wmText || '';
+                
+                // Inject into the GANTT BODY container (second child of main flex)
+                // clone -> children[1] (Main Flex) -> children[1] (Gantt Wrapper) -> children[1] (Gantt Body)
+                const ganttBody = clone.querySelector('div[class*="custom-scrollbar"][style*="overflow: visible"]');
+                if (ganttBody) {
+                     ganttBody.appendChild(wmDiv);
+                } else {
+                     // Fallback
+                     clone.style.position = 'relative';
+                     clone.appendChild(wmDiv);
+                }
 
-        // Width logic: Table + Gantt + Padding (15*2) + Buffer
+            } catch(e) {}
+        }
+
         clone.style.width = `${tableWidth + ganttWidth + 50}px`;
 
         const scrollers = clone.querySelectorAll('.custom-scrollbar');
@@ -327,21 +447,12 @@ const App: React.FC = () => {
             e.style.width = 'auto'; 
         });
 
-        // --- 3. FORCE ROW HEIGHT ---
+        // --- 3. FORCE ROW HEIGHT & TEXT ALIGNMENT ---
         if (computedRowHeight > 0) {
-            // Re-query rows in the clone to apply styles
             const cloneRows = clone.querySelectorAll('.p6-row');
-            
-            // We need to iterate over the *original* rows to get individual height if variable,
-            // or just use computedRowHeight if fixed. 
-            // The user requested variable height support based on text.
-            // However, HTML2Canvas renders what it sees.
-            // If rows are flex, let's enforce min-height.
-            
             const originalRows = original.querySelectorAll('.p6-row');
             
             cloneRows.forEach((row: any, i: number) => {
-                 // Get height from original to handle text wrapping
                  const origRow = originalRows[i] as HTMLElement;
                  const h = origRow ? origRow.offsetHeight : computedRowHeight;
 
@@ -351,14 +462,22 @@ const App: React.FC = () => {
                  row.style.flexShrink = '0';
                  row.style.overflow = 'hidden';
                  
-                 // Sync Gantt row group Y position? 
-                 // This is hard because Gantt is SVG with absolute Y coords based on fixed rowHeight.
-                 // If table rows expand, Gantt SVG rows will misalign unless we rebuild SVG.
-                 // Current Gantt implementation uses fixed rowHeight prop.
-                 // To ensure alignment, we must enforce the fixed row height on the table rows during print,
-                 // OR accepting that text might be cut off if it wraps too much.
-                 // The "Correct" P6 way is strict row height.
-                 // So we enforce the calculated schedule row height.
+                 const cells = row.querySelectorAll('.p6-cell');
+                 cells.forEach((c: any) => {
+                     if (c.style.display !== 'none') {
+                        // FIX: Ensure centering works for print
+                        c.style.display = 'flex';
+                        c.style.alignItems = 'center';
+                        c.style.lineHeight = 'normal';
+                        
+                        // FIX: Fix text clipping/ellipsis in print by allowing overflow
+                        const spans = c.querySelectorAll('span');
+                        spans.forEach((s: any) => {
+                            s.style.textOverflow = 'clip';
+                            s.style.overflow = 'visible';
+                        });
+                     }
+                 });
             });
         }
 
@@ -422,34 +541,63 @@ const App: React.FC = () => {
             case 'print': setActiveModal('print'); break;
             case 'copy': 
                  if (selIds.length > 0) {
-                     if (data?.wbs.some(w => selIds.includes(w.id))) {
-                         setClipboard({ ids: selIds, type: 'WBS' });
-                     } else {
-                         setClipboard({ ids: selIds, type: 'Activities' });
-                     }
+                    if (view === 'resources' && data) {
+                        setClipboard({ ids: selIds, type: 'Resources' });
+                    } else if (data) {
+                         if (data.wbs.some(w => selIds.includes(w.id))) {
+                             setClipboard({ ids: selIds, type: 'WBS' });
+                         } else {
+                             setClipboard({ ids: selIds, type: 'Activities' });
+                         }
+                    }
                  }
                  break;
             case 'cut':
                  if(selIds.length) {
-                     if (data?.wbs.some(w => selIds.includes(w.id))) setClipboard({ ids: selIds, type: 'WBS' });
-                     else setClipboard({ ids: selIds, type: 'Activities' });
+                     handleMenuAction('copy'); // Copy first
                      handleDeleteItems(selIds);
                  }
                  break;
             case 'paste':
                 if(clipboard && data) {
-                    if (clipboard.type === 'Activities') {
+                    if (clipboard.type === 'Resources') {
+                        const newResources = clipboard.ids.map(id => {
+                            const original = data.resources.find(r => r.id === id);
+                            if(!original) return null;
+                             const suffix = Math.floor(Math.random() * 1000);
+                             return { ...original, id: original.id + '-CP' + suffix, name: original.name + ' (Copy)' };
+                        }).filter(x => x) as any;
+                        setData(p => p ? { ...p, resources: [...p.resources, ...newResources] } : null);
+                    } else if (clipboard.type === 'Activities') {
                         const targetWbsId = selIds.length > 0 ? 
                             (data.activities.find(a => a.id === selIds[0])?.wbsId || data.wbs.find(w=>w.id === selIds[0])?.id) :
                             (data.wbs.length > 0 ? data.wbs[0].id : null);
                             
                         if (targetWbsId) {
-                            const newActivities = clipboard.ids.map(oldId => {
+                            // NEW LOGIC: Use Prefix + Increment for new IDs
+                            const prefix = data.meta.activityIdPrefix || 'A';
+                            const increment = data.meta.activityIdIncrement || 10;
+                            
+                            // Find current max numeric part of ID
+                            let maxVal = 0;
+                            data.activities.forEach(a => {
+                                const match = a.id.match(/(\d+)$/);
+                                if (match) {
+                                    const val = parseInt(match[1]);
+                                    if (val > maxVal) maxVal = val;
+                                }
+                            });
+
+                            const newActivities = clipboard.ids.map((oldId, index) => {
                                 const original = data.activities.find(a => a.id === oldId); 
                                 if(!original) return null; 
-                                const suffix = Math.floor(Math.random() * 1000);
-                                return { ...original, id: original.id + '-' + suffix, name: original.name + ' - Copy', wbsId: targetWbsId };
+                                
+                                const nextVal = maxVal + (increment * (index + 1));
+                                const newId = `${prefix}${nextVal}`;
+                                
+                                return { ...original, id: newId, name: original.name, wbsId: targetWbsId, predecessors: [] };
                             }).filter(x => x !== null) as any[];
+                            
                             setData(p => p ? { ...p, activities: [...p.activities, ...newActivities] } : null);
                         }
                     } else if (clipboard.type === 'WBS') {
@@ -476,12 +624,14 @@ const App: React.FC = () => {
                     }
                 }
                 break;
+            case 'columns': setActiveModal('columns'); break;
             case 'project_info': setActiveModal('project_settings'); break;
             case 'view_activities': setView('activities'); break;
             case 'view_resources': setView('resources'); break;
             case 'settings': setActiveModal('user_settings'); break;
             case 'help': setActiveModal('help'); break;
             case 'about': setActiveModal('about'); break;
+            case 'admin': setActiveModal('admin'); break;
         }
     };
 
@@ -493,7 +643,8 @@ const App: React.FC = () => {
             Task: <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd"/></svg>,
             WBS: <svg className="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>,
             User: <svg className="w-3 h-3 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/></svg>,
-            Delete: <svg className="w-3 h-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            Delete: <svg className="w-3 h-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>,
+            Number: <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>
         };
         
         return (
@@ -504,6 +655,8 @@ const App: React.FC = () => {
                         <div className="ctx-item" onClick={() => onAction('addAct')}>{Icons.Task} Add Activity</div>
                         <div className="ctx-item" onClick={() => onAction('addWBS')}>{Icons.WBS} Add Child WBS</div>
                         <div className="ctx-sep"></div>
+                        <div className="ctx-item" onClick={() => onAction('renumber')}>{Icons.Number} Renumber Activities</div>
+                        <div className="ctx-sep"></div>
                         <div className="ctx-item text-red-600" onClick={() => onAction('delWBS')}>{Icons.Delete} Delete WBS</div>
                     </>
                 )}
@@ -511,6 +664,8 @@ const App: React.FC = () => {
                     <>
                         <div className="ctx-item" onClick={() => onAction('addActSame')}>{Icons.Task} Add Activity</div>
                         <div className="ctx-item" onClick={() => onAction('assignRes')}>{Icons.User} Assign Resource</div>
+                        <div className="ctx-sep"></div>
+                        <div className="ctx-item" onClick={() => onAction('renumber')}>{Icons.Number} Renumber Activities</div>
                         <div className="ctx-sep"></div>
                         <div className="ctx-item text-red-600" onClick={() => onAction('delAct')}>{Icons.Delete} Delete Activity</div>
                     </>
@@ -523,40 +678,40 @@ const App: React.FC = () => {
         <div className="flex h-full w-full items-center justify-center bg-slate-900 relative overflow-hidden font-sans">
              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#94a3b8 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
              
-             <div className="z-10 bg-white p-12 rounded-xl shadow-2xl flex flex-col items-center gap-8 max-w-lg w-full border border-slate-700">
+             <div className="z-10 bg-white p-8 rounded-xl shadow-2xl flex flex-col items-center gap-6 max-w-md w-full border border-slate-700">
                 <div className="text-center">
-                    <h1 className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-700 tracking-tighter" 
+                    <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-700 tracking-tighter" 
                         style={{ 
-                            textShadow: '3px 3px 0px #e2e8f0', 
+                            textShadow: '2px 2px 0px #e2e8f0', 
                             fontFamily: '"Segoe UI", Roboto, "Helvetica Neue", sans-serif',
                             transform: 'rotate(-2deg)'
                         }}>
-                        Planner
+                        {adminConfig.appName.split(' ')[0]}
                     </h1>
-                    <p className="text-slate-400 text-sm mt-3 font-semibold tracking-widest uppercase">Web Scheduling Platform</p>
+                    <p className="text-slate-400 text-sm mt-3 font-semibold tracking-widest uppercase">{adminConfig.appName}</p>
                     <div className="mt-4 text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full inline-block">
-                        Powered by <span className="text-blue-600">planner.cn</span>
+                        {adminConfig.copyrightText}
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-4 w-full">
-                    <button onClick={createNew} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-lg font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center justify-center gap-3 text-lg">
+                <div className="flex flex-col gap-3 w-full">
+                    <button onClick={createNew} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center justify-center gap-3 text-lg">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
                         Create New Project
                     </button>
-                    <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white hover:bg-slate-50 text-slate-700 py-4 rounded-lg font-bold border-2 border-slate-200 transition-colors flex items-center justify-center gap-3 text-lg">
+                    <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white hover:bg-slate-50 text-slate-700 py-3 rounded-lg font-bold border-2 border-slate-200 transition-colors flex items-center justify-center gap-3 text-lg">
                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/></svg>
                         Open Existing Project
                     </button>
                 </div>
 
-                <div className="pt-6 border-t w-full text-center text-xs text-slate-400">
-                    <span>Version 1.0.0 &copy; {new Date().getFullYear()} Planner.cn</span>
+                <div className="pt-4 border-t w-full text-center text-xs text-slate-400">
+                    <span>Version 1.0.0 &copy; {new Date().getFullYear()}</span>
                 </div>
              </div>
              <input type="file" ref={fileInputRef} onChange={handleOpen} className="hidden" accept=".json" />
              
-             <AdminModal isOpen={activeModal === 'admin'} onClose={() => setActiveModal(null)} />
+             <AdminModal isOpen={activeModal === 'admin'} onClose={() => setActiveModal(null)} onSave={setAdminConfig} />
         </div>
     );
 
@@ -596,7 +751,7 @@ const App: React.FC = () => {
                                 wbsMap={schedule.wbsMap} 
                                 onUpdate={handleUpdate} 
                                 selectedIds={selIds} 
-                                onSelect={(id, m) => m ? setSelIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]) : setSelIds([id])} 
+                                onSelect={(ids, multi) => setSelIds(ids)} 
                                 onCtx={setCtx} 
                                 userSettings={userSettings}
                                 zoomLevel={ganttZoom}
@@ -613,6 +768,8 @@ const App: React.FC = () => {
                             onAssignUpdate={handleAssignUpdate} 
                             userSettings={userSettings}
                             allActivities={schedule.activities}
+                            isVisible={showDetails}
+                            onToggle={() => setShowDetails(!showDetails)}
                         />
                     </>
                 )}
@@ -623,6 +780,8 @@ const App: React.FC = () => {
                         activities={schedule.activities} 
                         onUpdateResources={(r) => setData(p => p ? { ...p, resources: r } : null)}
                         userSettings={userSettings}
+                        selectedIds={selIds}
+                        onSelect={(ids) => setSelIds(ids)}
                     />
                 )}
             </div>
@@ -639,7 +798,7 @@ const App: React.FC = () => {
                 lang={userSettings.language} 
             />
 
-            <AboutModal isOpen={activeModal === 'about'} onClose={() => setActiveModal(null)} />
+            <AboutModal isOpen={activeModal === 'about'} onClose={() => setActiveModal(null)} customCopyright={adminConfig.copyrightText} />
             
             <HelpModal isOpen={activeModal === 'help'} onClose={() => setActiveModal(null)} />
 
@@ -657,6 +816,14 @@ const App: React.FC = () => {
                 lang={userSettings.language}
             />
             
+            <ColumnSetupModal 
+                isOpen={activeModal === 'columns'}
+                onClose={() => setActiveModal(null)}
+                visibleColumns={userSettings.visibleColumns}
+                onSave={(cols) => setUserSettings({...userSettings, visibleColumns: cols})}
+                lang={userSettings.language}
+            />
+            
             <ProjectSettingsModal 
                 isOpen={activeModal === 'project_settings'} 
                 onClose={() => setActiveModal(null)}
@@ -671,6 +838,8 @@ const App: React.FC = () => {
                 onAssign={handleBatchAssign}
                 lang={userSettings.language}
             />
+            
+            <AdminModal isOpen={activeModal === 'admin'} onClose={() => setActiveModal(null)} onSave={setAdminConfig} />
         </div>
     );
 };
