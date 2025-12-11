@@ -31,6 +31,39 @@ export const BaseModal: React.FC<ModalProps> = ({ isOpen, title, onClose, childr
     );
 };
 
+// Simple Markdown Parser to avoid heavy dependencies
+const SimpleMarkdown: React.FC<{ content: string }> = ({ content }) => {
+    if (!content) return <div>Loading...</div>;
+    
+    const lines = content.split('\n');
+    return (
+        <div className="space-y-2 text-slate-700">
+            {lines.map((line, idx) => {
+                const l = line.trim();
+                if (l.startsWith('# ')) return <h1 key={idx} className="text-xl font-bold text-blue-900 border-b pb-1 mt-4">{l.substring(2)}</h1>;
+                if (l.startsWith('## ')) return <h2 key={idx} className="text-lg font-bold text-slate-800 mt-3">{l.substring(3)}</h2>;
+                if (l.startsWith('### ')) return <h3 key={idx} className="text-md font-bold text-slate-700 mt-2">{l.substring(4)}</h3>;
+                if (l.startsWith('- ')) return <li key={idx} className="ml-4 list-disc">{parseInline(l.substring(2))}</li>;
+                if (l === '') return <div key={idx} className="h-2"></div>;
+                return <p key={idx}>{parseInline(l)}</p>;
+            })}
+        </div>
+    );
+};
+
+const parseInline = (text: string) => {
+    const parts = text.split(/(\*\*.*?\*\*|`.*?`|\[.*?\]\(.*?\))/g);
+    return parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) return <strong key={i}>{part.slice(2, -2)}</strong>;
+        if (part.startsWith('`') && part.endsWith('`')) return <code key={i} className="bg-slate-100 px-1 rounded text-red-500">{part.slice(1, -1)}</code>;
+        if (part.startsWith('[') && part.includes('](')) {
+            const [label, url] = part.split('](');
+            return <a key={i} href={url.slice(0, -1)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{label.slice(1)}</a>;
+        }
+        return part;
+    });
+};
+
 export const AlertModal: React.FC<{ isOpen: boolean, msg: string, onClose: () => void }> = ({ isOpen, msg, onClose }) => (
     <BaseModal isOpen={isOpen} title="System Message" onClose={onClose} footer={
         <button onClick={onClose} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">OK</button>
@@ -59,58 +92,46 @@ export const ConfirmModal: React.FC<{ isOpen: boolean, msg: string, onConfirm: (
     );
 };
 
-export const AboutModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpen, onClose }) => (
-    <BaseModal isOpen={isOpen} title="About" onClose={onClose} footer={
-        <button onClick={onClose} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Close</button>
-    }>
-        <div className="text-center p-4">
-            <h2 className="text-lg font-bold text-blue-900 mb-2">Planner Web</h2>
-            <p className="mb-4">Professional CPM Scheduling Tool</p>
-            <p className="font-bold text-slate-500 border-t pt-2">Powered by planner.cn</p>
-        </div>
-    </BaseModal>
-);
+export const AboutModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpen, onClose }) => {
+    const [content, setContent] = useState('');
 
-export const AdminModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpen, onClose }) => {
-    const [password, setPassword] = useState('');
-    const [auth, setAuth] = useState(false);
-
-    const login = () => {
-        if (password === 'admin') setAuth(true); // Simple mock auth
-        else alert('Invalid password');
-    };
-
-    if (!isOpen) return null;
-
-    if (!auth) {
-        return (
-            <BaseModal isOpen={isOpen} title="Admin Login" onClose={onClose}>
-                <div className="space-y-4">
-                    <p>Enter Admin Password:</p>
-                    <input type="password" className="border w-full p-2" value={password} onChange={e => setPassword(e.target.value)} />
-                    <button onClick={login} className="w-full bg-blue-600 text-white p-2 rounded">Login</button>
-                </div>
-            </BaseModal>
-        );
-    }
+    useEffect(() => {
+        if (isOpen) {
+            fetch('about.md')
+                .then(res => res.text())
+                .then(text => setContent(text))
+                .catch(() => setContent('# About\nCould not load about.md'));
+        }
+    }, [isOpen]);
 
     return (
-        <BaseModal isOpen={isOpen} title="Admin Console" onClose={onClose}>
-            <div className="space-y-4">
-                <h3 className="font-bold text-lg">System Settings</h3>
-                <div className="bg-slate-100 p-2 rounded">
-                    <p className="font-bold">Server Status: <span className="text-green-600">Online</span></p>
-                    <p>Version: 1.0.0 (Build 20231030)</p>
-                </div>
-                <button className="w-full border p-2 bg-white hover:bg-slate-50">Manage Users</button>
-                <button className="w-full border p-2 bg-white hover:bg-slate-50">View Logs</button>
-                <button className="w-full border p-2 bg-red-100 hover:bg-red-200 text-red-700">Reset System Defaults</button>
+        <BaseModal isOpen={isOpen} title="About" onClose={onClose} footer={
+            <button onClick={onClose} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Close</button>
+        }>
+            <div className="max-h-[60vh] overflow-y-auto">
+                 <SimpleMarkdown content={content} />
             </div>
         </BaseModal>
     );
 };
 
+export const AdminModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpen, onClose }) => {
+    if (!isOpen) return null;
+    return null; 
+};
+
 export const HelpModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpen, onClose }) => {
+    const [content, setContent] = useState('');
+
+    useEffect(() => {
+        if (isOpen) {
+            fetch('manual.md')
+                .then(res => res.text())
+                .then(text => setContent(text))
+                .catch(() => setContent('# Error\nCould not load manual.md'));
+        }
+    }, [isOpen]);
+
     if(!isOpen) return null;
 
     return (
@@ -121,18 +142,11 @@ export const HelpModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ 
                      <button onClick={onClose} className="hover:text-red-300">✕</button>
                  </div>
                  
-                 <div className="flex-grow overflow-y-auto p-8 prose prose-sm max-w-none text-slate-700">
-                     <h1 className="text-2xl font-bold mb-4 pb-2 border-b">User Operation Manual</h1>
-                     
-                     <div className="space-y-6">
-                        
-                             <h3 className="font-bold text-lg text-blue-900">1. Getting Started</h3>
-                           
-                     </div>
+                 <div className="flex-grow overflow-y-auto p-8">
+                     <SimpleMarkdown content={content} />
                  </div>
 
                  <div className="bg-slate-100 border-t p-4 text-center shrink-0">
-                     <p className="text-sm font-bold text-slate-600">Powered by Planner.cn</p>
                      <p className="text-xs text-slate-500 mt-1">
                          Copyright &copy; {new Date().getFullYear()} <a href="http://www.planner.cn" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline font-bold">Planner.cn</a>. All rights reserved.
                      </p>
@@ -240,8 +254,28 @@ export const UserSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void,
 };
 
 export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void, onPrint: (s: PrintSettings) => void, lang?: 'en'|'zh' }> = ({ isOpen, onClose, onPrint, lang='en' }) => {
-    const [settings, setSettings] = useState<PrintSettings>({ paperSize: 'a3', orientation: 'landscape' });
+    const [settings, setSettings] = useState<PrintSettings>({ 
+        paperSize: 'a3', 
+        orientation: 'landscape',
+        selectedColumns: ['id', 'name', 'duration', 'start', 'finish', 'float'] 
+    });
     const { t } = useTranslation(lang as 'en' | 'zh');
+
+    const availableCols = [
+        { id: 'id', label: 'Activity ID' },
+        { id: 'name', label: 'Activity Name' },
+        { id: 'duration', label: 'Duration' },
+        { id: 'start', label: 'Start Date' },
+        { id: 'finish', label: 'Finish Date' },
+        { id: 'float', label: 'Total Float' },
+        { id: 'preds', label: 'Predecessors' },
+    ];
+
+    const toggleCol = (id: string) => {
+        const cols = settings.selectedColumns || [];
+        if (cols.includes(id)) setSettings({...settings, selectedColumns: cols.filter(c => c !== id)});
+        else setSettings({...settings, selectedColumns: [...cols, id]});
+    };
 
     return (
         <BaseModal isOpen={isOpen} title={t('PageSetup')} onClose={onClose} footer={
@@ -271,6 +305,23 @@ export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void
                         </label>
                     </div>
                 </div>
+                
+                <div className="border-t pt-2">
+                    <label className="block mb-2 font-bold">Columns to Print</label>
+                    <div className="grid grid-cols-2 gap-1 max-h-32 overflow-y-auto border p-2 bg-slate-50">
+                        {availableCols.map(col => (
+                            <label key={col.id} className="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    checked={settings.selectedColumns?.includes(col.id)} 
+                                    onChange={() => toggleCol(col.id)} 
+                                />
+                                {col.label}
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
                 <div className="text-[10px] text-slate-500 mt-2 bg-yellow-50 p-2 border border-yellow-200">
                     {t('PrintNote')}
                 </div>

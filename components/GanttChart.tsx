@@ -168,7 +168,6 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                 }
 
                 if (draw) {
-                    // Light, thin grid line as requested
                     lines.push(<line key={`bg-grid-${iterDate.getTime()}`} x1={pos} y1="0" x2={pos} y2={bodyH} stroke="#e2e8f0" strokeWidth="0.5" />);
                 }
                 iterDate.setDate(iterDate.getDate() + 1);
@@ -203,7 +202,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
 
     return (
         <div className="flex-grow bg-white flex flex-col h-full overflow-hidden border-l border-slate-300 select-none">
-            {/* 1. Header Container (Fixed Top, Syncs ScrollLeft) */}
+            {/* 1. Header Container */}
             <div 
                 ref={headerContainerRef}
                 className="bg-slate-50 border-b border-slate-300 overflow-hidden shrink-0 relative" 
@@ -218,7 +217,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                 </div>
             </div>
 
-            {/* 2. Body Container (Scrolls Auto, Syncs ScrollTop with Table) */}
+            {/* 2. Body Container */}
             <div 
                 ref={bodyContainerRef}
                 className="flex-grow overflow-auto relative custom-scrollbar bg-white" 
@@ -261,8 +260,6 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                                 const left = getPosition(row.startDate) + globalOffset;
                                 const right = getPosition(row.endDate) + pixelPerDay + globalOffset;
                                 const width = Math.max(right - left, 2);
-
-                                // Bar Height scaling (Reduced thickness as requested: 35% of Row Height)
                                 const barH = Math.max(6, rowHeight * 0.35); 
                                 const barY = y + (rowHeight - barH) / 2;
 
@@ -273,11 +270,8 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                                     return (
                                         <g key={row.id}>
                                             <rect x="0" y={y} width={chartWidth} height={rowHeight} fill="#f1f5f9" opacity="0.4" />
-                                            {/* WBS Summary Bar - Inverted Triangles Style - SWAPPED */}
                                             <rect x={left} y={wbsY + 1} width={width} height={2} fill="#64748b" />
-                                            {/* Left Triangle: Points Inwards (\) */}
                                             <path d={`M ${left} ${wbsY} L ${left+5} ${wbsY} L ${left} ${wbsY+5} Z`} fill="#334155" />
-                                            {/* Right Triangle: Points Inwards (/) */}
                                             <path d={`M ${right} ${wbsY} L ${right-5} ${wbsY} L ${right} ${wbsY+5} Z`} fill="#334155" />
                                         </g>
                                     );
@@ -297,7 +291,6 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                                                     <rect x={left} y={barY + barH/2 - 1} width={width} height="1" fill="rgba(255,255,255,0.3)" />
                                                 </>
                                             )}
-                                            {/* Label next to bar */}
                                             <text x={Math.max(right, left + 12) + 5} y={y + rowHeight/2 + 4} fontSize={fontSize - 1} fill="#475569" fontWeight="500">{activity.name}</text>
                                         </g>
                                     );
@@ -315,7 +308,6 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                                      return act.predecessors.map(pred => {
                                          const predId = typeof pred === 'string' ? pred : pred.activityId;
                                          const type = typeof pred === 'string' ? 'FS' : (pred.type || 'FS');
-                                         const lag = typeof pred === 'string' ? 0 : (pred.lag || 0);
                                          
                                          const predRowIndex = rows.findIndex(r => r.id === predId);
                                          if (predRowIndex === -1) return null;
@@ -351,17 +343,21 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                                          const lineColor = isCriticalLink ? '#ef4444' : '#64748b';
 
                                          // Orthogonal Routing Logic
-                                         if (type === 'FS') {
+                                         if (type === 'FF') {
+                                             // FF: Loop around the back
+                                             // Go right from pred, go right from succ, vertical connect
+                                             const midX = Math.max(x1, x2) + 15;
+                                             path = `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`;
+                                         }
+                                         else if (type === 'FS') {
                                              if (x2 > x1 + 20) {
-                                                 // Simple S or L shape
                                                  const midX = x1 + (x2 - x1)/2;
                                                  path = `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`;
                                              } else {
-                                                 // Backward or tight loop
                                                  path = `M ${x1} ${y1} L ${x1 + gap} ${y1} L ${x1 + gap} ${y2 - (y2>y1 ? 10 : -10)} L ${x2 - gap} ${y2 - (y2>y1 ? 10 : -10)} L ${x2 - gap} ${y2} L ${x2} ${y2}`;
                                              }
                                          } else {
-                                             // Standard orthogonal mid-point
+                                             // Standard orthogonal mid-point (SS, SF)
                                              const midX = Math.min(x1, x2) - 15;
                                              path = `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`;
                                          }

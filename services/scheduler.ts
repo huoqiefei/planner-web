@@ -181,8 +181,7 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
 
             if (successors.length > 0) {
                 let minLateFinish = new Date(8640000000000000);
-                let hasDrivingSuccessor = false;
-
+                
                 successors.forEach(succ => {
                     const sAct = activityMap[succ.id];
                     if (!sAct) return;
@@ -191,11 +190,10 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
                     const sFinish = normalize(sAct.lateFinish);
                     const lag = succ.lag || 0;
                     
-                    let constraintDate = new Date(maxProjectFinish); // Default loosely
+                    let constraintDate = new Date(maxProjectFinish); 
 
                     // Backward Constraint Logic
                     if (succ.type === 'FS') {
-                        hasDrivingSuccessor = true;
                         // S.Start = P.Finish + Lag + 1
                         // P.Finish = S.Start - 1 - Lag
                         let d = new Date(sStart);
@@ -205,19 +203,14 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
                         constraintDate = d;
                     } else if (succ.type === 'SS') {
                         // S.Start = P.Start + Lag
-                        // P.Start = S.Start - Lag -> We need P.Finish
-                        // NOTE: SS relationship constrains Start, not directly Finish. 
-                        // But P.Finish cannot be earlier than P.Start + Dur
-                        // We check if this SS constraint pulls the Start earlier than the natural Late Start
                         let pStartConstraint = addWorkingDays(sStart, -lag, calendar);
                         // Convert P.Start to P.Finish
                         constraintDate = calculateFinish(pStartConstraint, act.duration, calendar);
                     } else if (succ.type === 'FF') {
-                        hasDrivingSuccessor = true;
-                        // S.Finish = P.Finish + Lag -> P.Finish = S.Finish - Lag
+                        // S.Finish = P.Finish + Lag
                         constraintDate = addWorkingDays(sFinish, -lag, calendar);
                     } else if (succ.type === 'SF') {
-                         // S.Finish = P.Start + Lag -> P.Start = S.Finish - Lag
+                         // S.Finish = P.Start + Lag
                          let pStartConstraint = addWorkingDays(sFinish, -lag, calendar);
                          constraintDate = calculateFinish(pStartConstraint, act.duration, calendar);
                     }
@@ -225,13 +218,13 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
                     if (constraintDate < minLateFinish) minLateFinish = constraintDate;
                 });
 
-                // FIX: If we only have SS/SF successors that calculated a Late Finish LATER than the Project Finish,
-                // we should stick to Project Finish (or the minLateFinish if it is indeed tighter).
-                // Essentially, minLateFinish collects the tightest constraint.
                 calculatedLateFinish = minLateFinish;
             }
             
-            // Boundary check: Late Finish cannot exceed Project Finish (Open ended logic)
+            // CRITICAL PATH FIX:
+            // If the calculated Late Finish is LATER than Project Finish (which can happen with open-ended tasks or SS/SF logic),
+            // clamp it to Project Finish. This ensures tasks that "could" end later but don't drive the project
+            // still respect the project's constraint boundary if they are meant to be critical.
             if (calculatedLateFinish > maxProjectFinish) {
                 calculatedLateFinish = new Date(maxProjectFinish);
             }
@@ -247,15 +240,10 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
 
     // --- 3. Finalize ---
     scheduledActivities.forEach(act => {
-        // Total Float = Late Finish - Early Finish
         const floatMs = act.lateFinish.getTime() - act.earlyFinish.getTime();
         act.totalFloat = Math.round(floatMs / (1000 * 60 * 60 * 24));
-        
-        // Ensure float isn't negative due to minor date math issues (unless real negative float exists)
         if(Math.abs(act.totalFloat) < 0.1) act.totalFloat = 0;
-        
         act.isCritical = act.totalFloat <= 0;
-        
         act.startDate = act.earlyStart;
         act.endDate = act.earlyFinish;
     });
@@ -278,7 +266,6 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
         const minStart = startDates.length ? new Date(Math.min(...startDates)) : null;
         const maxEnd = endDates.length ? new Date(Math.max(...endDates)) : null;
         
-        // Calculate WBS Duration (Span)
         let duration = 0;
         if(minStart && maxEnd) {
              const diffMs = maxEnd.getTime() - minStart.getTime();

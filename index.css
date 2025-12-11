@@ -48,6 +48,7 @@ input:focus, select:focus {
     align-items: center;
     box-sizing: border-box;
     background: white;
+    flex-shrink: 0; /* Prevent collapsing in flex containers, especially during print/clone */
 }
 .p6-row:hover {
     background-color: #e0f2fe;
@@ -66,7 +67,10 @@ input:focus, select:focus {
 
 .p6-cell {
     border-right: 1px solid #e5e7eb;
-    padding: 0 4px;
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-top: 3px;
+    padding-bottom: 6px; /* INCREASED BOTTOM PADDING */
     height: 100%;
     display: flex;
     align-items: center;

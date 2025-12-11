@@ -154,12 +154,8 @@ const App: React.FC = () => {
     const handleDeleteItems = (ids: string[]) => {
         setData(p => {
              if(!p) return null;
-             // Check if we are deleting WBS or Activities
              const wbsToDelete = p.wbs.filter(w => ids.includes(w.id));
              if (wbsToDelete.length > 0) {
-                 // Deleting WBS nodes - cascade delete children
-                 // (Simplified logic: only delete selected, assuming user knows risks or we add prompt)
-                 // Ideally we prompt. For now, strict deletion.
                  return { ...p, wbs: p.wbs.filter(w => !ids.includes(w.id)) };
              } else {
                  return {
@@ -233,53 +229,149 @@ const App: React.FC = () => {
     const executePrint = async (settings: PrintSettings) => {
         if (view !== 'activities') setView('activities');
         
-        // Wait for render
-        setTimeout(async () => {
-            const original = document.querySelector('.combined-view-container');
-            if (!original) return;
+        // Wait for view to settle
+        await new Promise(r => setTimeout(r, 200));
+
+        const original = document.querySelector('.combined-view-container');
+        if (!original) return;
+        
+        // Get the computed height of a row from the live DOM
+        const firstRow = original.querySelector('.p6-row') as HTMLElement;
+        const computedRowHeight = firstRow ? firstRow.offsetHeight : 0;
+        
+        // Clone for printing
+        const clone = original.cloneNode(true) as HTMLElement;
+        clone.style.height = 'auto';
+        clone.style.width = 'fit-content'; 
+        clone.style.minWidth = '1000px';
+        clone.style.position = 'absolute';
+        clone.style.top = '-10000px';
+        clone.style.left = '-10000px';
+        clone.style.overflow = 'visible';
+        clone.style.background = 'white';
+        // Add Border and Padding
+        clone.style.border = '1px solid #cbd5e1'; // Light thin line
+        clone.style.padding = '15px'; // 15px margin around content
+        clone.style.boxSizing = 'border-box';
+
+        // 1. FILTER COLUMNS
+        const allowedCols = settings.selectedColumns || ['id', 'name', 'duration', 'start', 'finish', 'float', 'preds'];
+        const cells = clone.querySelectorAll('[data-col]');
+        let tableWidth = 0;
+        
+        cells.forEach((cell: any) => {
+            const colId = cell.getAttribute('data-col');
+            if (colId && !allowedCols.includes(colId)) {
+                cell.style.display = 'none';
+            }
+        });
+
+        const headerCells = clone.querySelectorAll('.p6-header > div');
+        headerCells.forEach((cell: any) => {
+            if(cell.style.display !== 'none') {
+                tableWidth += parseFloat(cell.style.width || '0');
+            }
+        });
+        
+        const tableContainer = clone.children[1]?.children[0] as HTMLElement; 
+        if(tableContainer) {
+            tableContainer.style.width = `${tableWidth + 20}px`;
+        }
+
+        // 2. FORCE GANTT WIDTH
+        const ganttSvg = clone.querySelector('svg');
+        let ganttWidth = 0;
+        if(ganttSvg) {
+            ganttSvg.style.overflow = 'visible';
+            const requiredWidth = parseFloat(ganttSvg.getAttribute('width') || '1000');
+            ganttWidth = requiredWidth;
             
-            const clone = original.cloneNode(true) as HTMLElement;
-            clone.style.height = 'auto';
-            clone.style.width = '2400px'; 
-            clone.style.position = 'absolute';
-            clone.style.top = '-10000px';
-            clone.style.left = '-10000px';
-            clone.style.overflow = 'visible';
-            clone.style.background = 'white';
+            const ganttContainer = ganttSvg.parentElement?.parentElement;
+            if(ganttContainer) {
+                ganttContainer.style.width = `${requiredWidth}px`;
+                ganttContainer.style.overflow = 'visible';
+            }
+        }
 
-            const allowedCols = ['id', 'name', 'duration', 'start', 'finish', 'float'];
-            const cells = clone.querySelectorAll('[data-col]');
-            cells.forEach((cell: any) => {
-                const colId = cell.getAttribute('data-col');
-                if (colId && !allowedCols.includes(colId)) {
-                    cell.style.display = 'none';
-                }
-            });
-
-            const tableContainer = clone.children[1]?.children[0] as HTMLElement; 
-            if(tableContainer) tableContainer.style.width = '700px'; 
-
-            const scrollers = clone.querySelectorAll('.custom-scrollbar');
-            scrollers.forEach((e: any) => { 
-                e.style.overflow = 'visible'; 
-                e.style.height = 'auto'; 
-                e.style.maxHeight = 'none'; 
-                e.style.width = 'auto'; 
-            });
-
-            const flexGrowers = clone.querySelectorAll('.flex-grow');
-            flexGrowers.forEach((e:any) => {
-                e.style.flexGrow = '0';
-                e.style.height = 'auto';
-                e.style.overflow = 'visible';
-            });
-
-            const svg = clone.querySelector('svg');
-            if(svg) svg.style.overflow = 'visible';
-
-            document.body.appendChild(clone);
+        // --- INJECT WATERMARK AT MAIN CONTAINER LEVEL ---
+        try {
+            const wmRes = await fetch('watermark.md');
+            let wmText = 'Powered by Planner.cn';
+            if (wmRes.ok) wmText = await wmRes.text();
             
-            const canvas = await html2canvas(clone, { scale: 1.5, useCORS: true, windowWidth: 3000, windowHeight: clone.scrollHeight + 100 });
+            const wmDiv = document.createElement('div');
+            wmDiv.style.position = 'absolute';
+            // Position Top Right - Below header which is usually ~45-50px.
+            wmDiv.style.top = '55px';
+            wmDiv.style.right = '20px';
+            // Light grey
+            wmDiv.style.color = '#cbd5e1'; 
+            wmDiv.style.fontSize = '12px';
+            wmDiv.style.fontWeight = 'bold';
+            wmDiv.style.zIndex = '9999';
+            wmDiv.style.pointerEvents = 'none';
+            wmDiv.innerText = wmText;
+            
+            clone.style.position = 'relative'; 
+            clone.appendChild(wmDiv);
+        } catch(e) { console.warn("Could not load watermark", e); }
+
+        // Width logic: Table + Gantt + Padding (15*2) + Buffer
+        clone.style.width = `${tableWidth + ganttWidth + 50}px`;
+
+        const scrollers = clone.querySelectorAll('.custom-scrollbar');
+        scrollers.forEach((e: any) => { 
+            e.style.overflow = 'visible'; 
+            e.style.height = 'auto'; 
+            e.style.maxHeight = 'none'; 
+            e.style.width = 'auto'; 
+        });
+
+        // --- 3. FORCE ROW HEIGHT ---
+        if (computedRowHeight > 0) {
+            // Re-query rows in the clone to apply styles
+            const cloneRows = clone.querySelectorAll('.p6-row');
+            
+            // We need to iterate over the *original* rows to get individual height if variable,
+            // or just use computedRowHeight if fixed. 
+            // The user requested variable height support based on text.
+            // However, HTML2Canvas renders what it sees.
+            // If rows are flex, let's enforce min-height.
+            
+            const originalRows = original.querySelectorAll('.p6-row');
+            
+            cloneRows.forEach((row: any, i: number) => {
+                 // Get height from original to handle text wrapping
+                 const origRow = originalRows[i] as HTMLElement;
+                 const h = origRow ? origRow.offsetHeight : computedRowHeight;
+
+                 row.style.height = `${h}px`;
+                 row.style.minHeight = `${h}px`;
+                 row.style.maxHeight = `${h}px`;
+                 row.style.flexShrink = '0';
+                 row.style.overflow = 'hidden';
+                 
+                 // Sync Gantt row group Y position? 
+                 // This is hard because Gantt is SVG with absolute Y coords based on fixed rowHeight.
+                 // If table rows expand, Gantt SVG rows will misalign unless we rebuild SVG.
+                 // Current Gantt implementation uses fixed rowHeight prop.
+                 // To ensure alignment, we must enforce the fixed row height on the table rows during print,
+                 // OR accepting that text might be cut off if it wraps too much.
+                 // The "Correct" P6 way is strict row height.
+                 // So we enforce the calculated schedule row height.
+            });
+        }
+
+        document.body.appendChild(clone);
+        await new Promise(r => setTimeout(r, 500));
+
+        try {
+            const canvas = await html2canvas(clone, { 
+                scale: 2, 
+                useCORS: true, 
+                windowWidth: clone.scrollWidth + 100, 
+                windowHeight: clone.scrollHeight + 100 
+            });
             document.body.removeChild(clone);
             
             const dims: Record<string, {w: number, h: number}> = {
@@ -302,20 +394,25 @@ const App: React.FC = () => {
 
             let heightLeft = finalH;
             let position = 0;
-            let pageHeight = pageH;
+            const pageContentHeight = pageH; 
 
-            pdf.addImage(canvas.toDataURL('image/jpeg'), 'JPEG', 0, position, pageW, finalH);
-            heightLeft -= pageHeight;
+            pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, position, pageW, finalH);
+            heightLeft -= pageContentHeight;
 
             while (heightLeft > 0) {
                 position = heightLeft - finalH; 
                 pdf.addPage();
-                pdf.addImage(canvas.toDataURL('image/jpeg'), 'JPEG', 0, position, pageW, finalH);
-                heightLeft -= pageHeight;
+                pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, position - (finalH - heightLeft) - pageContentHeight, pageW, finalH);
+                heightLeft -= pageContentHeight;
             }
 
-            pdf.save(`Project_${settings.paperSize}.pdf`);
-        }, 500);
+            const blob = pdf.output('bloburl');
+            window.open(blob, '_blank');
+        } catch (e) {
+            console.error("Print failed", e);
+            document.body.removeChild(clone);
+            alert("Printing failed. Please try again.");
+        }
     };
 
     const handleMenuAction = (action: string) => {
@@ -325,7 +422,6 @@ const App: React.FC = () => {
             case 'print': setActiveModal('print'); break;
             case 'copy': 
                  if (selIds.length > 0) {
-                     // Check if WBS selection
                      if (data?.wbs.some(w => selIds.includes(w.id))) {
                          setClipboard({ ids: selIds, type: 'WBS' });
                      } else {
@@ -335,26 +431,21 @@ const App: React.FC = () => {
                  break;
             case 'cut':
                  if(selIds.length) {
-                     // Similar logic to Copy but delete after
                      if (data?.wbs.some(w => selIds.includes(w.id))) setClipboard({ ids: selIds, type: 'WBS' });
                      else setClipboard({ ids: selIds, type: 'Activities' });
-                     
                      handleDeleteItems(selIds);
                  }
                  break;
             case 'paste':
                 if(clipboard && data) {
                     if (clipboard.type === 'Activities') {
-                        // Paste Activities
                         const targetWbsId = selIds.length > 0 ? 
                             (data.activities.find(a => a.id === selIds[0])?.wbsId || data.wbs.find(w=>w.id === selIds[0])?.id) :
                             (data.wbs.length > 0 ? data.wbs[0].id : null);
                             
                         if (targetWbsId) {
                             const newActivities = clipboard.ids.map(oldId => {
-                                const original = data.activities.find(a => a.id === oldId); // Look in original data (might be deleted if Cut)
-                                // If cut, we need to have stored the object in clipboard really, but for simplicity reusing logic
-                                // Here assuming 'Copy' style paste for now or re-instantiating
+                                const original = data.activities.find(a => a.id === oldId); 
                                 if(!original) return null; 
                                 const suffix = Math.floor(Math.random() * 1000);
                                 return { ...original, id: original.id + '-' + suffix, name: original.name + ' - Copy', wbsId: targetWbsId };
@@ -362,25 +453,19 @@ const App: React.FC = () => {
                             setData(p => p ? { ...p, activities: [...p.activities, ...newActivities] } : null);
                         }
                     } else if (clipboard.type === 'WBS') {
-                        // WBS Paste Logic (Simplified: Clone node and children)
-                        // Need a target parent. If selected is WBS, paste as child. If selected is Activity, paste as sibling of activity's WBS.
                         const targetParentId = selIds.length > 0 ?
                              (data.wbs.find(w => w.id === selIds[0]) ? selIds[0] : null) : 
-                             (data.wbs.find(w => !w.parentId)?.id); // Default to root child
+                             (data.wbs.find(w => !w.parentId)?.id); 
                         
                         if (targetParentId) {
-                            // Deep copy WBS and its activities
-                            // This is complex, implementing shallow copy for demo
                             const newWbsNodes: any[] = [];
                             const newActivities: any[] = [];
-                            
                             clipboard.ids.forEach(wbsId => {
                                 const original = data.wbs.find(w => w.id === wbsId);
                                 if(original) {
                                     const suffix = Math.floor(Math.random() * 1000);
                                     const newId = original.id + '-CP' + suffix;
                                     newWbsNodes.push({ ...original, id: newId, name: original.name + ' (Copy)', parentId: targetParentId });
-                                    // Copy children acts
                                     data.activities.filter(a => a.wbsId === wbsId).forEach(act => {
                                         newActivities.push({ ...act, id: act.id + '-' + suffix, wbsId: newId });
                                     });
@@ -396,6 +481,7 @@ const App: React.FC = () => {
             case 'view_resources': setView('resources'); break;
             case 'settings': setActiveModal('user_settings'); break;
             case 'help': setActiveModal('help'); break;
+            case 'about': setActiveModal('about'); break;
         }
     };
 
@@ -433,14 +519,11 @@ const App: React.FC = () => {
         );
     };
 
-    // Landing Page
     if (!data) return (
         <div className="flex h-full w-full items-center justify-center bg-slate-900 relative overflow-hidden font-sans">
-             {/* Background Pattern */}
              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#94a3b8 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
              
              <div className="z-10 bg-white p-12 rounded-xl shadow-2xl flex flex-col items-center gap-8 max-w-lg w-full border border-slate-700">
-                {/* Logo Area */}
                 <div className="text-center">
                     <h1 className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-700 tracking-tighter" 
                         style={{ 

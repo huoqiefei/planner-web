@@ -45,6 +45,15 @@ const ToggleIcons = {
     Grid: (active: boolean) => <svg className={`w-4 h-4 ${active ? 'text-slate-700' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
 };
 
+// Table Icons
+const TableIcons = {
+    Folder: <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full text-yellow-500"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-2.06 11L15 10h9l-3.06 7H17.94z" /><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z" /></svg>,
+    Task: <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full text-green-600"><rect x="3" y="8" width="18" height="8" rx="2" /></svg>,
+    Milestone: <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full text-slate-800"><path d="M12 2L2 12l10 10 10-10z" /></svg>,
+    Expand: <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full text-slate-500"><path d="M10 17l5-5-5-5v10z"/></svg>,
+    Collapse: <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full text-slate-500"><path d="M7 10l5 5 5-5H7z"/></svg>
+};
+
 const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsMap, onUpdate, selectedIds, onSelect, onCtx, userSettings, zoomLevel, onZoomChange, onDeleteItems }) => {
     const [editing, setEditing] = useState<{id: string, field: string} | null>(null);
     const [val, setVal] = useState('');
@@ -64,7 +73,8 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
 
     // Dynamic Sizes based on User Settings
     const fontSizePx = userSettings.uiFontPx || 13;
-    const ROW_HEIGHT = Math.max(28, fontSizePx + 15);
+    // Row Height = Font Size + Top Padding (3) + Bottom Padding (6) + extra buffer to be safe
+    const ROW_HEIGHT = Math.max(32, fontSizePx + 12); 
     const HEADER_HEIGHT = (zoomLevel === 'day' || zoomLevel === 'week') ? 50 : 45;
 
     const toggleWbs = (id: string) => {
@@ -119,7 +129,6 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
             children.forEach(node => {
                 if (isHidden(node.id, pid)) return;
                 
-                // Inject calculated duration into the WBS node for display
                 const wbsCalc = wbsMap[node.id];
                 const nodeWithDuration = { 
                     ...node, 
@@ -151,31 +160,27 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
 
     // Enhanced Robust Vertical Scroll Sync
     const handleTableScroll = (e: React.UIEvent<HTMLDivElement>) => {
-        const scrollTop = e.currentTarget.scrollTop;
         if (isScrolling.current === 'gantt') return;
         
-        isScrolling.current = 'table';
+        const scrollTop = e.currentTarget.scrollTop;
         if (ganttBodyRef.current && Math.abs(ganttBodyRef.current.scrollTop - scrollTop) > 1) {
+            isScrolling.current = 'table';
             ganttBodyRef.current.scrollTop = scrollTop;
+            if((window as any)._scrollTimeout) clearTimeout((window as any)._scrollTimeout);
+            (window as any)._scrollTimeout = setTimeout(() => { isScrolling.current = null; }, 100);
         }
-        
-        // Clear lock with delay
-        clearTimeout((window as any).tableScrollTimer);
-        (window as any).tableScrollTimer = setTimeout(() => { isScrolling.current = null; }, 50);
     };
 
     const handleGanttScroll = (e: React.UIEvent<HTMLDivElement>) => {
-        const scrollTop = e.currentTarget.scrollTop;
         if (isScrolling.current === 'table') return;
-        
-        isScrolling.current = 'gantt';
-        if (tableBodyRef.current && Math.abs(tableBodyRef.current.scrollTop - scrollTop) > 1) {
-            tableBodyRef.current.scrollTop = scrollTop;
-        }
 
-        // Clear lock with delay
-        clearTimeout((window as any).ganttScrollTimer);
-        (window as any).ganttScrollTimer = setTimeout(() => { isScrolling.current = null; }, 50);
+        const scrollTop = e.currentTarget.scrollTop;
+        if (tableBodyRef.current && Math.abs(tableBodyRef.current.scrollTop - scrollTop) > 1) {
+            isScrolling.current = 'gantt';
+            tableBodyRef.current.scrollTop = scrollTop;
+            if((window as any)._scrollTimeout) clearTimeout((window as any)._scrollTimeout);
+            (window as any)._scrollTimeout = setTimeout(() => { isScrolling.current = null; }, 100);
+        }
     };
 
     const startEdit = (id: string, field: string, v: any) => {
@@ -265,6 +270,7 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
                             const isSel = selectedIds.includes(row.id);
                             const isWBS = row.type === 'WBS';
                             const isMilestone = !isWBS && row.data.duration === 0;
+                            const iconSize = fontSizePx; // Icon height matches text height
                             
                             return (
                                 <div key={row.id}
@@ -275,45 +281,48 @@ const CombinedView: React.FC<CombinedViewProps> = ({ projectData, schedule, wbsM
                                 >
                                     <div className="p6-cell font-sans" style={{ width: colWidths.id, paddingLeft: (row.depth * 15 + 4) + 'px' }} data-col="id">
                                         {isWBS ? (
-                                            <div className="flex items-center cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleWbs(row.id); }}>
-                                                <span className="mr-1 text-slate-500 text-[10px] w-3">{row.collapsed ? '▶' : '▼'}</span>
-                                                <span className="mr-1 text-yellow-600">📁</span>
+                                            <div className="flex items-center cursor-pointer h-full" onClick={(e) => { e.stopPropagation(); toggleWbs(row.id); }}>
+                                                <div style={{ width: iconSize, height: iconSize, marginRight: 4 }}>
+                                                    {row.collapsed ? TableIcons.Expand : TableIcons.Collapse}
+                                                </div>
+                                                <div style={{ width: iconSize, height: iconSize, marginRight: 4 }}>
+                                                    {TableIcons.Folder}
+                                                </div>
                                             </div>
                                         ) : (
-                                            <span className={`mr-1 ${isMilestone ? 'text-black' : 'text-green-600'}`}>
-                                                {isMilestone ? '◆' : '▬'}
-                                            </span>
+                                            <div style={{ width: iconSize, height: iconSize, marginRight: 6 }}>
+                                                {isMilestone ? TableIcons.Milestone : TableIcons.Task}
+                                            </div>
                                         )}
                                         {editing?.id === row.id && editing.field === 'id' ? 
                                             <input autoFocus className="w-full h-full px-1" value={val} onChange={e => setVal(e.target.value)} onBlur={saveEdit} onKeyDown={e => e.key === 'Enter' && saveEdit()} /> : 
-                                            <span onDoubleClick={() => startEdit(row.id, 'id', row.id)} className="truncate">{row.id}</span>
+                                            <span onDoubleClick={() => startEdit(row.id, 'id', row.id)} className="truncate pt-[3px] pb-[3px]">{row.id}</span>
                                         }
                                     </div>
                                     <div className="p6-cell" style={{ width: colWidths.name }} data-col="name">
                                         {editing?.id === row.id && editing.field === 'name' ? 
                                             <input autoFocus className="w-full h-full px-1" value={val} onChange={e => setVal(e.target.value)} onBlur={saveEdit} onKeyDown={e => e.key === 'Enter' && saveEdit()} /> : 
-                                            <span onDoubleClick={() => startEdit(row.id, 'name', row.data.name)} className="truncate">{row.data.name}</span>
+                                            <span onDoubleClick={() => startEdit(row.id, 'name', row.data.name)} className="truncate pt-[3px] pb-[3px]">{row.data.name}</span>
                                         }
                                     </div>
                                     <div className="p6-cell justify-center" style={{ width: colWidths.duration }} data-col="duration">
-                                        {/* Display Duration for Activities AND WBS */}
                                         {!isWBS ? (
                                             editing?.id === row.id && editing.field === 'duration' ? 
                                             <input autoFocus className="w-full h-full text-center" value={val} onChange={e => setVal(e.target.value)} onBlur={saveEdit} onKeyDown={e => e.key === 'Enter' && saveEdit()} /> : 
-                                            <span onDoubleClick={() => startEdit(row.id, 'duration', row.data.duration)}>{row.data.duration}</span>
+                                            <span onDoubleClick={() => startEdit(row.id, 'duration', row.data.duration)} className="pt-[3px] pb-[3px]">{row.data.duration}</span>
                                         ) : (
-                                            <span>{row.data.duration}</span>
+                                            <span className="pt-[3px] pb-[3px]">{row.data.duration}</span>
                                         )}
                                     </div>
-                                    <div className="p6-cell justify-center" style={{ width: colWidths.start }} data-col="start">{formatDate(row.startDate)}</div>
-                                    <div className="p6-cell justify-center" style={{ width: colWidths.finish }} data-col="finish">{formatDate(row.endDate)}</div>
+                                    <div className="p6-cell justify-center" style={{ width: colWidths.start }} data-col="start"><span className="pt-[3px] pb-[3px]">{formatDate(row.startDate)}</span></div>
+                                    <div className="p6-cell justify-center" style={{ width: colWidths.finish }} data-col="finish"><span className="pt-[3px] pb-[3px]">{formatDate(row.endDate)}</span></div>
                                     <div className="p6-cell justify-center" style={{ width: colWidths.float }} data-col="float">
-                                        {!isWBS && <span className={row.data.totalFloat <= 0 ? 'text-red-600 font-bold' : ''}>{row.data.totalFloat}</span>}
+                                        {!isWBS && <span className={`pt-[3px] pb-[3px] ${row.data.totalFloat <= 0 ? 'text-red-600 font-bold' : ''}`}>{row.data.totalFloat}</span>}
                                     </div>
                                     <div className="p6-cell" style={{ width: colWidths.preds }} data-col="preds" onDoubleClick={() => !isWBS && startEdit(row.id, 'predecessors', null)}>
                                         {!isWBS && (editing?.id === row.id && editing.field === 'predecessors' ? 
                                             <input autoFocus className="w-full h-full" value={val} onChange={e => setVal(e.target.value)} onBlur={saveEdit} onKeyDown={e => e.key === 'Enter' && saveEdit()} /> : 
-                                            <span className="truncate">{row.data.predecessors?.map((p: any) => {
+                                            <span className="truncate pt-[3px] pb-[3px]">{row.data.predecessors?.map((p: any) => {
                                                 const t = p.type !== 'FS' ? p.type : '';
                                                 const l = p.lag !== 0 ? (p.lag > 0 ? `+${p.lag}` : p.lag) : '';
                                                 return `${p.activityId}${t}${l}`;

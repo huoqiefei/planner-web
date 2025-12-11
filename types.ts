@@ -116,4 +116,5 @@ export interface UserSettings {
 export interface PrintSettings {
     paperSize: 'a4' | 'a3' | 'a2' | 'a1';
     orientation: 'landscape' | 'portrait';
+    selectedColumns?: string[];
 }
