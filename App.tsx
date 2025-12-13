@@ -402,6 +402,10 @@ const App: React.FC = () => {
                 cell.style.paddingTop = '0px'; // Reset padding to allow flex centering
                 cell.style.paddingBottom = '0px'; // Reset padding to allow flex centering
                 
+                // FORCE BORDER VISIBILITY
+                cell.style.borderRight = '1px solid #94a3b8'; // Darker color for print visibility
+                cell.style.height = 'auto'; // Allow stretch
+
                 // CRITICAL FIX: Target ALL spans to fix ID text clipping
                 // (ID cell has multiple spans: one for icon, one for text)
                 const spans = cell.querySelectorAll('span');
@@ -523,6 +527,11 @@ const App: React.FC = () => {
                 row.style.height = 'auto'; // FIX: Remove strict height match to allow font flex
                 row.style.overflow = 'visible'; // ALLOW content to show if slightly larger
                 row.style.maxHeight = 'none'; // Ensure no max height constraint
+                
+                // PRINT FIX: Ensure cells stretch to full row height for continuous vertical lines
+                row.style.display = 'flex';
+                row.style.alignItems = 'stretch'; 
+                row.style.borderBottom = '1px solid #cbd5e1';
             }
         });
 

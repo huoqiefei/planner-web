@@ -93,18 +93,25 @@ export const ConfirmModal: React.FC<{ isOpen: boolean, msg: string, onConfirm: (
     );
 };
 
+const DEFAULT_ABOUT = `# About Planner Web
+
+**Version:** 1.0.0
+
+**Planner Web** is a professional, web-based project management and scheduling tool inspired by industry standards like Primavera P6.
+
+### Key Features:
+- Critical Path Method (CPM) Scheduling
+- Dynamic Gantt Chart
+- WBS (Work Breakdown Structure) Management
+- Resource Analysis (Histogram & Consumption)
+- PDF Export & Printing
+
+### Powered By
+This application is powered by **[Planner.cn](http://www.planner.cn)**.
+
+*Copyright © 2023 Planner.cn. All rights reserved.*`;
+
 export const AboutModal: React.FC<{ isOpen: boolean, onClose: () => void, customCopyright?: string }> = ({ isOpen, onClose, customCopyright }) => {
-    const [content, setContent] = useState('');
-
-    useEffect(() => {
-        if (isOpen) {
-            fetch('about.md')
-                .then(res => res.text())
-                .then(text => setContent(text))
-                .catch(() => setContent('# About\nCould not load about.md'));
-        }
-    }, [isOpen]);
-
     return (
         <BaseModal isOpen={isOpen} title="About" onClose={onClose} footer={
             <div className="w-full flex justify-between items-center">
@@ -113,7 +120,7 @@ export const AboutModal: React.FC<{ isOpen: boolean, onClose: () => void, custom
             </div>
         }>
             <div className="max-h-[60vh] overflow-y-auto">
-                 <SimpleMarkdown content={content} />
+                 <SimpleMarkdown content={DEFAULT_ABOUT} />
             </div>
         </BaseModal>
     );
@@ -149,8 +156,10 @@ const DEFAULT_MANUAL = `# Planner Web - User Operation Manual
 `;
 
 export const HelpModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpen, onClose }) => {
-    const [content, setContent] = useState('');
+    const [content, setContent] = useState(DEFAULT_MANUAL);
 
+    // We keep this hook in case we want to support external manual loading in the future,
+    // but default to the constant first to prevent flash of empty content or errors.
     useEffect(() => {
         if (isOpen) {
             fetch('manual.md')
@@ -159,7 +168,7 @@ export const HelpModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ 
                     return res.text();
                 })
                 .then(text => setContent(text))
-                .catch(() => setContent(DEFAULT_MANUAL));
+                .catch(() => {}); // Fallback silently to default
         }
     }, [isOpen]);
 
