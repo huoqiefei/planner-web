@@ -201,11 +201,11 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
     };
 
     return (
-        <div className="flex-grow bg-white flex flex-col h-full overflow-hidden border-l border-slate-300 select-none">
+        <div className="flex-grow bg-white flex flex-col h-full overflow-hidden border-l border-slate-300 select-none gantt-component">
             {/* 1. Header Container */}
             <div 
                 ref={headerContainerRef}
-                className="bg-slate-50 border-b border-slate-300 overflow-hidden shrink-0 relative" 
+                className="bg-slate-50 border-b border-slate-300 overflow-hidden shrink-0 relative gantt-header-wrapper" 
                 style={{ height: headerHeight, width: '100%' }}
             >
                 <div style={{ width: chartWidth, height: headerHeight }} className="relative">
@@ -220,7 +220,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
             {/* 2. Body Container */}
             <div 
                 ref={bodyContainerRef}
-                className="flex-grow overflow-auto relative custom-scrollbar bg-white" 
+                className="flex-grow overflow-auto relative custom-scrollbar bg-white gantt-body-wrapper" 
                 onScroll={handleBodyScroll}
             >
                 <div style={{ width: chartWidth, height: Math.max(rows.length * rowHeight, 100) }} className="relative">

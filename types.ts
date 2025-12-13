@@ -108,7 +108,8 @@ export interface UserSettings {
 export interface PrintSettings {
     paperSize: 'a4' | 'a3' | 'a2' | 'a1';
     orientation: 'landscape' | 'portrait';
-    // selectedColumns removed, uses visibleColumns
+    scalingMode: 'fit' | 'custom'; // Added
+    scalePercent: number; // Added (100 = 1.0)
 }
 
 export interface AdminConfig {
@@ -117,6 +118,9 @@ export interface AdminConfig {
     enableWatermark: boolean;
     watermarkText?: string;
     watermarkFontSize?: number;
+    watermarkOpacity?: number; // 0.1 to 1.0
+    watermarkImage?: string; // Base64 string
+    appLogo?: string; // Base64 string for Landing Page & default Watermark
     ganttBarRatio: number; // 0.1 to 0.8
 }
 

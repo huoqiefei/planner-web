@@ -14,6 +14,7 @@ const DEFAULT_CONFIG: AdminConfig = {
     enableWatermark: true,
     watermarkText: '',
     watermarkFontSize: 40,
+    watermarkOpacity: 0.2,
     ganttBarRatio: 0.35
 };
 
@@ -53,9 +54,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
     };
 
     const handleSaveConfig = () => {
-        localStorage.setItem('planner_admin_config', JSON.stringify(config));
-        onSave(config);
-        onClose();
+        try {
+            localStorage.setItem('planner_admin_config', JSON.stringify(config));
+            onSave(config);
+            onClose();
+        } catch (e) {
+            alert("Error saving settings. Image might be too large.");
+        }
+    };
+
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'watermarkImage' | 'appLogo') => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64String = reader.result as string;
+                setConfig({ ...config, [field]: base64String });
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const clearImage = (field: 'watermarkImage' | 'appLogo') => {
+        setConfig({ ...config, [field]: undefined });
     };
 
     if (!isOpen) return null;
@@ -96,7 +117,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
                         <button onClick={handleLogin} className="mt-2 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 font-bold">Access Dashboard</button>
                     </div>
                 ) : (
-                    <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                    <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
                         <div className="bg-blue-50 border border-blue-200 p-2 text-xs text-blue-800 rounded mb-4">
                             System Settings are saved locally to this browser.
                         </div>
@@ -119,6 +140,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
                                     value={config.copyrightText} 
                                     onChange={e => setConfig({...config, copyrightText: e.target.value})}
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">System Logo (Landing Page)</label>
+                                <div className="flex gap-2 items-center">
+                                    <input 
+                                        type="file" 
+                                        accept="image/*"
+                                        className="text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                        onChange={(e) => handleImageUpload(e, 'appLogo')}
+                                    />
+                                    {config.appLogo && (
+                                        <button onClick={() => clearImage('appLogo')} className="text-red-500 text-xs underline">Remove</button>
+                                    )}
+                                </div>
+                                {config.appLogo && (
+                                    <div className="mt-2 border p-1 bg-white inline-block">
+                                        <img src={config.appLogo} alt="Logo Preview" className="h-16 object-contain" />
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -154,24 +195,60 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
                             </div>
                             
                             {config.enableWatermark && (
-                                <div className="grid grid-cols-3 gap-4">
-                                     <div className="col-span-2">
-                                        <label className="block text-xs font-bold text-slate-500 mb-1">Watermark Text (Overrides file)</label>
+                                <div className="space-y-4 p-4 bg-slate-50 rounded border">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 mb-1">Opacity ({config.watermarkOpacity})</label>
+                                            <input 
+                                                type="range" 
+                                                min="0.05"
+                                                max="1"
+                                                step="0.05"
+                                                className="w-full"
+                                                value={config.watermarkOpacity || 0.2} 
+                                                onChange={e => setConfig({...config, watermarkOpacity: Number(e.target.value)})}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 mb-1">Text Font Size (px)</label>
+                                            <input 
+                                                type="number" 
+                                                className="w-full border p-2 rounded text-sm" 
+                                                value={config.watermarkFontSize || 40} 
+                                                onChange={e => setConfig({...config, watermarkFontSize: Number(e.target.value)})}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 mb-1">Watermark Text</label>
                                         <input 
                                             className="w-full border p-2 rounded text-sm" 
                                             value={config.watermarkText || ''} 
                                             onChange={e => setConfig({...config, watermarkText: e.target.value})}
-                                            placeholder="Leave empty to use watermark.md"
+                                            placeholder="Default: Planner.cn (or from watermark.md)"
                                         />
                                     </div>
+
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-1">Font Size (px)</label>
-                                        <input 
-                                            type="number" 
-                                            className="w-full border p-2 rounded text-sm" 
-                                            value={config.watermarkFontSize || 40} 
-                                            onChange={e => setConfig({...config, watermarkFontSize: Number(e.target.value)})}
-                                        />
+                                        <label className="block text-xs font-bold text-slate-500 mb-1">Watermark Image (Overrides Logo)</label>
+                                        <div className="flex gap-2 items-center">
+                                            <input 
+                                                type="file" 
+                                                accept="image/*"
+                                                className="text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                onChange={(e) => handleImageUpload(e, 'watermarkImage')}
+                                            />
+                                            {config.watermarkImage && (
+                                                <button onClick={() => clearImage('watermarkImage')} className="text-red-500 text-xs underline">Remove</button>
+                                            )}
+                                        </div>
+                                        {config.watermarkImage && (
+                                            <div className="mt-2 border p-1 bg-white inline-block">
+                                                <img src={config.watermarkImage} alt="Preview" className="h-16 object-contain" />
+                                            </div>
+                                        )}
+                                        <p className="text-[10px] text-slate-400">If no image is uploaded here, System Logo will be used.</p>
                                     </div>
                                 </div>
                             )}

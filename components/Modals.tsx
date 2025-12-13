@@ -361,7 +361,9 @@ export const UserSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void,
 export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void, onPrint: (s: PrintSettings) => void, lang?: 'en'|'zh' }> = ({ isOpen, onClose, onPrint, lang='en' }) => {
     const [settings, setSettings] = useState<PrintSettings>({ 
         paperSize: 'a3', 
-        orientation: 'landscape'
+        orientation: 'landscape',
+        scalingMode: 'fit',
+        scalePercent: 100
     });
     const { t } = useTranslation(lang as 'en' | 'zh');
 
@@ -393,9 +395,37 @@ export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void
                         </label>
                     </div>
                 </div>
+                
+                <div className="border-t pt-2">
+                    <label className="block mb-1 font-bold">Scaling</label>
+                    <div className="flex gap-4 mt-1 mb-2">
+                        <label className="flex items-center gap-1">
+                            <input type="radio" name="scaling" checked={settings.scalingMode === 'fit'} onChange={() => setSettings({...settings, scalingMode: 'fit'})} /> 
+                            Fit to Page Width
+                        </label>
+                        <label className="flex items-center gap-1">
+                            <input type="radio" name="scaling" checked={settings.scalingMode === 'custom'} onChange={() => setSettings({...settings, scalingMode: 'custom'})} /> 
+                            Actual Size (%)
+                        </label>
+                    </div>
+                    {settings.scalingMode === 'custom' && (
+                        <div className="flex items-center gap-2">
+                            <input 
+                                type="number" 
+                                min="10" 
+                                max="200" 
+                                className="border p-1 w-20" 
+                                value={settings.scalePercent} 
+                                onChange={e => setSettings({...settings, scalePercent: Number(e.target.value)})} 
+                            />
+                            <span>%</span>
+                            <span className="text-[10px] text-slate-500">(100% ≈ Standard Screen Size)</span>
+                        </div>
+                    )}
+                </div>
 
                 <div className="text-[10px] text-slate-500 mt-2 bg-yellow-50 p-2 border border-yellow-200">
-                    {t('PrintNote')}
+                    {settings.scalingMode === 'fit' ? t('PrintNote') : 'Note: Actual Size scaling may clip content on the right side if the paper is too small.'}
                 </div>
             </div>
         </BaseModal>

@@ -49,9 +49,12 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx }) =
             { type: 'separator' },
             { label: t('ProjectInfo'), action: 'project_info' },
         ],
+        [t('System')]: [
+            { label: t('Configuration'), action: 'admin' },
+        ],
         [t('Help')]: [
-            { label: t('About'), action: 'help' },
-            { label: 'System Configuration', action: 'admin' },
+            { label: t('About'), action: 'about' },
+            { label: 'User Manual', action: 'help' },
         ]
     };
 
