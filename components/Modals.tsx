@@ -372,7 +372,11 @@ export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void
         paperSize: 'a3', 
         orientation: 'landscape',
         scalingMode: 'fit',
-        scalePercent: 100
+        scalePercent: 100,
+        headerText: '',
+        footerText: '',
+        showPageNumber: true,
+        showDate: true
     });
     const { t } = useTranslation(lang as 'en' | 'zh');
 
@@ -383,59 +387,76 @@ export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void
                 <button onClick={() => { onPrint(settings); onClose(); }} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">{t('PrintPreview')}</button>
             </>
         }>
-            <div className="space-y-4">
-                <div>
-                    <label className="block mb-1 font-bold">{t('PaperSize')}</label>
-                    <select className="w-full border p-1" value={settings.paperSize} onChange={e => setSettings({...settings, paperSize: e.target.value as any})}>
-                        <option value="a4">A4</option>
-                        <option value="a3">A3</option>
-                        <option value="a2">A2</option>
-                        <option value="a1">A1</option>
-                    </select>
-                </div>
-                <div>
-                    <label className="block mb-1 font-bold">{t('Orientation')}</label>
-                    <div className="flex gap-4 mt-1">
-                        <label className="flex items-center gap-1">
-                            <input type="radio" name="orient" checked={settings.orientation === 'landscape'} onChange={() => setSettings({...settings, orientation: 'landscape'})} /> {t('Landscape')}
-                        </label>
-                        <label className="flex items-center gap-1">
-                            <input type="radio" name="orient" checked={settings.orientation === 'portrait'} onChange={() => setSettings({...settings, orientation: 'portrait'})} /> {t('Portrait')}
-                        </label>
+            <div className="space-y-4 text-sm">
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block mb-1 font-bold">{t('PaperSize')}</label>
+                        <select className="w-full border p-1 rounded" value={settings.paperSize} onChange={e => setSettings({...settings, paperSize: e.target.value as any})}>
+                            <option value="a4">A4</option>
+                            <option value="a3">A3</option>
+                            <option value="a2">A2</option>
+                            <option value="a1">A1</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block mb-1 font-bold">{t('Orientation')}</label>
+                        <select className="w-full border p-1 rounded" value={settings.orientation} onChange={e => setSettings({...settings, orientation: e.target.value as any})}>
+                            <option value="landscape">{t('Landscape')}</option>
+                            <option value="portrait">{t('Portrait')}</option>
+                        </select>
                     </div>
                 </div>
-                
+
+                <div className="border-t pt-2">
+                    <label className="block mb-1 font-bold">Header & Footer</label>
+                    <div className="space-y-2">
+                        <input 
+                            type="text" 
+                            placeholder="Header Text (Center)" 
+                            className="w-full border p-1 rounded"
+                            value={settings.headerText || ''}
+                            onChange={e => setSettings({...settings, headerText: e.target.value})}
+                        />
+                        <input 
+                            type="text" 
+                            placeholder="Footer Text (Center)" 
+                            className="w-full border p-1 rounded"
+                            value={settings.footerText || ''}
+                            onChange={e => setSettings({...settings, footerText: e.target.value})}
+                        />
+                        <div className="flex gap-4 pt-1">
+                            <label className="flex items-center gap-2">
+                                <input type="checkbox" checked={settings.showPageNumber} onChange={e => setSettings({...settings, showPageNumber: e.target.checked})} />
+                                Show Page Numbers
+                            </label>
+                            <label className="flex items-center gap-2">
+                                <input type="checkbox" checked={settings.showDate} onChange={e => setSettings({...settings, showDate: e.target.checked})} />
+                                Show Date
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="border-t pt-2">
                     <label className="block mb-1 font-bold">Scaling</label>
-                    <div className="flex gap-4 mt-1 mb-2">
-                        <label className="flex items-center gap-1">
-                            <input type="radio" name="scaling" checked={settings.scalingMode === 'fit'} onChange={() => setSettings({...settings, scalingMode: 'fit'})} /> 
-                            Fit to Page Width
+                    <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2">
+                            <input type="radio" name="scale" checked={settings.scalingMode === 'fit'} onChange={() => setSettings({...settings, scalingMode: 'fit'})} />
+                            Fit to Width (Auto)
                         </label>
-                        <label className="flex items-center gap-1">
-                            <input type="radio" name="scaling" checked={settings.scalingMode === 'custom'} onChange={() => setSettings({...settings, scalingMode: 'custom'})} /> 
-                            Actual Size (%)
+                        <label className="flex items-center gap-2">
+                            <input type="radio" name="scale" checked={settings.scalingMode === 'custom'} onChange={() => setSettings({...settings, scalingMode: 'custom'})} />
+                            Custom %
                         </label>
                     </div>
                     {settings.scalingMode === 'custom' && (
-                        <div className="flex items-center gap-2">
-                            <input 
-                                type="number" 
-                                min="10" 
-                                max="200" 
-                                className="border p-1 w-20" 
-                                value={settings.scalePercent} 
-                                onChange={e => setSettings({...settings, scalePercent: Number(e.target.value)})} 
-                            />
+                         <div className="mt-1 flex items-center gap-2">
+                            <input type="number" className="border w-20 p-1" value={settings.scalePercent} onChange={e => setSettings({...settings, scalePercent: parseInt(e.target.value)||100})} />
                             <span>%</span>
-                            <span className="text-[10px] text-slate-500">(100% ≈ Standard Screen Size)</span>
-                        </div>
+                         </div>
                     )}
                 </div>
-
-                <div className="text-[10px] text-slate-500 mt-2 bg-yellow-50 p-2 border border-yellow-200">
-                    {settings.scalingMode === 'fit' ? t('PrintNote') : 'Note: Actual Size scaling may clip content on the right side if the paper is too small.'}
-                </div>
+                <p className="text-xs text-slate-500 italic mt-2">{t('PrintNote')}</p>
             </div>
         </BaseModal>
     );

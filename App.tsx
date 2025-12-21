@@ -2,8 +2,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-import { ProjectData, ScheduleResult, UserSettings, PrintSettings, AdminConfig } from './types';
+import { ProjectData, ScheduleResult, UserSettings, PrintSettings, AdminConfig, User } from './types';
 import { calculateSchedule } from './services/scheduler';
+import { authService } from './services/authService';
 import Toolbar from './components/Toolbar';
 import MenuBar from './components/MenuBar';
 import CombinedView from './components/CombinedView';
@@ -11,9 +12,12 @@ import DetailsPanel from './components/DetailsPanel';
 import ResourcesPanel from './components/ResourcesPanel';
 import ProjectSettingsModal from './components/ProjectSettingsModal';
 import { AlertModal, ConfirmModal, AboutModal, UserSettingsModal, PrintSettingsModal, BatchAssignModal, AdminModal, HelpModal, ColumnSetupModal } from './components/Modals';
+import { LoginModal } from './components/LoginModal';
 
 // --- APP ---
 const App: React.FC = () => {
+    const [user, setUser] = useState<User | null>(null);
+    const [isLoginOpen, setIsLoginOpen] = useState(false);
     const [data, setData] = useState<ProjectData | null>(null);
     const [schedule, setSchedule] = useState<ScheduleResult>({ activities: [], wbsMap: {} });
     const [selIds, setSelIds] = useState<string[]>([]);
@@ -57,13 +61,32 @@ const App: React.FC = () => {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Load Admin Config
+    // Load User Session & Admin Config
     useEffect(() => {
+        const currentUser = authService.getCurrentUser();
+        if (currentUser) {
+            setUser(currentUser);
+        } else {
+            setIsLoginOpen(true);
+        }
+
         const saved = localStorage.getItem('planner_admin_config');
         if(saved) {
             try { setAdminConfig({ ...adminConfig, ...JSON.parse(saved) }); } catch(e) {}
         }
     }, []);
+
+    const handleLoginSuccess = (user: User) => {
+        setUser(user);
+        setIsLoginOpen(false);
+    };
+
+    const handleLogout = () => {
+        authService.logout();
+        setUser(null);
+        setData(null);
+        setIsLoginOpen(true);
+    };
 
     useEffect(() => { 
         if(data) { 
@@ -561,8 +584,13 @@ const App: React.FC = () => {
             const pageH = isLandscape ? dims[settings.paperSize].w : dims[settings.paperSize].h;
             
             const margin = 20;
+            
+            // Calculate Header/Footer Heights
+            const customHeaderH = settings.headerText ? 30 : 0;
+            const customFooterH = (settings.footerText || settings.showPageNumber || settings.showDate) ? 30 : 0;
+
             const contentW = pageW - (margin * 2);
-            const contentH = pageH - (margin * 2);
+            const contentH = pageH - (margin * 2) - customHeaderH - customFooterH;
 
             const pdf = new jsPDF(isLandscape ? 'l' : 'p', 'pt', [pageW, pageH]);
 
@@ -575,16 +603,6 @@ const App: React.FC = () => {
             let scaleFactor = fitRatio;
             
             if (settings.scalingMode === 'custom') {
-                 // Convert user percent (e.g., 100) to ratio (1.0).
-                 // However, we captured at scale 3. So 100% "actual size" roughly means 1px = 1pt.
-                 // But html2canvas scale=3 means image is 3x bigger. 
-                 // If we want "actual size", we should use (1 / 3).
-                 // Let's interpret "100%" as "Fit Width" is 100% relative to page? No, standard practice is scale ratio.
-                 
-                 // Simpler approach: 
-                 // "Fit Width" means everything fits.
-                 // "100%" means we assume the HTML px maps to PDF pt (72 DPI approx).
-                 // Since we captured at 3x, we divide by 3 to get back to 1:1, then multiply by user scale.
                  const baseOneToOne = 1 / 3; 
                  scaleFactor = baseOneToOne * (settings.scalePercent / 100);
             }
@@ -638,15 +656,22 @@ const App: React.FC = () => {
 
             // PAGINATION LOOP
             while (heightLeft > 0) {
-                // Header
-                // Note: If scaleFactor is huge (custom zoom), the header might be wider than contentW.
-                // We clip it or let it flow off page. jsPDF images flow off page by default.
-                pdf.addImage(headerCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin, margin, headerCanvas.width * scaleFactor, headerH);
+                // Custom Header Text
+                if (settings.headerText) {
+                    pdf.setFontSize(14);
+                    pdf.setTextColor(50);
+                    pdf.text(settings.headerText, pageW / 2, margin + 15, { align: 'center' });
+                }
+
+                const tableHeaderY = margin + customHeaderH;
+
+                // Table Header Image
+                pdf.addImage(headerCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin, tableHeaderY, headerCanvas.width * scaleFactor, headerH);
                 
                 // Draw a box around header region (clamped to page)
                 const headerBoxW = Math.min(contentW, headerCanvas.width * scaleFactor);
                 pdf.setDrawColor(203, 213, 225); 
-                pdf.rect(margin, margin, headerBoxW, headerH);
+                pdf.rect(margin, tableHeaderY, headerBoxW, headerH);
 
                 // Body Slice
                 const availableH = contentH - headerH - 10;
@@ -668,10 +693,10 @@ const App: React.FC = () => {
                             0, 0, sliceCanvas.width, sliceCanvas.height 
                         );
                         
-                        pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin, margin + headerH, sliceCanvas.width * scaleFactor, sliceH);
+                        pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin, tableHeaderY + headerH, sliceCanvas.width * scaleFactor, sliceH);
                         
                         const bodyBoxW = Math.min(contentW, sliceCanvas.width * scaleFactor);
-                        pdf.rect(margin, margin + headerH, bodyBoxW, sliceH);
+                        pdf.rect(margin, tableHeaderY + headerH, bodyBoxW, sliceH);
                     }
                 }
 
@@ -680,13 +705,31 @@ const App: React.FC = () => {
                     pdf.addImage(wmDataUrl, 'PNG', 0, 0, pageW, pageH, undefined, 'FAST');
                 }
 
-                heightLeft -= sliceH;
-                yOffset += sliceH;
-
-                const pageNum = pdf.getNumberOfPages();
+                // Custom Footer
+                const footerY = pageH - margin - 10;
                 pdf.setFontSize(10);
                 pdf.setTextColor(100);
-                pdf.text(`- ${pageNum} -`, pageW / 2, pageH - 10, { align: 'center' });
+                
+                if (settings.footerText) {
+                    pdf.text(settings.footerText, pageW / 2, footerY, { align: 'center' });
+                }
+
+                if (settings.showPageNumber) {
+                    const pageNum = pdf.getNumberOfPages();
+                    const text = settings.footerText ? `- ${pageNum} -` : `- ${pageNum} -`;
+                    const x = settings.footerText ? pageW - margin - 20 : pageW / 2;
+                    // If center is taken by footerText, move page number to right
+                    if (settings.footerText) pdf.text(`Page ${pageNum}`, pageW - margin, footerY, { align: 'right' });
+                    else pdf.text(`- ${pageNum} -`, pageW / 2, footerY, { align: 'center' });
+                }
+                
+                if (settings.showDate) {
+                     const dateStr = new Date().toLocaleDateString();
+                     pdf.text(dateStr, margin, footerY);
+                }
+
+                heightLeft -= sliceH;
+                yOffset += sliceH;
 
                 if (heightLeft > 0) pdf.addPage();
             }
@@ -766,14 +809,30 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col gap-3 w-full">
-                    <button onClick={createNew} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center justify-center gap-2 text-base">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
-                        Create New Project
-                    </button>
-                    <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-bold border-2 border-slate-200 transition-colors flex items-center justify-center gap-2 text-base">
-                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/></svg>
-                        Open Existing Project
-                    </button>
+                    {user ? (
+                        <>
+                            <div className="text-center text-sm text-slate-600 mb-2">
+                                Welcome, <span className="font-bold">{user.name}</span>
+                            </div>
+                            {user.group !== 'viewer' && (
+                                <button onClick={createNew} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center justify-center gap-2 text-base">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+                                    Create New Project
+                                </button>
+                            )}
+                            <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-bold border-2 border-slate-200 transition-colors flex items-center justify-center gap-2 text-base">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/></svg>
+                                Open Existing Project
+                            </button>
+                            <button onClick={handleLogout} className="w-full text-red-600 text-sm hover:underline mt-2">
+                                Logout
+                            </button>
+                        </>
+                    ) : (
+                        <button onClick={() => setIsLoginOpen(true)} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center justify-center gap-2 text-base">
+                            Login to Continue
+                        </button>
+                    )}
                 </div>
 
                 <div className="pt-3 border-t w-full text-center text-[10px] text-slate-400">
@@ -782,13 +841,14 @@ const App: React.FC = () => {
              </div>
              <input type="file" ref={fileInputRef} onChange={handleOpen} className="hidden" accept=".json" />
              <AdminModal isOpen={activeModal === 'admin'} onClose={() => setActiveModal(null)} onSave={setAdminConfig} />
+             <LoginModal isOpen={isLoginOpen} onLoginSuccess={handleLoginSuccess} onClose={() => {}} />
         </div>
     );
 
     return (
         <div className="flex flex-col h-full bg-slate-100" onClick={() => setCtx(null)}>
             <div className="h-8 flex-shrink-0 relative z-50">
-                <MenuBar onAction={handleMenuAction} lang={userSettings.language} uiSize={userSettings.uiSize} uiFontPx={userSettings.uiFontPx} />
+                <MenuBar onAction={handleMenuAction} lang={userSettings.language} uiSize={userSettings.uiSize} uiFontPx={userSettings.uiFontPx} user={user} />
             </div>
             
             <Toolbar 
@@ -804,6 +864,7 @@ const App: React.FC = () => {
                 onToggleRelations={() => setShowRelations(!showRelations)}
                 showCritical={showCritical}
                 onToggleCritical={() => setShowCritical(!showCritical)}
+                user={user}
             />
             <input type="file" ref={fileInputRef} onChange={handleOpen} className="hidden" accept=".json" />
 

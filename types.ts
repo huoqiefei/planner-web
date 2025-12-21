@@ -110,6 +110,20 @@ export interface PrintSettings {
     orientation: 'landscape' | 'portrait';
     scalingMode: 'fit' | 'custom'; // Added
     scalePercent: number; // Added (100 = 1.0)
+    headerText?: string;
+    footerText?: string;
+    showPageNumber: boolean;
+    showDate: boolean;
+}
+
+export type UserRole = 'admin' | 'editor' | 'viewer';
+
+export interface User {
+    uid: string;
+    name: string;
+    mail: string;
+    group: UserRole; // Mapped from Typecho group
+    token?: string;
 }
 
 export interface AdminConfig {
