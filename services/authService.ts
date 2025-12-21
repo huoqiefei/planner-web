@@ -25,11 +25,18 @@ export const authService = {
         try {
             const response = await fetch(`${this.baseUrl}/login`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                mode: 'cors',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify({ username, password })
             });
             
-            if (!response.ok) throw new Error('Login failed');
+            if (!response.ok) {
+                const text = await response.text().catch(() => '');
+                throw new Error(`Login failed (${response.status}): ${text}`);
+            }
             
             const data = await response.json();
             const typechoGroup = data.user.group;
