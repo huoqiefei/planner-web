@@ -17,7 +17,7 @@ const STORAGE_KEY = 'planner_user_session';
 
 export const authService = {
     // API Base URL (Update this to your Typecho URL)
-    baseUrl: 'https://board.centrekit.com/index.php/planner/api',
+    baseUrl: import.meta.env.DEV ? '/api' : 'https://board.centrekit.com/index.php/planner/api',
 
     async login(username: string, password: string): Promise<User> {
         // // Real API Call Implementation
