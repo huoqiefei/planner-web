@@ -157,7 +157,17 @@ export const translations = {
         AddChildWBS: 'Add Child WBS',
         RenumberActivities: 'Renumber Activities',
         DeleteWBS: 'Delete WBS',
-        DeleteActivity: 'Delete Activity'
+        DeleteActivity: 'Delete Activity',
+        // Default Names & Prompts
+        NewTask: 'New Task',
+        NewWBS: 'New WBS',
+        CopySuffix: ' (Copy)',
+        LoginToContinue: 'Login to Continue',
+        CreateNewProject: 'Create New Project',
+        OpenExistingProject: 'Open Existing Project',
+        Logout: 'Logout',
+        Welcome: 'Welcome',
+        Version: 'Version'
     },
     zh: {
         File: '文件',
