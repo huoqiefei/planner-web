@@ -99,7 +99,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
     const delSucc = (succId: string) => {
         const targetAct = allActivities.find(a => a.id === succId);
         if(targetAct) {
-            const newPreds = targetAct.predecessors.filter(p => p.activityId !== activity.id);
+            const newPreds = (targetAct.predecessors || []).filter(p => p.activityId !== activity.id);
             onUpdate(targetAct.id, 'predecessors', newPreds);
         }
     };

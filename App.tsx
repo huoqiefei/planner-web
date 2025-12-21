@@ -242,7 +242,7 @@ const App: React.FC = () => {
         if (!data) return;
 
         if (act === 'renumber') {
-            setModalData({ msg: `Renumber all activities?`, action: handleRenumberActivities });
+            setModalData({ msg: t('RenumberAllActivities'), action: handleRenumberActivities });
             setActiveModal('confirm');
         }
         if (act === 'addAct' || act === 'addActSame') {

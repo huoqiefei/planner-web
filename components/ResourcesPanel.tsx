@@ -64,7 +64,7 @@ const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ resources, assignments,
     };
 
     const addRes = () => {
-        const newRes: Resource = { id: generateResId(), name: 'New Resource', type: 'Labor', unit: 'h', maxUnits: 8 };
+        const newRes: Resource = { id: generateResId(), name: t('NewResource'), type: 'Labor', unit: 'h', maxUnits: 8 };
         onUpdateResources([...resources, newRes]);
         onSelect([newRes.id]);
         setCtx(null);
