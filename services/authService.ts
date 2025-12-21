@@ -16,10 +16,43 @@ interface TypechoLoginResponse {
 const STORAGE_KEY = 'planner_user_session';
 
 export const authService = {
+    // API Base URL (Update this to your Typecho URL)
+    baseUrl: 'http://your-typecho-site.com/index.php/planner/api',
+
     async login(username: string, password: string): Promise<User> {
-        // TODO: Replace with actual Typecho API call
-        // const response = await fetch('/api/login', { ... });
-        
+        // Real API Call Implementation
+        /*
+        try {
+            const response = await fetch(`${this.baseUrl}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            
+            if (!response.ok) throw new Error('Login failed');
+            
+            const data = await response.json();
+            const typechoGroup = data.user.group;
+            
+            // Check for custom authorization category in meta
+            const authCategory = data.user.meta?.planner_auth_group || typechoGroup;
+            
+            const user: User = {
+                uid: data.user.uid.toString(),
+                name: data.user.name,
+                mail: data.user.mail,
+                group: this.mapTypechoGroupToRole(authCategory),
+                token: data.token
+            };
+            
+            this.saveUser(user);
+            return user;
+        } catch (error) {
+            console.error('Login error:', error);
+            throw error;
+        }
+        */
+
         // Mocking logic for demonstration
         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
 
