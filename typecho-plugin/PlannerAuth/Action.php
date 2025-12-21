@@ -28,9 +28,12 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
         $this->response->setHeader('Access-Control-Allow-Origin', $origin);
         $this->response->setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
         $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+        $this->response->setHeader('Access-Control-Allow-Credentials', 'true');
+        $this->response->setHeader('Access-Control-Max-Age', '86400');
         $this->response->setHeader('Content-Type', 'application/json');
         
         if ($this->request->is('OPTIONS')) {
+            http_response_code(204);
             exit;
         }
     }
@@ -105,7 +108,7 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
             'token' => $token,
             'user' => [
                 'uid' => $user['uid'],
-                'name' => $user['name'], // Screen name
+                'name' => $user['screenName'],
                 'username' => $user['name'],
                 'mail' => $user['mail'],
                 'group' => $user['group'],
