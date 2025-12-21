@@ -13,6 +13,7 @@ import ResourcesPanel from './components/ResourcesPanel';
 import ProjectSettingsModal from './components/ProjectSettingsModal';
 import { AlertModal, ConfirmModal, AboutModal, UserSettingsModal, PrintSettingsModal, BatchAssignModal, AdminModal, HelpModal, ColumnSetupModal } from './components/Modals';
 import { LoginModal } from './components/LoginModal';
+import { useTranslation } from './utils/i18n';
 
 // --- APP ---
 const App: React.FC = () => {
@@ -58,6 +59,8 @@ const App: React.FC = () => {
         gridSettings: { showVertical: true, verticalInterval: 'auto', showHorizontal: true, showWBSLines: true },
         visibleColumns: ['id', 'name', 'duration', 'start', 'finish', 'float', 'preds'] 
     });
+
+    const { t } = useTranslation(userSettings.language);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -247,15 +250,15 @@ const App: React.FC = () => {
             if (!wbsId) return;
             const max = data.activities.reduce((m, a) => { const match = a.id.match(/(\d+)/); return match ? Math.max(m, parseInt(match[1])) : m; }, 1000);
             const newId = (data.meta.activityIdPrefix || 'A') + (max + (data.meta.activityIdIncrement || 10));
-            setData(p => p ? { ...p, activities: [...p.activities, { id: newId, name: 'New Task', wbsId, duration: 5, predecessors: [], budgetedCost: 0, calendarId: p.meta.defaultCalendarId, activityType: 'Task', startDate: new Date(), endDate: new Date(), earlyStart: new Date(), earlyFinish: new Date(), lateStart: new Date(), lateFinish: new Date(), totalFloat: 0 }] } : null);
+            setData(p => p ? { ...p, activities: [...p.activities, { id: newId, name: t('NewTask'), wbsId, duration: 5, predecessors: [], budgetedCost: 0, calendarId: p.meta.defaultCalendarId, activityType: 'Task', startDate: new Date(), endDate: new Date(), earlyStart: new Date(), earlyFinish: new Date(), lateStart: new Date(), lateFinish: new Date(), totalFloat: 0 }] } : null);
         }
         if (act === 'addWBS') {
             const newId = id + '.' + (data.wbs.filter(w => w.parentId === id).length + 1);
-            setData(p => p ? { ...p, wbs: [...p.wbs, { id: newId, name: 'New WBS', parentId: id }] } : null);
+            setData(p => p ? { ...p, wbs: [...p.wbs, { id: newId, name: t('NewWBS'), parentId: id }] } : null);
         }
         if (act === 'delAct') handleDeleteItems(targets);
         if (act === 'delWBS') {
-            setModalData({ msg: "Delete WBS and all its activities?", action: () => setData(p => p ? { ...p, wbs: p.wbs.filter(w => w.id !== id) } : null) });
+            setModalData({ msg: t('DeleteWBSPrompt'), action: () => setData(p => p ? { ...p, wbs: p.wbs.filter(w => w.id !== id) } : null) });
             setActiveModal('confirm');
         }
         if (act === 'assignRes') {
@@ -316,7 +319,7 @@ const App: React.FC = () => {
                             const original = data.resources.find(r => r.id === id);
                             if(!original) return null;
                              const suffix = Math.floor(Math.random() * 1000);
-                             return { ...original, id: original.id + '-CP' + suffix, name: original.name + ' (Copy)' };
+                             return { ...original, id: original.id + '-CP' + suffix, name: original.name + t('CopySuffix') };
                         }).filter(x => x) as any;
                         setData(p => p ? { ...p, resources: [...p.resources, ...newResources] } : null);
                     } else if (clipboard.type === 'Activities') {
@@ -568,6 +571,25 @@ const App: React.FC = () => {
         staging.appendChild(bodyAssembly);
         document.body.appendChild(staging);
 
+        // 5.5 Create Custom Header Assembly for Capture (Fixing Chinese Font Issue)
+        let customHeaderCanvas: HTMLCanvasElement | null = null;
+        if (settings.headerText) {
+            const hDiv = document.createElement('div');
+            hDiv.innerText = settings.headerText;
+            hDiv.style.fontSize = '24px'; // High res for print
+            hDiv.style.fontWeight = 'bold';
+            hDiv.style.color = '#334155';
+            hDiv.style.textAlign = 'center';
+            hDiv.style.width = `${tableWidth + ganttWidth}px`; 
+            hDiv.style.backgroundColor = 'white';
+            hDiv.style.padding = '20px'; // Padding
+            staging.appendChild(hDiv);
+            try {
+                customHeaderCanvas = await html2canvas(hDiv, { scale: 2, logging: false });
+            } catch(e) { console.error("Header capture failed", e); }
+            staging.removeChild(hDiv); // Clean up immediately from staging
+        }
+
         // 6. Capture
         try {
             // Increase scale to 3 for higher clarity on large prints
@@ -586,7 +608,7 @@ const App: React.FC = () => {
             const margin = 20;
             
             // Calculate Header/Footer Heights
-            const customHeaderH = settings.headerText ? 30 : 0;
+            const customHeaderH = customHeaderCanvas ? 60 : (settings.headerText ? 30 : 0);
             const customFooterH = (settings.footerText || settings.showPageNumber || settings.showDate) ? 30 : 0;
 
             const contentW = pageW - (margin * 2);
@@ -600,12 +622,9 @@ const App: React.FC = () => {
             // Base Ratio: Fits width to page content
             const fitRatio = contentW / totalImgW;
             
-            let scaleFactor = fitRatio;
-            
-            if (settings.scalingMode === 'custom') {
-                 const baseOneToOne = 1 / 3; 
-                 scaleFactor = baseOneToOne * (settings.scalePercent / 100);
-            }
+            const scaleFactor = settings.scalingMode === 'custom' 
+                ? (1/3) * (settings.scalePercent / 100) 
+                : fitRatio;
 
             const headerH = headerCanvas.height * scaleFactor;
             const bodyTotalH = bodyCanvas.height * scaleFactor;
@@ -657,7 +676,13 @@ const App: React.FC = () => {
             // PAGINATION LOOP
             while (heightLeft > 0) {
                 // Custom Header Text
-                if (settings.headerText) {
+                if (customHeaderCanvas) {
+                    const aspect = customHeaderCanvas.width / customHeaderCanvas.height;
+                    const drawH = 40; // Fixed height for header
+                    const drawW = drawH * aspect;
+                    const x = (pageW - drawW) / 2; // Center
+                    pdf.addImage(customHeaderCanvas.toDataURL('image/png'), 'PNG', x, margin, drawW, drawH);
+                } else if (settings.headerText) {
                     pdf.setFontSize(14);
                     pdf.setTextColor(50);
                     pdf.text(settings.headerText, pageW / 2, margin + 15, { align: 'center' });
@@ -758,25 +783,25 @@ const App: React.FC = () => {
         
         return (
             <div className="ctx-menu" style={{ ...style, fontSize: `${userSettings.uiFontPx || 13}px` }} onClick={e => e.stopPropagation()}>
-                <div className="bg-slate-100 px-3 py-1 font-bold border-b text-slate-500">{type} Actions</div>
+                <div className="bg-slate-100 px-3 py-1 font-bold border-b text-slate-500">{type} {t('Actions')}</div>
                 {type === 'WBS' && (
                     <>
-                        <div className="ctx-item" onClick={() => onAction('addAct')}>{Icons.Task} Add Activity</div>
-                        <div className="ctx-item" onClick={() => onAction('addWBS')}>{Icons.WBS} Add Child WBS</div>
+                        <div className="ctx-item" onClick={() => onAction('addAct')}>{Icons.Task} {t('AddActivity')}</div>
+                        <div className="ctx-item" onClick={() => onAction('addWBS')}>{Icons.WBS} {t('AddChildWBS')}</div>
                         <div className="ctx-sep"></div>
-                        <div className="ctx-item" onClick={() => onAction('renumber')}>{Icons.Number} Renumber Activities</div>
+                        <div className="ctx-item" onClick={() => onAction('renumber')}>{Icons.Number} {t('RenumberActivities')}</div>
                         <div className="ctx-sep"></div>
-                        <div className="ctx-item text-red-600" onClick={() => onAction('delWBS')}>{Icons.Delete} Delete WBS</div>
+                        <div className="ctx-item text-red-600" onClick={() => onAction('delWBS')}>{Icons.Delete} {t('DeleteWBS')}</div>
                     </>
                 )}
                 {type === 'Activity' && (
                     <>
-                        <div className="ctx-item" onClick={() => onAction('addActSame')}>{Icons.Task} Add Activity</div>
-                        <div className="ctx-item" onClick={() => onAction('assignRes')}>{Icons.User} Assign Resource</div>
+                        <div className="ctx-item" onClick={() => onAction('addActSame')}>{Icons.Task} {t('AddActivity')}</div>
+                        <div className="ctx-item" onClick={() => onAction('assignRes')}>{Icons.User} {t('AssignResource')}</div>
                         <div className="ctx-sep"></div>
-                        <div className="ctx-item" onClick={() => onAction('renumber')}>{Icons.Number} Renumber Activities</div>
+                        <div className="ctx-item" onClick={() => onAction('renumber')}>{Icons.Number} {t('RenumberActivities')}</div>
                         <div className="ctx-sep"></div>
-                        <div className="ctx-item text-red-600" onClick={() => onAction('delAct')}>{Icons.Delete} Delete Activity</div>
+                        <div className="ctx-item text-red-600" onClick={() => onAction('delAct')}>{Icons.Delete} {t('DeleteActivity')}</div>
                     </>
                 )}
             </div>
@@ -812,31 +837,31 @@ const App: React.FC = () => {
                     {user ? (
                         <>
                             <div className="text-center text-sm text-slate-600 mb-2">
-                                Welcome, <span className="font-bold">{user.name}</span>
+                                {t('Welcome')}, <span className="font-bold">{user.name}</span>
                             </div>
                             {user.group !== 'viewer' && (
                                 <button onClick={createNew} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center justify-center gap-2 text-base">
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
-                                    Create New Project
+                                    {t('CreateNewProject')}
                                 </button>
                             )}
                             <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-bold border-2 border-slate-200 transition-colors flex items-center justify-center gap-2 text-base">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/></svg>
-                                Open Existing Project
+                                {t('OpenExistingProject')}
                             </button>
                             <button onClick={handleLogout} className="w-full text-red-600 text-sm hover:underline mt-2">
-                                Logout
+                                {t('Logout')}
                             </button>
                         </>
                     ) : (
                         <button onClick={() => setIsLoginOpen(true)} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center justify-center gap-2 text-base">
-                            Login to Continue
+                            {t('LoginToContinue')}
                         </button>
                     )}
                 </div>
 
                 <div className="pt-3 border-t w-full text-center text-[10px] text-slate-400">
-                    <span>Version 1.0.0 &copy; {new Date().getFullYear()}</span>
+                    <span>{t('Version')} 1.0.0 &copy; {new Date().getFullYear()}</span>
                 </div>
              </div>
              <input type="file" ref={fileInputRef} onChange={handleOpen} className="hidden" accept=".json" />
@@ -872,7 +897,7 @@ const App: React.FC = () => {
                 <div className="bg-slate-300 border-b flex px-2 pt-1 gap-1 shrink-0" style={{ fontSize: `${userSettings.uiFontPx || 13}px` }}>
                     {['Activities', 'Resources'].map(v => (
                         <button key={v} onClick={() => setView(v.toLowerCase() as any)} className={`px-4 py-1 font-bold rounded-t ${view === v.toLowerCase() ? 'bg-white text-blue-900' : 'text-slate-600 hover:bg-slate-200'}`}>
-                            {v}
+                            {t(v as any)}
                         </button>
                     ))}
                 </div>

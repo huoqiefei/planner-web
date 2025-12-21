@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Activity, Resource, Assignment, Calendar, Predecessor, UserSettings } from '../types';
+import { useTranslation } from '../utils/i18n';
 
 interface DetailsPanelProps {
     activity?: Activity;
@@ -16,6 +17,7 @@ interface DetailsPanelProps {
 }
 
 const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assignments, calendars, onUpdate, onAssignUpdate, userSettings, allActivities = [], isVisible = true, onToggle }) => {
+    const { t } = useTranslation(userSettings.language);
     const [tab, setTab] = useState('General');
     const [selRes, setSelRes] = useState('');
     const [inputUnits, setInputUnits] = useState(8);
@@ -27,7 +29,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
     if (!isVisible) {
         return (
             <div className="h-8 border-t bg-slate-100 flex items-center justify-between px-2 flex-shrink-0 cursor-pointer hover:bg-slate-200 transition-colors border-slate-300" onClick={onToggle}>
-                <span className="font-bold text-slate-500 text-xs uppercase tracking-wider">Activity Details</span>
+                <span className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t('ActivityDetails')}</span>
                 <button className="text-slate-500 hover:text-blue-600">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"/></svg>
                 </button>
@@ -39,14 +41,14 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
         <div className="h-64 border-t bg-slate-50 flex flex-col" style={{ fontSize: `${fontSizePx}px` }}>
             <div className="bg-slate-200 border-b border-slate-300 px-1 pt-1 h-8 flex justify-between items-center">
                  <div className="flex gap-1 h-full items-end">
-                    <button className="px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm bg-white text-black border-b-white -mb-px">General</button>
+                    <button className="px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm bg-white text-black border-b-white -mb-px">{t('General')}</button>
                  </div>
                  <button onClick={onToggle} className="mr-2 text-slate-500 hover:text-blue-600">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
                  </button>
             </div>
             <div className="flex-grow flex items-center justify-center text-slate-400">
-                No activity selected
+                {t('NoActivitySelected')}
             </div>
         </div>
     );
@@ -115,52 +117,52 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
         <div className="h-64 border-t-4 border-slate-300 bg-white flex flex-col flex-shrink-0 shadow-[0_-2px_5px_rgba(0,0,0,0.05)] transition-all" style={{ fontSize: `${fontSizePx}px` }}>
             <div className="flex bg-slate-100 border-b border-slate-300 px-1 pt-1 gap-1 select-none h-8 items-end justify-between">
                 <div className="flex gap-1 h-full items-end">
-                    {['General', 'Status', 'Resources', 'Relationships'].map(t => (
-                        <button key={t} onClick={() => setTab(t)} className={`px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm outline-none focus:outline-none ${tab === t ? 'bg-white text-black border-b-white -mb-px' : 'text-slate-500 bg-slate-100 border-b-slate-300 hover:bg-slate-50'}`}>{t}</button>
+                    {['General', 'Status', 'Resources', 'Relationships'].map(key => (
+                        <button key={key} onClick={() => setTab(key)} className={`px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm outline-none focus:outline-none ${tab === key ? 'bg-white text-black border-b-white -mb-px' : 'text-slate-500 bg-slate-100 border-b-slate-300 hover:bg-slate-50'}`}>{t(key as any)}</button>
                     ))}
                 </div>
-                <button onClick={onToggle} className="mr-2 mb-1 text-slate-500 hover:text-blue-600" title="Collapse">
+                <button onClick={onToggle} className="mr-2 mb-1 text-slate-500 hover:text-blue-600" title={t('Collapse')}>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
             </div>
             <div className="p-2 overflow-y-auto flex-grow font-sans">
-                <div className="font-bold text-slate-700 border-b pb-1 mb-2 uppercase">{tab} - {activity.id} : {activity.name}</div>
+                <div className="font-bold text-slate-700 border-b pb-1 mb-2 uppercase">{t(tab as any)} - {activity.id} : {activity.name}</div>
                 
                 {tab === 'General' && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="space-y-2">
                             <div>
-                                <label className="block text-slate-500 mb-0.5 font-semibold">Activity ID</label>
+                                <label className="block text-slate-500 mb-0.5 font-semibold">{t('ActivityID')}</label>
                                 <input disabled value={activity.id} className="w-full border border-slate-300 px-1 py-1 bg-slate-50 text-slate-500" style={{ fontSize: `${fontSizePx}px` }} />
                             </div>
                             <div>
-                                <label className="block text-slate-500 mb-0.5 font-semibold">Activity Name</label>
+                                <label className="block text-slate-500 mb-0.5 font-semibold">{t('ActivityName')}</label>
                                 <input value={activity.name} onChange={e => onUpdate(activity.id, 'name', e.target.value)} className="w-full border border-slate-300 px-1 py-1" style={{ fontSize: `${fontSizePx}px` }} />
                             </div>
                         </div>
                         <div className="space-y-2">
                             <div>
-                                <label className="block text-slate-500 mb-0.5 font-semibold">Activity Type</label>
+                                <label className="block text-slate-500 mb-0.5 font-semibold">{t('ActivityType')}</label>
                                 <select value={activity.activityType} onChange={e => handleTypeChange(e.target.value)} className="w-full border border-slate-300 px-1 py-1 bg-white" style={{ fontSize: `${fontSizePx}px` }}>
-                                    <option>Task</option>
-                                    <option>Start Milestone</option>
-                                    <option>Finish Milestone</option>
+                                    <option value="Task">{t('Task')}</option>
+                                    <option value="Start Milestone">{t('StartMilestone')}</option>
+                                    <option value="Finish Milestone">{t('FinishMilestone')}</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-slate-500 mb-0.5 font-semibold">Calendar</label>
+                                <label className="block text-slate-500 mb-0.5 font-semibold">{t('Calendars')}</label>
                                 <select value={activity.calendarId || ''} onChange={e => onUpdate(activity.id, 'calendarId', e.target.value)} className="w-full border border-slate-300 px-1 py-1 bg-white" style={{ fontSize: `${fontSizePx}px` }}>
-                                    <option value="">Project Default</option>
+                                    <option value="">{t('ProjectDefault')}</option>
                                     {calendars.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             </div>
                         </div>
                         <div className="space-y-2">
                              <div>
-                                <label className="block text-slate-500 mb-0.5 font-semibold">Original Duration</label>
+                                <label className="block text-slate-500 mb-0.5 font-semibold">{t('OriginalDuration')}</label>
                                 <div className="flex items-center">
                                     <input type="number" value={activity.duration} disabled={activity.activityType.includes('Milestone')} onChange={e => onUpdate(activity.id, 'duration', Number(e.target.value))} className={`w-20 border border-slate-300 px-1 py-1 text-right ${activity.activityType.includes('Milestone')?'bg-slate-100':''}`} style={{ fontSize: `${fontSizePx}px` }} />
-                                    <span className="ml-2 text-slate-500">Days</span>
+                                    <span className="ml-2 text-slate-500">{t('Days')}</span>
                                 </div>
                             </div>
                         </div>
@@ -170,23 +172,23 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
                 {tab === 'Status' && (
                     <div className="grid grid-cols-4 gap-4">
                          <div className="border p-2 bg-slate-50">
-                            <label className="font-bold block border-b mb-2 pb-1 uppercase">Duration</label>
+                            <label className="font-bold block border-b mb-2 pb-1 uppercase">{t('Duration')}</label>
                             <div className="grid grid-cols-2 gap-1">
-                                <label className="text-right text-slate-500 font-semibold">Original:</label> <span>{activity.duration}</span>
-                                <label className="text-right text-slate-500 font-semibold">Remaining:</label> <span>{activity.duration}</span>
+                                <label className="text-right text-slate-500 font-semibold">{t('Original')}:</label> <span>{activity.duration}</span>
+                                <label className="text-right text-slate-500 font-semibold">{t('Remaining')}:</label> <span>{activity.duration}</span>
                             </div>
                          </div>
                          <div className="border p-2 bg-slate-50">
-                            <label className="font-bold block border-b mb-2 pb-1 uppercase">Dates</label>
+                            <label className="font-bold block border-b mb-2 pb-1 uppercase">{t('Dates')}</label>
                             <div className="grid grid-cols-2 gap-1">
-                                <label className="text-right text-slate-500 font-semibold">Start:</label> <span>{new Date(activity.startDate).toLocaleDateString()}</span>
-                                <label className="text-right text-slate-500 font-semibold">Finish:</label> <span>{new Date(activity.endDate).toLocaleDateString()}</span>
+                                <label className="text-right text-slate-500 font-semibold">{t('Start')}:</label> <span>{new Date(activity.startDate).toLocaleDateString()}</span>
+                                <label className="text-right text-slate-500 font-semibold">{t('Finish')}:</label> <span>{new Date(activity.endDate).toLocaleDateString()}</span>
                             </div>
                          </div>
                          <div className="border p-2 bg-slate-50">
-                            <label className="font-bold block border-b mb-2 pb-1 uppercase">Float</label>
+                            <label className="font-bold block border-b mb-2 pb-1 uppercase">{t('Float')}</label>
                             <div className="grid grid-cols-2 gap-1">
-                                <label className="text-right text-slate-500 font-semibold">Total Float:</label> <span className={`${(activity.totalFloat || 0) <= 0 ? 'text-red-600 font-bold' : ''}`}>{activity.totalFloat}</span>
+                                <label className="text-right text-slate-500 font-semibold">{t('TotalFloat')}:</label> <span className={`${(activity.totalFloat || 0) <= 0 ? 'text-red-600 font-bold' : ''}`}>{activity.totalFloat}</span>
                             </div>
                          </div>
                     </div>
@@ -195,27 +197,27 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
                 {tab === 'Resources' && (
                     <div className="flex h-full gap-4">
                         <div className="w-64 flex flex-col gap-2 p-2 bg-slate-50 border border-slate-200">
-                            <label className="font-bold text-slate-600">Assign Resource</label>
+                            <label className="font-bold text-slate-600">{t('AssignResource')}</label>
                             <select className="border px-1 py-1 w-full" value={selRes} onChange={e => setSelRes(e.target.value)} style={{ fontSize: `${fontSizePx}px` }}>
-                                <option value="">Select Resource...</option>
+                                <option value="">{t('SelectResource')}</option>
                                 {resources.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                             </select>
                             
                             <label className="font-bold text-slate-600 mt-2">
-                                {selResObj?.type === 'Material' ? 'Total Quantity' : 'Units per Day'}
+                                {selResObj?.type === 'Material' ? t('TotalQuantity') : t('UnitsPerTime')}
                             </label>
                             <input type="number" className="border px-1 py-1 w-full" value={inputUnits} onChange={e => setInputUnits(Number(e.target.value))} style={{ fontSize: `${fontSizePx}px` }} />
                             
-                            <button onClick={addRes} className="bg-slate-200 border border-slate-300 px-2 py-1 hover:bg-slate-300 mt-2">Assign</button>
+                            <button onClick={addRes} className="bg-slate-200 border border-slate-300 px-2 py-1 hover:bg-slate-300 mt-2">{t('Add')}</button>
                         </div>
                         <div className="flex-grow border border-slate-200 overflow-auto bg-white">
                             <table className="w-full text-left">
                                 <thead className="bg-slate-100 text-slate-600 font-semibold border-b">
                                     <tr>
-                                        <th className="p-1 pl-2">Resource Name</th>
-                                        <th className="p-1">Type</th>
-                                        <th className="p-1 text-right pr-2">Budgeted Units (Total)</th>
-                                        <th className="p-1 text-right pr-2">Units/Time</th>
+                                        <th className="p-1 pl-2">{t('ResourceName')}</th>
+                                        <th className="p-1">{t('Type')}</th>
+                                        <th className="p-1 text-right pr-2">{t('BudgetedUnitsTotal')}</th>
+                                        <th className="p-1 text-right pr-2">{t('UnitsPerTime')}</th>
                                         <th className="p-1 w-8"></th>
                                     </tr>
                                 </thead>
@@ -233,7 +235,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
                                             </tr>
                                         );
                                     })}
-                                    {myAssigns.length === 0 && <tr><td colSpan={5} className="p-4 text-center text-slate-400">No resources assigned</td></tr>}
+                                    {myAssigns.length === 0 && <tr><td colSpan={5} className="p-4 text-center text-slate-400">{t('NoResourcesAssigned')}</td></tr>}
                                 </tbody>
                             </table>
                         </div>
@@ -245,16 +247,16 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
                         {/* Predecessors */}
                         <div className="flex-1 flex flex-col border border-slate-300">
                              <div className="bg-slate-100 p-1 border-b font-bold text-slate-600 flex justify-between items-center">
-                                 <span>Predecessors</span>
-                                 <button onClick={addPred} className="px-2 py-0.5 bg-white border rounded text-[11px] hover:bg-slate-50">+ Add</button>
+                                 <span>{t('Predecessors')}</span>
+                                 <button onClick={addPred} className="px-2 py-0.5 bg-white border rounded text-[11px] hover:bg-slate-50">+ {t('Add')}</button>
                              </div>
                              <div className="flex-grow overflow-auto bg-white">
                                 <table className="w-full text-left">
                                     <thead className="bg-slate-50 text-slate-500 font-semibold border-b">
                                         <tr>
-                                            <th className="p-1 pl-2">ID</th>
-                                            <th className="p-1 w-16">Type</th>
-                                            <th className="p-1 w-12">Lag</th>
+                                            <th className="p-1 pl-2">{t('ActID')}</th>
+                                            <th className="p-1 w-16">{t('Type')}</th>
+                                            <th className="p-1 w-12">{t('Lag')}</th>
                                             <th className="p-1 w-6"></th>
                                         </tr>
                                     </thead>
@@ -275,18 +277,18 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
                         {/* Successors */}
                          <div className="flex-1 flex flex-col border border-slate-300">
                              <div className="bg-slate-100 p-1 border-b font-bold text-slate-600 flex justify-between items-center">
-                                 <span>Successors</span>
+                                 <span>{t('Successors')}</span>
                                  <div className="flex gap-1">
-                                     <input className="border px-1 py-0.5 w-20 text-[11px]" placeholder="Act ID" value={newSuccId} onChange={e=>setNewSuccId(e.target.value)}/>
-                                     <button onClick={addSucc} className="px-2 py-0.5 bg-white border rounded text-[11px] hover:bg-slate-50">+ Add</button>
+                                     <input className="border px-1 py-0.5 w-20 text-[11px]" placeholder={t('ActID')} value={newSuccId} onChange={e=>setNewSuccId(e.target.value)}/>
+                                     <button onClick={addSucc} className="px-2 py-0.5 bg-white border rounded text-[11px] hover:bg-slate-50">+ {t('Add')}</button>
                                  </div>
                              </div>
                              <div className="flex-grow overflow-auto bg-white">
                                 <table className="w-full text-left">
                                     <thead className="bg-slate-50 text-slate-500 font-semibold border-b">
                                         <tr>
-                                            <th className="p-1 pl-2">ID</th>
-                                            <th className="p-1">Name</th>
+                                            <th className="p-1 pl-2">{t('ActID')}</th>
+                                            <th className="p-1">{t('Name')}</th>
                                             <th className="p-1 w-6"></th>
                                         </tr>
                                     </thead>

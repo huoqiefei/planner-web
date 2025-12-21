@@ -2,6 +2,7 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { ProjectData, Activity, UserSettings, Predecessor } from '../types';
 import GanttChart from './GanttChart';
+import { useTranslation } from '../utils/i18n';
 
 interface CombinedViewProps {
     projectData: ProjectData;
@@ -66,6 +67,7 @@ const CombinedView: React.FC<CombinedViewProps> = ({
     projectData, schedule, wbsMap, onUpdate, selectedIds, onSelect, onCtx, userSettings, zoomLevel, onZoomChange,
     showRelations, showCritical
 }) => {
+    const { t } = useTranslation(userSettings.language);
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [colWidths, setColWidths] = useState({ id: 180, name: 250, duration: 60, start: 90, finish: 90, float: 50, preds: 150 });
     
@@ -221,37 +223,37 @@ const CombinedView: React.FC<CombinedViewProps> = ({
                 <div className="p6-header bg-slate-100 border-b border-slate-300 font-bold text-slate-600 flex" style={{ height: headerHeight }}>
                     {isColVisible('id') && 
                         <ResizableHeader width={colWidths.id} onResize={w => setColWidths(p => ({...p, id: w}))} dataCol="id">
-                            Activity ID
+                            {t('ActivityID')}
                         </ResizableHeader>
                     }
                     {isColVisible('name') && 
                         <ResizableHeader width={colWidths.name} onResize={w => setColWidths(p => ({...p, name: w}))} dataCol="name">
-                            Activity Name
+                            {t('ActivityName')}
                         </ResizableHeader>
                     }
                     {isColVisible('duration') && 
                         <ResizableHeader width={colWidths.duration} onResize={w => setColWidths(p => ({...p, duration: w}))} align="center" dataCol="duration">
-                            Dur
+                            {t('Dur')}
                         </ResizableHeader>
                     }
                     {isColVisible('start') && 
                         <ResizableHeader width={colWidths.start} onResize={w => setColWidths(p => ({...p, start: w}))} align="center" dataCol="start">
-                            Start
+                            {t('Start')}
                         </ResizableHeader>
                     }
                     {isColVisible('finish') && 
                         <ResizableHeader width={colWidths.finish} onResize={w => setColWidths(p => ({...p, finish: w}))} align="center" dataCol="finish">
-                            Finish
+                            {t('Finish')}
                         </ResizableHeader>
                     }
                     {isColVisible('float') && 
                         <ResizableHeader width={colWidths.float} onResize={w => setColWidths(p => ({...p, float: w}))} align="center" dataCol="float">
-                            TF
+                            {t('TF')}
                         </ResizableHeader>
                     }
                     {isColVisible('preds') && 
                         <ResizableHeader width={colWidths.preds} onResize={w => setColWidths(p => ({...p, preds: w}))} dataCol="preds">
-                            Predecessors
+                            {t('Predecessors')}
                         </ResizableHeader>
                     }
                 </div>

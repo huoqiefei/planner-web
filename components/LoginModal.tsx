@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { authService } from '../services/authService';
 import { User } from '../types';
+import { useTranslation } from '../utils/i18n';
 
 interface LoginModalProps {
     isOpen: boolean;
     onLoginSuccess: (user: User) => void;
     onClose: () => void; // Optional if we want to force login
+    lang?: 'en' | 'zh';
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, onClose }) => {
+export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, onClose, lang = 'en' }) => {
+    const { t } = useTranslation(lang);
     const [isLoginMode, setIsLoginMode] = useState(true);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -44,7 +47,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, 
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
             <div className="bg-white rounded-lg shadow-xl w-96 overflow-hidden">
                 <div className="bg-slate-800 text-white p-4 text-center">
-                    <h2 className="text-xl font-bold">{isLoginMode ? 'Login' : 'Register'}</h2>
+                    <h2 className="text-xl font-bold">{isLoginMode ? t('LoginTitle') : t('RegisterTitle')}</h2>
                     <p className="text-xs text-slate-300">Planner Web</p>
                 </div>
                 
@@ -57,7 +60,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, 
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700">Username</label>
+                            <label className="block text-sm font-medium text-slate-700">{t('Username')}</label>
                             <input 
                                 type="text" 
                                 required
@@ -69,7 +72,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, 
 
                         {!isLoginMode && (
                             <div>
-                                <label className="block text-sm font-medium text-slate-700">Email</label>
+                                <label className="block text-sm font-medium text-slate-700">{t('Email')}</label>
                                 <input 
                                     type="email" 
                                     required
@@ -81,7 +84,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, 
                         )}
 
                         <div>
-                            <label className="block text-sm font-medium text-slate-700">Password</label>
+                            <label className="block text-sm font-medium text-slate-700">{t('Password')}</label>
                             <input 
                                 type="password" 
                                 required
@@ -96,7 +99,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, 
                             disabled={loading}
                             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                         >
-                            {loading ? 'Processing...' : (isLoginMode ? 'Sign In' : 'Sign Up')}
+                            {loading ? t('Processing') : (isLoginMode ? t('SignIn') : t('SignUp'))}
                         </button>
                     </form>
 
@@ -109,7 +112,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, 
                                 setError('');
                             }}
                         >
-                            {isLoginMode ? "Don't have an account? Register" : "Already have an account? Login"}
+                            {isLoginMode ? t('NoAccount') : t('HaveAccount')}
                         </button>
                     </div>
                 </div>

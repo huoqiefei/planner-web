@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Resource, Assignment, Activity, UserSettings } from '../types';
+import { useTranslation } from '../utils/i18n';
 
 interface ResourcesPanelProps {
     resources: Resource[];
@@ -35,6 +36,7 @@ const ResizableHeader: React.FC<{ width: number, onResize: (w: number) => void, 
 };
 
 const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ resources, assignments, activities, onUpdateResources, userSettings, selectedIds, onSelect }) => {
+    const { t } = useTranslation(userSettings.language);
     const [tab, setTab] = useState<'General' | 'Histogram'>('General');
     const [zoom, setZoom] = useState<ZoomLevel>('Week');
     const [colWidths, setColWidths] = useState({ id: 100, name: 300, type: 80, unit: 60, max: 100 });
@@ -185,11 +187,11 @@ const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ resources, assignments,
                     <div className="w-8 border-r px-1 text-center font-bold text-slate-500">
                         <button onClick={addRes} className="text-green-600 hover:text-green-800 text-lg leading-none">+</button>
                     </div>
-                    <ResizableHeader width={colWidths.id} onResize={w=>setColWidths({...colWidths, id:w})}>ID</ResizableHeader>
-                    <ResizableHeader width={colWidths.name} onResize={w=>setColWidths({...colWidths, name:w})}>Resource Name</ResizableHeader>
-                    <ResizableHeader width={colWidths.type} onResize={w=>setColWidths({...colWidths, type:w})}>Type</ResizableHeader>
-                    <ResizableHeader width={colWidths.unit} onResize={w=>setColWidths({...colWidths, unit:w})} align="center">Unit</ResizableHeader>
-                    <ResizableHeader width={colWidths.max} onResize={w=>setColWidths({...colWidths, max:w})} align="right">Max/Time</ResizableHeader>
+                    <ResizableHeader width={colWidths.id} onResize={w=>setColWidths({...colWidths, id:w})}>{t('ResourceID')}</ResizableHeader>
+                    <ResizableHeader width={colWidths.name} onResize={w=>setColWidths({...colWidths, name:w})}>{t('ResourceName')}</ResizableHeader>
+                    <ResizableHeader width={colWidths.type} onResize={w=>setColWidths({...colWidths, type:w})}>{t('Type')}</ResizableHeader>
+                    <ResizableHeader width={colWidths.unit} onResize={w=>setColWidths({...colWidths, unit:w})} align="center">{t('Unit')}</ResizableHeader>
+                    <ResizableHeader width={colWidths.max} onResize={w=>setColWidths({...colWidths, max:w})} align="right">{t('MaxTime')}</ResizableHeader>
                 </div>
                 <div className="overflow-y-auto custom-scrollbar bg-white flex-grow">
                     {resources.map((r, index) => {
@@ -217,9 +219,11 @@ const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ resources, assignments,
                                 <div className="p6-cell" style={{width: colWidths.type}}>
                                     {editing?.id===r.id && editing.field==='type' ? 
                                         <select autoFocus className="w-full h-full" value={val} onChange={e=>{updateRes(r.id, 'type', e.target.value); setEditing(null);}} onBlur={()=>setEditing(null)}>
-                                            <option>Labor</option><option>Equipment</option><option>Material</option>
+                                            <option value="Labor">{t('Labor')}</option>
+                                            <option value="Equipment">{t('Equipment')}</option>
+                                            <option value="Material">{t('Material')}</option>
                                         </select> :
-                                        <span onDoubleClick={()=>startEdit(r.id, 'type', r.type)} className="w-full truncate block leading-none">{r.type}</span>
+                                        <span onDoubleClick={()=>startEdit(r.id, 'type', r.type)} className="w-full truncate block leading-none">{t(r.type as any)}</span>
                                     }
                                 </div>
                                 <div className="p6-cell justify-center" style={{width: colWidths.unit}}>
@@ -245,32 +249,34 @@ const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ resources, assignments,
                 <div className="h-1/2 flex flex-col bg-slate-50 transition-all">
                     <div className="flex bg-slate-100 border-b border-slate-300 px-1 pt-1 gap-1 h-8 items-end justify-between">
                         <div className="flex gap-1 h-full items-end">
-                            {['General', 'Histogram'].map(t => (
-                                <button key={t} onClick={() => setTab(t as any)} className={`px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm ${tab === t ? 'bg-white text-black border-b-white -mb-px' : 'text-slate-500 border-b-slate-300 hover:bg-slate-200'}`}>
-                                    {t}
+                            {['General', 'Histogram'].map(tabName => (
+                                <button key={tabName} onClick={() => setTab(tabName as any)} className={`px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm outline-none ${tab === tabName ? 'bg-white text-black border-b-white -mb-px' : 'text-slate-500 border-b-slate-300 hover:bg-slate-200'}`}>
+                                    {t(tabName as any)}
                                 </button>
                             ))}
                         </div>
-                        <button onClick={() => setIsDetailsVisible(false)} className="mr-2 mb-1 text-slate-500 hover:text-blue-600" title="Collapse">
+                        <button onClick={() => setIsDetailsVisible(false)} className="mr-2 mb-1 text-slate-500 hover:text-blue-600" title={t('Collapse')}>
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
                         </button>
                     </div>
 
                     <div className="flex-grow overflow-auto p-4 bg-white relative">
                         {!selectedResource ? (
-                            <div className="flex h-full items-center justify-center text-slate-400">Select a resource</div>
+                            <div className="flex h-full items-center justify-center text-slate-400">{t('SelectResourcePrompt')}</div>
                         ) : (
                             <>
                                 {tab === 'General' && (
                                     <div className="max-w-2xl grid grid-cols-2 gap-4">
-                                        <div><label className="block text-slate-500 font-bold mb-0.5">ID</label><input disabled className="w-full border p-1 bg-slate-50" value={selectedResource.id} style={{ fontSize: `${fontSizePx}px` }} /></div>
-                                        <div><label className="block text-slate-500 font-bold mb-0.5">Name</label><input className="w-full border p-1" value={selectedResource.name} onChange={e=>updateRes(selectedResource.id, 'name', e.target.value)} style={{ fontSize: `${fontSizePx}px` }} /></div>
-                                        <div><label className="block text-slate-500 font-bold mb-0.5">Type</label>
+                                        <div><label className="block text-slate-500 font-bold mb-0.5">{t('ResourceID')}</label><input disabled className="w-full border p-1 bg-slate-50" value={selectedResource.id} style={{ fontSize: `${fontSizePx}px` }} /></div>
+                                        <div><label className="block text-slate-500 font-bold mb-0.5">{t('Name')}</label><input className="w-full border p-1" value={selectedResource.name} onChange={e=>updateRes(selectedResource.id, 'name', e.target.value)} style={{ fontSize: `${fontSizePx}px` }} /></div>
+                                        <div><label className="block text-slate-500 font-bold mb-0.5">{t('Type')}</label>
                                             <select className="w-full border p-1" value={selectedResource.type} onChange={e=>updateRes(selectedResource.id, 'type', e.target.value)} style={{ fontSize: `${fontSizePx}px` }}>
-                                                <option>Labor</option><option>Equipment</option><option>Material</option>
+                                                <option value="Labor">{t('Labor')}</option>
+                                                <option value="Equipment">{t('Equipment')}</option>
+                                                <option value="Material">{t('Material')}</option>
                                             </select>
                                         </div>
-                                        <div><label className="block text-slate-500 font-bold mb-0.5">Max Units/Time</label><input type="number" className="w-full border p-1" value={selectedResource.maxUnits} onChange={e=>updateRes(selectedResource.id, 'maxUnits', Number(e.target.value))} style={{ fontSize: `${fontSizePx}px` }} /></div>
+                                        <div><label className="block text-slate-500 font-bold mb-0.5">{t('MaxUnitsTime')}</label><input type="number" className="w-full border p-1" value={selectedResource.maxUnits} onChange={e=>updateRes(selectedResource.id, 'maxUnits', Number(e.target.value))} style={{ fontSize: `${fontSizePx}px` }} /></div>
                                     </div>
                                 )}
 
@@ -280,19 +286,19 @@ const ResourcesPanel: React.FC<ResourcesPanelProps> = ({ resources, assignments,
                                             <div className="flex items-center gap-2">
                                                 <span className="font-bold text-slate-700">{selectedResource.name}</span>
                                                 <span className="text-[11px] bg-slate-200 px-2 py-0.5 rounded text-slate-600">
-                                                    {selectedResource.type === 'Material' ? 'Total Quantity' : 'Max Intensity'}
+                                                    {selectedResource.type === 'Material' ? t('TotalQuantity') : t('MaxIntensity')}
                                                 </span>
                                             </div>
                                             <div className="flex gap-2">
                                                 {(['Day', 'Week', 'Month', 'Quarter', 'Year'] as const).map(z => (
-                                                    <button key={z} onClick={() => setZoom(z)} className={`px-2 py-0.5 text-[11px] uppercase border rounded ${zoom === z ? 'bg-blue-50 border-blue-500 text-blue-700 font-bold' : 'hover:bg-slate-50'}`}>{z}</button>
+                                                    <button key={z} onClick={() => setZoom(z)} className={`px-2 py-0.5 text-[11px] uppercase border rounded ${zoom === z ? 'bg-blue-50 border-blue-500 text-blue-700 font-bold' : 'hover:bg-slate-50'}`}>{t(z as any)}</button>
                                                 ))}
-                                                <button onClick={exportData} className="ml-2 px-2 py-0.5 text-[11px] bg-green-50 border border-green-500 text-green-700 rounded hover:bg-green-100">Export CSV</button>
+                                                <button onClick={exportData} className="ml-2 px-2 py-0.5 text-[11px] bg-green-50 border border-green-500 text-green-700 rounded hover:bg-green-100">{t('ExportCSV')}</button>
                                             </div>
                                         </div>
                                         
                                         <div className="flex-grow overflow-x-auto overflow-y-hidden custom-scrollbar relative border border-slate-200 bg-slate-50">
-                                            {histogramData.length === 0 ? <div className="flex items-center justify-center h-full text-slate-400">No data</div> : (
+                                            {histogramData.length === 0 ? <div className="flex items-center justify-center h-full text-slate-400">{t('NoData')}</div> : (
                                                 <div style={{ height: '100%', minWidth: '100%' }}>
                                                     {(() => {
                                                         const maxVal = Math.max(...histogramData.map(d => d.val), selectedResource.maxUnits);
