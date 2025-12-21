@@ -34,6 +34,9 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, use
             { label: t('Import'), action: 'import', disabled: user?.group === 'viewer' },
             { label: t('Export'), action: 'export' }, // Viewers can export
             { type: 'separator' },
+            { label: t('Load'), action: 'cloud_load' },
+            { label: t('SaveProjectToCloud'), action: 'cloud_save', disabled: user?.group === 'viewer' },
+            { type: 'separator' },
             { label: t('PrintPreview'), action: 'print', disabled: user?.group === 'viewer' },
         ],
         [t('Edit')]: [

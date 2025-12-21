@@ -152,5 +152,79 @@ export const authService = {
             case 'contributor': return 'editor';
             default: return 'viewer';
         }
+    },
+
+    async getProjects(): Promise<any[]> {
+        const user = this.getCurrentUser();
+        if (!user || !user.token) throw new Error('Not authenticated');
+
+        const response = await fetch(`${this.baseUrl}/project_list`, {
+            headers: { 'Authorization': `Bearer ${user.token}` }
+        });
+        const data = await response.json();
+        return data.projects || [];
+    },
+
+    async saveProject(project: { id?: number, name: string, description?: string, content: any }): Promise<any> {
+        const user = this.getCurrentUser();
+        if (!user || !user.token) throw new Error('Not authenticated');
+
+        const response = await fetch(`${this.baseUrl}/project_save`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user.token}`
+            },
+            body: JSON.stringify(project)
+        });
+        return await response.json();
+    },
+
+    async getProject(id: number): Promise<any> {
+        const user = this.getCurrentUser();
+        if (!user || !user.token) throw new Error('Not authenticated');
+
+        const response = await fetch(`${this.baseUrl}/project_get?id=${id}`, {
+            headers: { 'Authorization': `Bearer ${user.token}` }
+        });
+        return await response.json();
+    },
+
+    async deleteProject(id: number): Promise<void> {
+        const user = this.getCurrentUser();
+        if (!user || !user.token) throw new Error('Not authenticated');
+
+        await fetch(`${this.baseUrl}/project_delete`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user.token}`
+            },
+            body: JSON.stringify({ id })
+        });
+    },
+
+    async getSystemConfig(): Promise<any> {
+        const user = this.getCurrentUser();
+        if (!user || !user.token) throw new Error('Not authenticated');
+
+        const response = await fetch(`${this.baseUrl}/sys_config_get`, {
+            headers: { 'Authorization': `Bearer ${user.token}` }
+        });
+        return await response.json();
+    },
+
+    async saveSystemConfig(config: any): Promise<void> {
+        const user = this.getCurrentUser();
+        if (!user || !user.token) throw new Error('Not authenticated');
+
+        await fetch(`${this.baseUrl}/sys_config_save`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user.token}`
+            },
+            body: JSON.stringify(config)
+        });
     }
 };

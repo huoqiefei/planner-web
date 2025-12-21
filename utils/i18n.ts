@@ -1,8 +1,14 @@
 
+import { useState, useEffect } from 'react';
+
+// Simple translation hook
 export const translations = {
     en: {
         File: 'File',
+        New: 'New',
         Import: 'Import...',
+        OpenFromCloud: 'Open from Cloud...',
+        SaveToCloud: 'Save to Cloud...',
         Export: 'Export...',
         PrintPreview: 'Print Preview',
         Edit: 'Edit',
@@ -17,7 +23,7 @@ export const translations = {
         Calendars: 'Calendars',
         ProjectInfo: 'Project Information...',
         System: 'System',
-        Configuration: 'Configuration',
+        Configuration: 'System Configuration',
         Help: 'Help',
         About: 'About Planner Web',
         General: 'General',
@@ -169,11 +175,28 @@ export const translations = {
         OpenExistingProject: 'Open Existing Project',
         Logout: 'Logout',
         Welcome: 'Welcome',
-        Version: 'Version'
+        Version: 'Version',
+        // Cloud & System
+        CloudProjects: 'Cloud Projects',
+        SystemSettings: 'System Settings',
+        ProjectList: 'Project List',
+        Load: 'Load',
+        Delete: 'Delete',
+        NoProjects: 'No projects found',
+        SaveProjectToCloud: 'Save Project to Cloud',
+        ProjectDescription: 'Description',
+        Saving: 'Saving...',
+        Loading: 'Loading...',
+        SystemConfigSaved: 'System configuration saved',
+        SaveSuccess: 'Saved successfully',
+        ConfirmDeleteProject: 'Are you sure you want to delete this project?',
     },
     zh: {
         File: '文件',
+        New: '新建',
         Import: '导入...',
+        OpenFromCloud: '云端打开...',
+        SaveToCloud: '保存到云端...',
         Export: '导出...',
         PrintPreview: '打印预览',
         Edit: '编辑',
@@ -302,22 +325,22 @@ export const translations = {
         ResourceID: '资源代码',
         Unit: '单位',
         MaxTime: '最大/时间',
-        MaxUnitsTime: '最大用量/时间',
+        MaxUnitsTime: '最大单位/时间',
         MaxIntensity: '最大强度',
-        Histogram: '直方图',
-        Labor: '人工',
+        Histogram: '资源直方图',
+        Labor: '人力',
         Equipment: '设备',
         Material: '材料',
         SelectResourcePrompt: '请选择一个资源',
         ExportCSV: '导出 CSV',
         NoData: '无数据',
         // Zoom
-        day: '日',
+        day: '天',
         week: '周',
         month: '月',
         quarter: '季',
         year: '年',
-        Day: '日',
+        Day: '天',
         Week: '周',
         Month: '月',
         Quarter: '季',
@@ -326,7 +349,7 @@ export const translations = {
         Actions: '操作',
         AddActivity: '添加作业',
         AddChildWBS: '添加子 WBS',
-        RenumberActivities: '重新编号作业',
+        RenumberActivities: '重新编号',
         RenumberAllActivities: '重新编号所有作业？',
         DeleteWBS: '删除 WBS',
         DeleteActivity: '删除作业',
@@ -336,14 +359,38 @@ export const translations = {
         NewResource: '新资源',
         CopySuffix: ' (副本)',
         LoginToContinue: '登录以继续',
-        CreateNewProject: '新建项目',
+        CreateNewProject: '创建新项目',
         OpenExistingProject: '打开现有项目',
         Logout: '退出登录',
         Welcome: '欢迎',
-        Version: '版本'
+        Version: '版本',
+        // Cloud & System
+        CloudProjects: '云端项目',
+        SystemSettings: '系统设置',
+        ProjectList: '项目列表',
+        Load: '打开',
+        Delete: '删除',
+        NoProjects: '未找到项目',
+        SaveProjectToCloud: '保存项目到云端',
+        ProjectDescription: '描述',
+        Saving: '保存中...',
+        Loading: '加载中...',
+        SystemConfigSaved: '系统配置已保存',
+        SaveSuccess: '保存成功',
+        ConfirmDeleteProject: '确定要删除此项目吗？',
     }
 };
 
 export const useTranslation = (lang: 'en' | 'zh') => {
-    return { t: (key: keyof typeof translations['en']) => translations[lang][key] || key };
+    const [currentLang, setCurrentLang] = useState<'en' | 'zh'>(lang);
+
+    useEffect(() => {
+        setCurrentLang(lang);
+    }, [lang]);
+
+    const t = (key: keyof typeof translations['en']) => {
+        return translations[currentLang][key] || key;
+    };
+
+    return { t, lang: currentLang };
 };

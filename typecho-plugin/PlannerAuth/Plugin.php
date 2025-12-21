@@ -32,6 +32,27 @@ class PlannerAuth_Plugin implements Typecho_Plugin_Interface
                 meta_value TEXT,
                 UNIQUE (uid, meta_key)
             )";
+            $db->query($sql);
+
+            $sqlProjects = "CREATE TABLE IF NOT EXISTS " . $prefix . "planner_projects (
+                id SERIAL PRIMARY KEY,
+                uid INT NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                file_path VARCHAR(255) NOT NULL,
+                created_at INT NOT NULL,
+                updated_at INT NOT NULL
+            )";
+            $db->query($sqlProjects);
+
+            $sqlSettings = "CREATE TABLE IF NOT EXISTS " . $prefix . "planner_settings (
+                id SERIAL PRIMARY KEY,
+                conf_key VARCHAR(100) NOT NULL UNIQUE,
+                conf_value TEXT,
+                updated_at INT
+            )";
+            $db->query($sqlSettings);
+
         } else {
             $sql = "CREATE TABLE IF NOT EXISTS `" . $prefix . "planner_usermeta` (
                 `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -41,12 +62,30 @@ class PlannerAuth_Plugin implements Typecho_Plugin_Interface
                 PRIMARY KEY (`id`),
                 UNIQUE KEY `uid_key` (`uid`, `meta_key`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
-        }
-        
-        try {
             $db->query($sql);
-        } catch (Exception $e) {
-            // Table might exist
+
+            $sqlProjects = "CREATE TABLE IF NOT EXISTS `" . $prefix . "planner_projects` (
+                `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+                `uid` int(10) unsigned NOT NULL,
+                `name` varchar(255) NOT NULL,
+                `description` text,
+                `file_path` varchar(255) NOT NULL,
+                `created_at` int(10) unsigned NOT NULL,
+                `updated_at` int(10) unsigned NOT NULL,
+                PRIMARY KEY (`id`),
+                KEY `uid` (`uid`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
+            $db->query($sqlProjects);
+
+            $sqlSettings = "CREATE TABLE IF NOT EXISTS `" . $prefix . "planner_settings` (
+                `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+                `conf_key` varchar(100) NOT NULL,
+                `conf_value` text,
+                `updated_at` int(10) unsigned,
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `conf_key` (`conf_key`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
+            $db->query($sqlSettings);
         }
 
         // Register API route

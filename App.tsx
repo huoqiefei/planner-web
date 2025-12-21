@@ -11,8 +11,10 @@ import CombinedView from './components/CombinedView';
 import DetailsPanel from './components/DetailsPanel';
 import ResourcesPanel from './components/ResourcesPanel';
 import ProjectSettingsModal from './components/ProjectSettingsModal';
-import { AlertModal, ConfirmModal, AboutModal, UserSettingsModal, PrintSettingsModal, BatchAssignModal, AdminModal, HelpModal, ColumnSetupModal } from './components/Modals';
+import { AlertModal, ConfirmModal, AboutModal, UserSettingsModal, PrintSettingsModal, BatchAssignModal, HelpModal, ColumnSetupModal } from './components/Modals';
 import { LoginModal } from './components/LoginModal';
+import { CloudLoadModal, CloudSaveModal } from './components/CloudModals';
+import { SystemSettingsModal } from './components/SystemSettingsModal';
 import { useTranslation } from './utils/i18n';
 
 // --- APP ---
@@ -78,6 +80,32 @@ const App: React.FC = () => {
             try { setAdminConfig({ ...adminConfig, ...JSON.parse(saved) }); } catch(e) {}
         }
     }, []);
+
+    const loadSystemConfig = useCallback(async () => {
+        if (!user) return;
+        try {
+            const res = await authService.getSystemConfig();
+            if (res.config) {
+                 const remote = res.config;
+                 setAdminConfig(prev => ({
+                     ...prev,
+                     appName: remote.appName || prev.appName,
+                     copyrightText: remote.copyrightText || prev.copyrightText,
+                     enableWatermark: remote.enableWatermark === 'true',
+                     watermarkText: remote.watermarkText || prev.watermarkText,
+                     watermarkFontSize: remote.watermarkFontSize ? parseInt(remote.watermarkFontSize) : prev.watermarkFontSize,
+                     watermarkOpacity: remote.watermarkOpacity ? parseFloat(remote.watermarkOpacity) : prev.watermarkOpacity,
+                     ganttBarRatio: remote.ganttBarRatio ? parseFloat(remote.ganttBarRatio) : prev.ganttBarRatio,
+                     appLogo: remote.appLogo || prev.appLogo,
+                     watermarkImage: remote.watermarkImage || prev.watermarkImage
+                 }));
+            }
+        } catch (e) { console.error("Failed to load system config", e); }
+    }, [user]);
+
+    useEffect(() => {
+        if(user) loadSystemConfig();
+    }, [user, loadSystemConfig]);
 
     const handleLoginSuccess = (user: User) => {
         setUser(user);
@@ -352,6 +380,8 @@ const App: React.FC = () => {
             case 'help': setActiveModal('help'); break;
             case 'about': setActiveModal('about'); break;
             case 'admin': setActiveModal('admin'); break;
+            case 'cloud_load': setActiveModal('cloud_load'); break;
+            case 'cloud_save': setActiveModal('cloud_save'); break;
         }
     }, [data, selIds, view, clipboard, isDirty]);
 
@@ -849,6 +879,10 @@ const App: React.FC = () => {
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/></svg>
                                 {t('OpenExistingProject')}
                             </button>
+                            <button onClick={() => setActiveModal('cloud_load')} className="w-full bg-white hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-bold border-2 border-slate-200 transition-colors flex items-center justify-center gap-2 text-base mt-2">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
+                                {t('CloudProjects')}
+                            </button>
                             <button onClick={handleLogout} className="w-full text-red-600 text-sm hover:underline mt-2">
                                 {t('Logout')}
                             </button>
@@ -865,7 +899,18 @@ const App: React.FC = () => {
                 </div>
              </div>
              <input type="file" ref={fileInputRef} onChange={handleOpen} className="hidden" accept=".json" />
-             <AdminModal isOpen={activeModal === 'admin'} onClose={() => setActiveModal(null)} onSave={setAdminConfig} />
+             <SystemSettingsModal isOpen={activeModal === 'admin'} onClose={() => { setActiveModal(null); loadSystemConfig(); }} lang={userSettings.language} />
+             <CloudLoadModal 
+                 isOpen={activeModal === 'cloud_load'} 
+                 onClose={() => setActiveModal(null)} 
+                 onLoad={(c) => { 
+                     try { 
+                         setData(typeof c === 'string' ? JSON.parse(c) : c); 
+                         setIsDirty(false); 
+                     } catch(e) { alert('Failed to parse project'); } 
+                 }} 
+                 lang={userSettings.language} 
+             />
              <LoginModal isOpen={isLoginOpen} onLoginSuccess={handleLoginSuccess} onClose={() => {}} lang={userSettings.language} />
         </div>
     );
@@ -964,7 +1009,24 @@ const App: React.FC = () => {
             <ColumnSetupModal isOpen={activeModal === 'columns'} onClose={() => setActiveModal(null)} visibleColumns={userSettings.visibleColumns} onSave={(cols) => setUserSettings({...userSettings, visibleColumns: cols})} lang={userSettings.language} />
             <ProjectSettingsModal isOpen={activeModal === 'project_settings'} onClose={() => setActiveModal(null)} projectData={data} onUpdateProject={handleProjectUpdate} />
             <BatchAssignModal isOpen={activeModal === 'batchRes'} onClose={() => setActiveModal(null)} resources={data.resources} onAssign={handleBatchAssign} lang={userSettings.language} />
-            <AdminModal isOpen={activeModal === 'admin'} onClose={() => setActiveModal(null)} onSave={setAdminConfig} />
+            <SystemSettingsModal isOpen={activeModal === 'admin'} onClose={() => { setActiveModal(null); loadSystemConfig(); }} lang={userSettings.language} />
+            <CloudLoadModal 
+                 isOpen={activeModal === 'cloud_load'} 
+                 onClose={() => setActiveModal(null)} 
+                 onLoad={(c) => { 
+                     try { 
+                         setData(typeof c === 'string' ? JSON.parse(c) : c); 
+                         setIsDirty(false); 
+                     } catch(e) { alert('Failed to parse project'); } 
+                 }} 
+                 lang={userSettings.language} 
+             />
+            <CloudSaveModal 
+                 isOpen={activeModal === 'cloud_save'} 
+                 onClose={() => setActiveModal(null)} 
+                 projectData={data} 
+                 lang={userSettings.language} 
+             />
         </div>
     );
 };
