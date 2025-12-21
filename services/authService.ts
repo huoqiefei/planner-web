@@ -17,11 +17,11 @@ const STORAGE_KEY = 'planner_user_session';
 
 export const authService = {
     // API Base URL (Update this to your Typecho URL)
-    baseUrl: 'http://your-typecho-site.com/index.php/planner/api',
+    baseUrl: 'http://148.113.192.227:9999/index.php/planner/api',
 
     async login(username: string, password: string): Promise<User> {
-        // Real API Call Implementation
-        /*
+        // // Real API Call Implementation
+      
         try {
             const response = await fetch(`${this.baseUrl}/login`, {
                 method: 'POST',
@@ -51,42 +51,42 @@ export const authService = {
             console.error('Login error:', error);
             throw error;
         }
-        */
+    
 
         // Mocking logic for demonstration
         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
 
-        if (username === 'admin' && password === 'admin') {
-            const user: User = {
-                uid: '1',
-                name: 'Administrator',
-                mail: 'admin@example.com',
-                group: 'admin',
-                token: 'mock-jwt-token-admin'
-            };
-            this.saveUser(user);
-            return user;
-        } else if (username === 'editor' && password === 'editor') {
-             const user: User = {
-                uid: '2',
-                name: 'Editor',
-                mail: 'editor@example.com',
-                group: 'editor',
-                token: 'mock-jwt-token-editor'
-            };
-            this.saveUser(user);
-            return user;
-        } else if (username === 'viewer' && password === 'viewer') {
-             const user: User = {
-                uid: '3',
-                name: 'Viewer',
-                mail: 'viewer@example.com',
-                group: 'viewer',
-                token: 'mock-jwt-token-viewer'
-            };
-            this.saveUser(user);
-            return user;
-        }
+        // if (username === 'admin' && password === 'admin') {
+        //     const user: User = {
+        //         uid: '1',
+        //         name: 'Administrator',
+        //         mail: 'admin@example.com',
+        //         group: 'admin',
+        //         token: 'mock-jwt-token-admin'
+        //     };
+        //     this.saveUser(user);
+        //     return user;
+        // } else if (username === 'editor' && password === 'editor') {
+        //      const user: User = {
+        //         uid: '2',
+        //         name: 'Editor',
+        //         mail: 'editor@example.com',
+        //         group: 'editor',
+        //         token: 'mock-jwt-token-editor'
+        //     };
+        //     this.saveUser(user);
+        //     return user;
+        // } else if (username === 'viewer' && password === 'viewer') {
+        //      const user: User = {
+        //         uid: '3',
+        //         name: 'Viewer',
+        //         mail: 'viewer@example.com',
+        //         group: 'viewer',
+        //         token: 'mock-jwt-token-viewer'
+        //     };
+        //     this.saveUser(user);
+        //     return user;
+        // }
 
         throw new Error('Invalid credentials');
     },
