@@ -162,6 +162,7 @@ export const translations = {
         // Default Names & Prompts
         NewTask: 'New Task',
         NewWBS: 'New WBS',
+        NewResource: 'New Resource',
         CopySuffix: ' (Copy)',
         LoginToContinue: 'Login to Continue',
         CreateNewProject: 'Create New Project',
@@ -325,7 +326,8 @@ export const translations = {
         Actions: '操作',
         AddActivity: '添加作业',
         AddChildWBS: '添加子 WBS',
-        RenumberActivities: '作业重编号',
+        RenumberActivities: '重新编号作业',
+        RenumberAllActivities: '重新编号所有作业？',
         DeleteWBS: '删除 WBS',
         DeleteActivity: '删除作业',
         // Default Names & Prompts
