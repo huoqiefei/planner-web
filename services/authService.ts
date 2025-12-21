@@ -1,5 +1,7 @@
 import { User, UserRole } from '../types';
 
+/// <reference types="vite/client" />
+
 // Mock Typecho response structure
 interface TypechoLoginResponse {
     status: number;
@@ -17,7 +19,7 @@ const STORAGE_KEY = 'planner_user_session';
 
 export const authService = {
     // API Base URL (Update this to your Typecho URL)
-    baseUrl: import.meta.env.DEV ? '/api' : 'https://board.centrekit.com/index.php/planner/api',
+    baseUrl: (import.meta as any).env.DEV ? '/api' : 'https://board.centrekit.com/index.php/planner/api',
 
     async login(username: string, password: string): Promise<User> {
         // // Real API Call Implementation
@@ -39,17 +41,35 @@ export const authService = {
             }
             
             const data = await response.json();
-            const typechoGroup = data.user.group;
+            console.log('Login API Response:', data);
+
+            // Handle potential response structure variations
+            // Structure 1: { token: '...', user: { ... } } (Matched by Action.php)
+            // Structure 2: { data: { ...user_fields, token: '...' } } (Matched by interface)
+            
+            let userData = data.user;
+            let token = data.token;
+
+            if (!userData && data.data) {
+                userData = data.data;
+                token = data.data.token || token;
+            }
+
+            if (!userData) {
+                 throw new Error('Invalid server response: missing user data');
+            }
+
+            const typechoGroup = userData.group;
             
             // Check for custom authorization category in meta
-            const authCategory = data.user.meta?.planner_auth_group || typechoGroup;
+            const authCategory = userData.meta?.planner_auth_group || typechoGroup;
             
             const user: User = {
-                uid: data.user.uid.toString(),
-                name: data.user.name,
-                mail: data.user.mail,
+                uid: (userData.uid || '').toString(),
+                name: userData.name || userData.screenName || userData.username || 'User',
+                mail: userData.mail || userData.email || '',
                 group: this.mapTypechoGroupToRole(authCategory),
-                token: data.token
+                token: token || userData.token
             };
             
             this.saveUser(user);

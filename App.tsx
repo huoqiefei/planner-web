@@ -53,7 +53,7 @@ const App: React.FC = () => {
 
     const [userSettings, setUserSettings] = useState<UserSettings>({ 
         dateFormat: 'YYYY-MM-DD', 
-        language: 'en',
+        language: navigator.language.startsWith('zh') ? 'zh' : 'en',
         uiSize: 'small',
         uiFontPx: 13,
         gridSettings: { showVertical: true, verticalInterval: 'auto', showHorizontal: true, showWBSLines: true },
@@ -866,7 +866,7 @@ const App: React.FC = () => {
              </div>
              <input type="file" ref={fileInputRef} onChange={handleOpen} className="hidden" accept=".json" />
              <AdminModal isOpen={activeModal === 'admin'} onClose={() => setActiveModal(null)} onSave={setAdminConfig} />
-             <LoginModal isOpen={isLoginOpen} onLoginSuccess={handleLoginSuccess} onClose={() => {}} />
+             <LoginModal isOpen={isLoginOpen} onLoginSuccess={handleLoginSuccess} onClose={() => {}} lang={userSettings.language} />
         </div>
     );
 
