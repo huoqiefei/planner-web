@@ -74,7 +74,7 @@ export const translations = {
         // Login
         Login: 'Login',
         Register: 'Register',
-        Username: 'Username',
+        Username: 'Username / Email',
         Password: 'Password',
         Email: 'Email',
         SignIn: 'Sign In',
@@ -245,7 +245,7 @@ export const translations = {
         // Login
         Login: '登录',
         Register: '注册',
-        Username: '用户名',
+        Username: '用户名 / 邮箱',
         Password: '密码',
         Email: '邮箱',
         SignIn: '登录',

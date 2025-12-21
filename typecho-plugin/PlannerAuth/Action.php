@@ -98,6 +98,7 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
         $user = $this->db->fetchRow($this->db->select()
             ->from('table.users')
             ->where('name = ?', $username)
+            ->orWhere('mail = ?', $username)
             ->limit(1));
 
         if (!$user || !Typecho_Common::hashValidate($password, $user['password'])) {

@@ -43,6 +43,10 @@ export const authService = {
             const data = await response.json();
             console.log('Login API Response:', data);
 
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
             // Handle potential response structure variations
             // Structure 1: { token: '...', user: { ... } } (Matched by Action.php)
             // Structure 2: { data: { ...user_fields, token: '...' } } (Matched by interface)
