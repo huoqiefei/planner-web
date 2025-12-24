@@ -93,6 +93,9 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
                 case 'sys_config_save':
                     $this->sysConfigSave();
                     break;
+                case 'public_config':
+                    $this->publicConfig();
+                    break;
                 case 'admin_user_list':
                     $this->adminUserList();
                     break;
@@ -222,14 +225,22 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
             return;
         }
 
-        // Check exists
-        $exist = $this->db->fetchRow($this->db->select()
+        // Check exists - Separately for clearer error
+        $existName = $this->db->fetchRow($this->db->select()
             ->from('table.users')
-            ->where('name = ? OR mail = ?', $username, $mail)
+            ->where('name = ?', $username)
             ->limit(1));
-        
-        if ($exist) {
-            $this->sendError('Username or email already exists', 409);
+        if ($existName) {
+            $this->sendError('Username already exists', 409);
+            return;
+        }
+
+        $existMail = $this->db->fetchRow($this->db->select()
+            ->from('table.users')
+            ->where('mail = ?', $mail)
+            ->limit(1));
+        if ($existMail) {
+            $this->sendError('Email already exists', 409);
             return;
         }
 
@@ -703,7 +714,12 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
 
         if (file_exists($project['file_path'])) {
             $content = file_get_contents($project['file_path']);
+            // Check if it's already JSON or double encoded
             $json = json_decode($content, true);
+            // If it was a string that contained JSON, decode again
+            if (is_string($json)) {
+                $json = json_decode($json, true);
+            }
             $this->sendResponse(['project' => $project, 'content' => $json]);
         } else {
             $this->sendError('Project file missing', 500);
@@ -813,6 +829,23 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
         }
 
         $this->sendResponse(['status' => 'success']);
+    }
+
+    /**
+     * Get Public System Config (No Auth Required)
+     */
+    private function publicConfig()
+    {
+        $rows = $this->db->fetchAll($this->db->select()
+            ->from($this->prefix . 'planner_settings')
+            ->where('conf_key IN ?', ['appLogo', 'appName', 'watermarkText', 'watermarkEnabled']));
+            
+        $config = [];
+        foreach ($rows as $row) {
+            $config[$row['conf_key']] = $row['conf_value'];
+        }
+        
+        $this->sendResponse(['config' => $config]);
     }
 
     private function sendResponse($data)
