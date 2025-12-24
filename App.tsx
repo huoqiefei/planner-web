@@ -127,6 +127,13 @@ const App: React.FC = () => {
         } 
     }, [data]);
 
+    // Auto-initialize project on login if none exists
+    useEffect(() => {
+        if (user && !data && !isLoginOpen) {
+            createNew();
+        }
+    }, [user, data, isLoginOpen]);
+
     const createNew = () => {
         const pCode = 'PROJ-01';
         const pName = 'New Project';
@@ -323,6 +330,10 @@ const App: React.FC = () => {
             case 'import': fileInputRef.current?.click(); break;
             case 'export': handleSave(); break;
             case 'print': setActiveModal('print'); break;
+            case 'new_project': handleNew(); break;
+            case 'open_project': fileInputRef.current?.click(); break;
+            case 'cloud_projects': setActiveModal('cloud_load'); break;
+            case 'logout': handleLogout(); break;
             case 'copy': 
                  if (selIds.length > 0 && data) {
                     if (view === 'resources') setClipboard({ ids: selIds, type: 'Resources' });
@@ -382,6 +393,8 @@ const App: React.FC = () => {
             case 'admin': setActiveModal('admin'); break;
             case 'cloud_load': setActiveModal('cloud_load'); break;
             case 'cloud_save': setActiveModal('cloud_save'); break;
+            case 'license': setModalData({ msg: "License: Standard Edition\nExpires: 2025-12-31" }); setActiveModal('alert'); break;
+            case 'usage': setModalData({ msg: "Usage: 5/10 Projects Used\nStorage: 120MB / 1GB" }); setActiveModal('alert'); break;
         }
     }, [data, selIds, view, clipboard, isDirty]);
 
@@ -502,12 +515,34 @@ const App: React.FC = () => {
                 if (startT < minStart) minStart = startT;
             });
         }
+
+        // Apply Custom Print Range if Provided
+        let printStart = minStart;
+        let printEnd = maxEnd;
+        let shiftPx = 0;
+
+        if (settings.startDate && settings.endDate) {
+            const ps = new Date(settings.startDate).getTime();
+            const pe = new Date(settings.endDate).getTime();
+            if (!isNaN(ps) && !isNaN(pe) && pe > ps) {
+                printStart = ps;
+                printEnd = pe;
+                
+                // Calculate shift (how much to move left)
+                // The Gantt starts at projectStartDate
+                // If printStart > projectStartDate, we need to shift LEFT (negative margin)
+                // If printStart < projectStartDate, we need to shift RIGHT (positive margin) - but usually project starts earlier
+                
+                // Current visual start is at getPosition(projectStartDate) which is 0 (plus buffer)
+                // getPosition(date) = (date - projectStartDate) * px
+                const projectStart = new Date(data!.meta.projectStartDate).getTime();
+                shiftPx = (printStart - projectStart) / (1000 * 60 * 60 * 24) * px;
+            }
+        }
         
-        // Calculate strict duration from Project Start to Max Activity End
-        const start = new Date(data!.meta.projectStartDate).getTime();
-        const diffDays = Math.max(1, (maxEnd - start) / (1000 * 60 * 60 * 24));
-        // Add minimal buffer for last label
-        const ganttContentWidth = (diffDays + 5) * px; 
+        // Calculate strict duration for Width
+        const diffDays = Math.max(1, (printEnd - printStart) / (1000 * 60 * 60 * 24));
+        const ganttContentWidth = (diffDays + 2) * px; // +2 days buffer
 
         // Force Gantt Width - Strict Clipping
         const ganttSvg = clone.querySelector('svg');
@@ -525,6 +560,17 @@ const App: React.FC = () => {
                 el.style.width = `${ganttWidth}px`;
                 el.style.minWidth = `${ganttWidth}px`;
                 el.style.overflow = 'hidden'; // Force clip for print
+                
+                // Apply Shift if needed (Clip the left part)
+                if (shiftPx !== 0) {
+                    // We need to shift the CONTENT inside the wrapper
+                    // The content is likely the SVG or a div inside
+                    // If we set scrollLeft, it might not print
+                    // Better to set margin-left on the first child
+                    if (el.firstChild) {
+                        (el.firstChild as HTMLElement).style.marginLeft = `-${shiftPx}px`;
+                    }
+                }
             });
         }
         // --- FIX END ---
@@ -838,82 +884,14 @@ const App: React.FC = () => {
         );
     };
 
-    if (!data) return (
-        <div className="flex h-full w-full items-center justify-center bg-slate-900 relative overflow-hidden font-sans">
-             <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(#94a3b8 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
-             
-             {/* Scaled down Landing Page (~80%) */}
-             <div className="z-10 bg-white p-6 rounded-xl shadow-2xl flex flex-col items-center gap-5 max-w-sm w-full border border-slate-700">
-                <div className="text-center flex flex-col items-center">
-                    {adminConfig.appLogo ? (
-                        <img src={adminConfig.appLogo} alt="Logo" className="h-16 mb-2 object-contain" />
-                    ) : (
-                        <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-700 tracking-tighter" 
-                            style={{ 
-                                textShadow: '2px 2px 0px #e2e8f0', 
-                                fontFamily: '"Segoe UI", Roboto, "Helvetica Neue", sans-serif',
-                                transform: 'rotate(-2deg)'
-                            }}>
-                            {adminConfig.appName.split(' ')[0]}
-                        </h1>
-                    )}
-                    <p className="text-slate-400 text-xs mt-2 font-semibold tracking-widest uppercase">{adminConfig.appName}</p>
-                    <div className="mt-3 text-[10px] font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full inline-block">
-                        {adminConfig.copyrightText}
-                    </div>
-                </div>
-
-                <div className="flex flex-col gap-3 w-full">
-                    {user ? (
-                        <>
-                            <div className="text-center text-sm text-slate-600 mb-2">
-                                {t('Welcome')}, <span className="font-bold">{user.name}</span>
-                            </div>
-                            {user.group !== 'viewer' && (
-                                <button onClick={createNew} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center justify-center gap-2 text-base">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
-                                    {t('CreateNewProject')}
-                                </button>
-                            )}
-                            <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-bold border-2 border-slate-200 transition-colors flex items-center justify-center gap-2 text-base">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/></svg>
-                                {t('OpenExistingProject')}
-                            </button>
-                            <button onClick={() => setActiveModal('cloud_load')} className="w-full bg-white hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-bold border-2 border-slate-200 transition-colors flex items-center justify-center gap-2 text-base mt-2">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
-                                {t('CloudProjects')}
-                            </button>
-                            <button onClick={handleLogout} className="w-full text-red-600 text-sm hover:underline mt-2">
-                                {t('Logout')}
-                            </button>
-                        </>
-                    ) : (
-                        <button onClick={() => setIsLoginOpen(true)} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold shadow-lg transition-all hover:scale-[1.02] flex items-center justify-center gap-2 text-base">
-                            {t('LoginToContinue')}
-                        </button>
-                    )}
-                </div>
-
-                <div className="pt-3 border-t w-full text-center text-[10px] text-slate-400">
-                    <span>{t('Version')} 1.0.0 &copy; {new Date().getFullYear()}</span>
-                </div>
-             </div>
-             <input type="file" ref={fileInputRef} onChange={handleOpen} className="hidden" accept=".json" />
-             <SystemSettingsModal isOpen={activeModal === 'admin'} onClose={() => { setActiveModal(null); loadSystemConfig(); }} lang={userSettings.language} />
-             <CloudLoadModal 
-                 isOpen={activeModal === 'cloud_load'} 
-                 onClose={() => setActiveModal(null)} 
-                 onLoad={(c) => { 
-                     try { 
-                         setData(typeof c === 'string' ? JSON.parse(c) : c); 
-                         setIsDirty(false); 
-                     } catch(e) { alert('Failed to parse project'); } 
-                 }} 
-                 lang={userSettings.language} 
-             />
-             <LoginModal isOpen={isLoginOpen} onLoginSuccess={handleLoginSuccess} onClose={() => {}} lang={userSettings.language} />
-        </div>
-    );
+    if (!data) {
+        return (
+            <div className="flex flex-col h-full bg-slate-100 items-center justify-center">
+                 <div className="animate-pulse text-slate-500 font-bold">Loading Interface...</div>
+                 <LoginModal isOpen={isLoginOpen} onLoginSuccess={handleLoginSuccess} onClose={() => {}} lang={userSettings.language} />
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-full bg-slate-100" onClick={() => setCtx(null)}>
@@ -945,6 +923,21 @@ const App: React.FC = () => {
                             {t(v as any)}
                         </button>
                     ))}
+
+                    {/* Zoom Controls */}
+                    {view === 'activities' && (
+                        <div className="ml-auto flex items-center gap-1 pr-2 pb-1">
+                            {(['day', 'week', 'month', 'quarter', 'year'] as const).map(z => (
+                                <button 
+                                    key={z} 
+                                    onClick={() => setGanttZoom(z)}
+                                    className={`px-2 py-0.5 text-[10px] uppercase font-bold border rounded ${ganttZoom === z ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+                                >
+                                    {t(z as any)}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {view === 'activities' && (

@@ -373,19 +373,7 @@ const CombinedView: React.FC<CombinedViewProps> = ({
                 headerHeight={headerHeight}
                 onScroll={handleGanttScroll}
             />
-            
-            {/* Zoom Controls Overlay */}
-            <div className="absolute top-1 right-4 flex gap-1 bg-white/80 p-1 rounded border border-slate-300 shadow-sm z-10">
-                {(['day', 'week', 'month', 'quarter', 'year'] as const).map(z => (
-                    <button 
-                        key={z} 
-                        onClick={() => onZoomChange(z)}
-                        className={`px-2 py-0.5 text-[10px] uppercase font-bold border rounded ${zoomLevel === z ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
-                    >
-                        {z}
-                    </button>
-                ))}
-            </div>
+
         </div>
     );
 };

@@ -430,15 +430,29 @@ export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void
                                 Show Page Numbers
                             </label>
                             <label className="flex items-center gap-2">
-                                <input type="checkbox" checked={settings.showDate} onChange={e => setSettings({...settings, showDate: e.target.checked})} />
-                                Show Date
-                            </label>
-                        </div>
+                            <input type="checkbox" checked={settings.showDate} onChange={e => setSettings({...settings, showDate: e.target.checked})} />
+                            Show Date
+                        </label>
                     </div>
                 </div>
 
                 <div className="border-t pt-2">
-                    <label className="block mb-1 font-bold">Scaling</label>
+                    <label className="block mb-1 font-bold">Time Range (Optional)</label>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs text-slate-500 mb-1">Start Date</label>
+                            <input type="date" className="w-full border p-1 rounded" value={settings.startDate || ''} onChange={e => setSettings({...settings, startDate: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-slate-500 mb-1">End Date</label>
+                            <input type="date" className="w-full border p-1 rounded" value={settings.endDate || ''} onChange={e => setSettings({...settings, endDate: e.target.value})} />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="border-t pt-2">
+                <label className="block mb-1 font-bold">Scaling</label>
                     <div className="flex items-center gap-4">
                         <label className="flex items-center gap-2">
                             <input type="radio" name="scale" checked={settings.scalingMode === 'fit'} onChange={() => setSettings({...settings, scalingMode: 'fit'})} />

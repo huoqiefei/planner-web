@@ -108,12 +108,14 @@ export interface UserSettings {
 export interface PrintSettings {
     paperSize: 'a4' | 'a3' | 'a2' | 'a1';
     orientation: 'landscape' | 'portrait';
-    scalingMode: 'fit' | 'custom'; // Added
-    scalePercent: number; // Added (100 = 1.0)
+    scalingMode: 'fit' | 'custom';
+    scalePercent: number; // 100 = 1.0
     headerText?: string;
     footerText?: string;
     showPageNumber: boolean;
     showDate: boolean;
+    startDate?: string; // YYYY-MM-DD
+    endDate?: string; // YYYY-MM-DD
 }
 
 export type UserRole = 'admin' | 'editor' | 'viewer';
