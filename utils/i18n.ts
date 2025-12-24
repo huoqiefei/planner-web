@@ -18,6 +18,7 @@ export const translations = {
         Copy: 'Copy',
         Cut: 'Cut',
         Paste: 'Paste',
+        AccountSettings: 'Account Settings...',
         UserPreferences: 'User Preferences...',
         ColumnsSetup: 'Columns Setup...',
         Project: 'Project',
@@ -193,6 +194,9 @@ export const translations = {
         SystemConfigSaved: 'System configuration saved',
         SaveSuccess: 'Saved successfully',
         ConfirmDeleteProject: 'Are you sure you want to delete this project?',
+        AdminConsole: 'Admin Console',
+        UserManagement: 'User Management',
+        SaveConfig: 'Save Configuration',
     },
     zh: {
         File: '文件',
@@ -209,6 +213,7 @@ export const translations = {
         Copy: '复制',
         Cut: '剪切',
         Paste: '粘贴',
+        AccountSettings: '账户设置...',
         UserPreferences: '用户设置...',
         ColumnsSetup: '栏位设置...',
         Project: '项目',
@@ -384,6 +389,9 @@ export const translations = {
         SystemConfigSaved: '系统配置已保存',
         SaveSuccess: '保存成功',
         ConfirmDeleteProject: '确定要删除此项目吗？',
+        AdminConsole: '管理控制台',
+        UserManagement: '用户管理',
+        SaveConfig: '保存配置',
     }
 };
 

@@ -11,7 +11,8 @@ import CombinedView from './components/CombinedView';
 import DetailsPanel from './components/DetailsPanel';
 import ResourcesPanel from './components/ResourcesPanel';
 import ProjectSettingsModal from './components/ProjectSettingsModal';
-import { AlertModal, ConfirmModal, AboutModal, UserSettingsModal, PrintSettingsModal, BatchAssignModal, HelpModal, ColumnSetupModal } from './components/Modals';
+import { AlertModal, ConfirmModal, AboutModal, PrintSettingsModal, BatchAssignModal, HelpModal, ColumnSetupModal } from './components/Modals';
+import { AccountSettingsModal } from './components/AccountSettingsModal';
 import { LoginModal } from './components/LoginModal';
 import { CloudLoadModal, CloudSaveModal } from './components/CloudModals';
 import { SystemSettingsModal } from './components/SystemSettingsModal';
@@ -696,11 +697,16 @@ const App: React.FC = () => {
             
             // --- SCALING LOGIC ---
             // Base Ratio: Fits width to page content
+            // Note: totalImgW is at 3x scale (from html2canvas)
             const fitRatio = contentW / totalImgW;
             
+            // Fix overly large scaling for small content: Cap at 100% size (1/3 of 3x capture)
+            const maxAuto = 1/3;
+            const autoScale = Math.min(fitRatio, maxAuto);
+
             const scaleFactor = settings.scalingMode === 'custom' 
                 ? (1/3) * (settings.scalePercent / 100) 
-                : fitRatio;
+                : autoScale;
 
             const headerH = headerCanvas.height * scaleFactor;
             const bodyTotalH = bodyCanvas.height * scaleFactor;
@@ -997,7 +1003,14 @@ const App: React.FC = () => {
             />
             <AboutModal isOpen={activeModal === 'about'} onClose={() => setActiveModal(null)} customCopyright={adminConfig.copyrightText} />
             <HelpModal isOpen={activeModal === 'help'} onClose={() => setActiveModal(null)} />
-            <UserSettingsModal isOpen={activeModal === 'user_settings'} settings={userSettings} onSave={setUserSettings} onClose={() => setActiveModal(null)} />
+            <AccountSettingsModal 
+                isOpen={activeModal === 'user_settings'} 
+                user={user}
+                settings={userSettings} 
+                onSaveSettings={setUserSettings} 
+                onUpdateUser={setUser}
+                onClose={() => setActiveModal(null)} 
+            />
             <PrintSettingsModal isOpen={activeModal === 'print'} onClose={() => setActiveModal(null)} onPrint={executePrint} lang={userSettings.language} />
             <ColumnSetupModal isOpen={activeModal === 'columns'} onClose={() => setActiveModal(null)} visibleColumns={userSettings.visibleColumns} onSave={(cols) => setUserSettings({...userSettings, visibleColumns: cols})} lang={userSettings.language} />
             <ProjectSettingsModal isOpen={activeModal === 'project_settings'} onClose={() => setActiveModal(null)} projectData={data} onUpdateProject={handleProjectUpdate} />

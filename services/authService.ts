@@ -73,7 +73,9 @@ export const authService = {
                 name: userData.name || userData.screenName || userData.username || 'User',
                 mail: userData.mail || userData.email || '',
                 group: this.mapTypechoGroupToRole(authCategory),
-                token: token || userData.token
+                token: token || userData.token,
+                avatar: userData.avatar,
+                plannerRole: userData.planner_role || 'trial'
             };
             
             this.saveUser(user);
@@ -123,9 +125,95 @@ export const authService = {
     },
 
     async register(username: string, password: string, email: string): Promise<void> {
-        // TODO: Replace with Typecho registration API
-        await new Promise(resolve => setTimeout(resolve, 500));
-        // Mock success
+        try {
+            const response = await fetch(`${this.baseUrl}/register`, {
+                method: 'POST',
+                mode: 'cors',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password, mail: email })
+            });
+
+            if (!response.ok) {
+                const text = await response.text().catch(() => '');
+                throw new Error(`Registration failed (${response.status}): ${text}`);
+            }
+
+            const data = await response.json();
+            if (data.error) {
+                throw new Error(data.error);
+            }
+        } catch (error) {
+            console.error('Registration error:', error);
+            throw error;
+        }
+    },
+
+    async updateProfile(data: { nickname?: string; avatar?: File }): Promise<{ avatarUrl?: string }> {
+        const user = this.getCurrentUser();
+        if (!user || !user.token) throw new Error('Not authenticated');
+
+        const formData = new FormData();
+        if (data.nickname) formData.append('screenName', data.nickname);
+        if (data.avatar) formData.append('avatar', data.avatar);
+
+        try {
+            const response = await fetch(`${this.baseUrl}/update_profile`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${user.token}`
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                const text = await response.text().catch(() => '');
+                throw new Error(`Update failed (${response.status}): ${text}`);
+            }
+
+            const result = await response.json();
+            if (result.error) throw new Error(result.error);
+            
+            // Update local user data if successful
+            const currentUser = this.getCurrentUser();
+            if (currentUser) {
+                if (data.nickname) currentUser.name = data.nickname;
+                if (result.avatar) currentUser.avatar = result.avatar;
+                this.saveUser(currentUser);
+            }
+
+            return result;
+        } catch (error) {
+            console.error('Profile update error:', error);
+            throw error;
+        }
+    },
+
+    async adminUserList(page: number = 1, pageSize: number = 20): Promise<{ users: any[], total: number }> {
+        const user = this.getCurrentUser();
+        if (!user || !user.token) throw new Error('Not authenticated');
+
+        const response = await fetch(`${this.baseUrl}/admin_user_list?page=${page}&pageSize=${pageSize}`, {
+            headers: { 'Authorization': `Bearer ${user.token}` }
+        });
+        const data = await response.json();
+        return data;
+    },
+
+    async adminUserUpdate(uid: number, role: 'trial' | 'licensed' | 'premium'): Promise<void> {
+        const user = this.getCurrentUser();
+        if (!user || !user.token) throw new Error('Not authenticated');
+
+        await fetch(`${this.baseUrl}/admin_user_update`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user.token}`
+            },
+            body: JSON.stringify({ uid, role })
+        });
     },
 
     logout() {

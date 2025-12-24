@@ -17,7 +17,6 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
         try {
             $this->pluginOptions = $this->options->plugin('PlannerAuth');
         } catch (Exception $e) {
-            // Plugin might not be configured yet
             $this->pluginOptions = new stdClass();
             $this->pluginOptions->jwtSecret = 'default_secret';
             $this->pluginOptions->corsOrigin = '*';
@@ -25,8 +24,6 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
 
         // CORS Headers
         $origin = $this->pluginOptions->corsOrigin ? $this->pluginOptions->corsOrigin : '*';
-        
-        // Fix: Strip trailing wildcards/slashes as Access-Control-Allow-Origin must be exact
         if ($origin !== '*') {
             $origin = rtrim($origin, '/*');
             $origin = rtrim($origin, '/');
@@ -63,8 +60,14 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
                 case 'login':
                     $this->login();
                     break;
+                case 'register':
+                    $this->register();
+                    break;
                 case 'user':
                     $this->userInfo();
+                    break;
+                case 'update_profile':
+                    $this->updateProfile();
                     break;
                 case 'update_meta':
                     $this->updateMeta();
@@ -86,6 +89,12 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
                     break;
                 case 'sys_config_save':
                     $this->sysConfigSave();
+                    break;
+                case 'admin_user_list':
+                    $this->adminUserList();
+                    break;
+                case 'admin_user_update':
+                    $this->adminUserUpdate();
                     break;
                 default:
                     $this->sendError('Invalid action', 400);
@@ -114,58 +123,24 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
             return;
         }
 
-        // DEBUG MODE: If username starts with debug: prefix
-        if (strpos($username, 'debug:') === 0) {
-            $realUsername = substr($username, 6);
-            $user = $this->db->fetchRow($this->db->select()
-                ->from('table.users')
-                ->where('name = ?', $realUsername)
-                ->limit(1));
-            
-            $this->sendResponse([
-                'debug' => true,
-                'input_username' => $realUsername,
-                'user_found' => !!$user,
-                'user_data_hash' => $user ? $user['password'] : null,
-                'password_valid' => $user ? Typecho_Common::hashValidate($password, $user['password']) : false
-            ]);
-            return;
-        }
-
-        // 1. Attempt Typecho Core Login (Most Robust)
+        // 1. Attempt Typecho Core Login
         $auth = Typecho_Widget::widget('Widget_User');
         $logged = false;
         try {
             if ($auth->login($username, $password, true)) {
-                $user = $auth->row; // Get authorized user
+                $user = $auth->row;
                 $logged = true;
             }
         } catch (Exception $e) {
-            // Ignore core login errors, fall back to manual check for diagnostics
+            // Ignore
         }
 
         if ($logged) {
-            // Success - Generate Token
-            $meta = $this->getUserMeta($user['uid']);
-            $token = $this->generateToken($user);
-            
-            $this->sendResponse([
-                'token' => $token,
-                'user' => [
-                    'uid' => $user['uid'],
-                    'name' => $user['screenName'],
-                    'username' => $user['name'],
-                    'mail' => $user['mail'],
-                    'group' => $user['group'],
-                    'meta' => $meta
-                ]
-            ]);
+            $this->sendLoginResponse($user);
             return;
         }
 
-        // 2. Diagnosis: Why did it fail?
-        // Try to find user by name or mail
-        // Separate queries to ensure correct index usage and logic
+        // 2. Fallback Manual Check
         $user = $this->db->fetchRow($this->db->select()
             ->from('table.users')
             ->where('name = ?', $username)
@@ -178,7 +153,6 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
                 ->limit(1));
         }
 
-        // Fallback: Check screenName (some users confuse this with username)
         if (!$user) {
              $user = $this->db->fetchRow($this->db->select()
                 ->from('table.users')
@@ -196,14 +170,13 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
             return;
         }
         
-        // If we got here, it means hashValidate PASSED but Widget_User login FAILED.
-        // This is weird, but we should trust hashValidate if it passes.
-        // Fetch custom meta
+        $this->sendLoginResponse($user);
+    }
+
+    private function sendLoginResponse($user) {
         $meta = $this->getUserMeta($user['uid']);
-
-        // Generate Token
         $token = $this->generateToken($user);
-
+        
         $this->sendResponse([
             'token' => $token,
             'user' => [
@@ -218,16 +191,61 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
     }
 
     /**
+     * Register new user
+     */
+    private function register()
+    {
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        
+        $username = isset($data['username']) ? trim($data['username']) : '';
+        $password = isset($data['password']) ? $data['password'] : '';
+        $mail = isset($data['mail']) ? trim($data['mail']) : '';
+        $screenName = isset($data['screenName']) ? trim($data['screenName']) : $username;
+
+        if (empty($username) || empty($password) || empty($mail)) {
+            $this->sendError('Username, password and email are required', 400);
+            return;
+        }
+
+        // Check exists
+        $exist = $this->db->fetchRow($this->db->select()
+            ->from('table.users')
+            ->where('name = ? OR mail = ?', $username, $mail)
+            ->limit(1));
+        
+        if ($exist) {
+            $this->sendError('Username or email already exists', 409);
+            return;
+        }
+
+        $hasher = new Typecho_Common();
+        $hashPassword = Typecho_Common::hash($password);
+
+        $uid = $this->db->query($this->db->insert('table.users')
+            ->rows([
+                'name' => $username,
+                'password' => $hashPassword,
+                'mail' => $mail,
+                'screenName' => $screenName,
+                'created' => time(),
+                'group' => 'subscriber'
+            ]));
+
+        // Set default role: Trial
+        $this->updateUserMeta($uid, 'planner_role', 'trial');
+
+        $this->sendResponse(['status' => 'success', 'uid' => $uid]);
+    }
+
+    /**
      * Get current user info from Token
      */
     private function userInfo()
     {
         $user = $this->verifyToken();
-        if (!$user) {
-            return;
-        }
+        if (!$user) return;
 
-        // Refresh user data from DB
         $dbUser = $this->db->fetchRow($this->db->select()
             ->from('table.users')
             ->where('uid = ?', $user['uid'])
@@ -251,19 +269,115 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
     }
 
     /**
-     * Update user meta (Requires Auth)
+     * Update Profile (Avatar, Nickname, etc.)
+     */
+    private function updateProfile()
+    {
+        $user = $this->verifyToken();
+        if (!$user) return;
+
+        $screenName = isset($_POST['screenName']) ? trim($_POST['screenName']) : null;
+        $password = isset($_POST['password']) ? $_POST['password'] : null;
+        
+        $updateRows = [];
+        if ($screenName) $updateRows['screenName'] = $screenName;
+        if ($password && strlen($password) > 0) {
+            $updateRows['password'] = Typecho_Common::hash($password);
+        }
+
+        if (!empty($updateRows)) {
+            $this->db->query($this->db->update('table.users')
+                ->rows($updateRows)
+                ->where('uid = ?', $user['uid']));
+        }
+
+        // Handle Avatar Upload
+        if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === 0) {
+            $file = $_FILES['avatar'];
+            $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+            if (!in_array(strtolower($ext), ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                $this->sendError('Invalid image format', 400);
+                return;
+            }
+            
+            $uploadDir = __TYPECHO_ROOT_DIR__ . '/usr/uploads/avatars/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            
+            $fileName = 'avatar_' . $user['uid'] . '_' . time() . '.' . $ext;
+            $targetPath = $uploadDir . $fileName;
+            
+            if (move_uploaded_file($file['tmp_name'], $targetPath)) {
+                $avatarUrl = '/usr/uploads/avatars/' . $fileName; // Relative path usually works if root is set correctly
+                // Or better, assume API is relative to index.php, so we might need full URL or relative to root
+                // For now, store relative path
+                $this->updateUserMeta($user['uid'], 'avatar', $avatarUrl);
+            }
+        }
+
+        $this->sendResponse(['status' => 'success']);
+    }
+
+    /**
+     * Admin: List Users
+     */
+    private function adminUserList()
+    {
+        $user = $this->verifyToken();
+        if (!$user || $user['group'] !== 'administrator') {
+            $this->sendError('Permission denied', 403);
+            return;
+        }
+
+        $users = $this->db->fetchAll($this->db->select('uid', 'name', 'screenName', 'mail', 'group', 'created')
+            ->from('table.users')
+            ->order('uid', Typecho_Db::SORT_ASC));
+
+        foreach ($users as &$u) {
+            $u['meta'] = $this->getUserMeta($u['uid']);
+        }
+
+        $this->sendResponse(['users' => $users]);
+    }
+
+    /**
+     * Admin: Update User Group/Role
+     */
+    private function adminUserUpdate()
+    {
+        $user = $this->verifyToken();
+        if (!$user || $user['group'] !== 'administrator') {
+            $this->sendError('Permission denied', 403);
+            return;
+        }
+
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        
+        $targetUid = isset($data['uid']) ? intval($data['uid']) : 0;
+        $role = isset($data['role']) ? $data['role'] : null; // trial, licensed, premium
+
+        if (!$targetUid) {
+            $this->sendError('Target UID required', 400);
+            return;
+        }
+
+        if ($role) {
+            $this->updateUserMeta($targetUid, 'planner_role', $role);
+        }
+
+        $this->sendResponse(['status' => 'success']);
+    }
+
+    /**
+     * Update user meta (Generic)
      */
     private function updateMeta()
     {
         $user = $this->verifyToken();
-        if (!$user) {
-            return;
-        }
+        if (!$user) return;
 
-        // Only allow self or admin to update?
-        // For now, let's allow updating self meta or if admin any meta.
-        // Assuming simple use case: update self.
-        
         $data = json_decode(file_get_contents('php://input'), true);
         $targetUid = isset($data['uid']) ? intval($data['uid']) : $user['uid'];
         $key = isset($data['key']) ? $data['key'] : '';
@@ -274,17 +388,21 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
             return;
         }
 
-        // Check permission
         if ($targetUid != $user['uid'] && $user['group'] !== 'administrator') {
             $this->sendError('Permission denied', 403);
             return;
         }
 
-        // Update/Insert
+        $this->updateUserMeta($targetUid, $key, $value);
+        $this->sendResponse(['status' => 'success']);
+    }
+
+    private function updateUserMeta($uid, $key, $value)
+    {
         $table = $this->prefix . 'planner_usermeta';
         $existing = $this->db->fetchRow($this->db->select()
             ->from($table)
-            ->where('uid = ?', $targetUid)
+            ->where('uid = ?', $uid)
             ->where('meta_key = ?', $key));
 
         if ($existing) {
@@ -294,13 +412,11 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
         } else {
             $this->db->query($this->db->insert($table)
                 ->rows([
-                    'uid' => $targetUid,
+                    'uid' => $uid,
                     'meta_key' => $key,
                     'meta_value' => $value
                 ]));
         }
-
-        $this->sendResponse(['status' => 'success']);
     }
 
     private function getUserMeta($uid)
@@ -404,7 +520,7 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
         
         $name = isset($data['name']) ? $data['name'] : 'Untitled Project';
         $description = isset($data['description']) ? $data['description'] : '';
-        $content = isset($data['content']) ? $data['content'] : []; // The project JSON
+        $content = isset($data['content']) ? $data['content'] : [];
         $projectId = isset($data['id']) ? intval($data['id']) : null;
 
         if (empty($content)) {
@@ -412,7 +528,6 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
             return;
         }
 
-        // Save file
         $uploadDir = __TYPECHO_ROOT_DIR__ . '/usr/uploads/planner_projects/';
         if (!is_dir($uploadDir)) {
             if (!mkdir($uploadDir, 0755, true)) {
@@ -429,27 +544,24 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
             return;
         }
 
-        // DB Operation
         $table = $this->prefix . 'planner_projects';
         
         if ($projectId) {
-            // Update existing
             $existing = $this->db->fetchRow($this->db->select()
                 ->from($table)
                 ->where('id = ?', $projectId)
                 ->where('uid = ?', $user['uid']));
             
             if ($existing) {
-                // Remove old file
                 if (file_exists($existing['file_path'])) {
-                    @unlink($existing['file_path']); // Or keep version history? User didn't ask.
+                    @unlink($existing['file_path']);
                 }
 
                 $this->db->query($this->db->update($table)
                     ->rows([
                         'name' => $name,
                         'description' => $description,
-                        'file_path' => $filePath, // Store absolute path for now, or relative? Absolute is easier here.
+                        'file_path' => $filePath,
                         'updated_at' => time()
                     ])
                     ->where('id = ?', $projectId));
@@ -458,7 +570,6 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
                 return;
             }
         } else {
-            // Create new
             $this->db->query($this->db->insert($table)
                 ->rows([
                     'uid' => $user['uid'],

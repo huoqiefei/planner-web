@@ -126,6 +126,8 @@ export interface User {
     mail: string;
     group: UserRole; // Mapped from Typecho group
     token?: string;
+    avatar?: string;
+    plannerRole?: 'trial' | 'licensed' | 'premium';
 }
 
 export interface AdminConfig {

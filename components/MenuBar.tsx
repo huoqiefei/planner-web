@@ -38,7 +38,9 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, use
         [t('File')]: [
             { label: t('CreateNewProject'), action: 'new_project', disabled: user?.group === 'viewer' },
             { label: t('OpenExistingProject'), action: 'open_project' },
-            { label: t('CloudProjects'), action: 'cloud_projects' },
+            { type: 'separator' },
+            { label: t('SaveToCloud'), action: 'cloud_save', disabled: user?.group === 'viewer' },
+            { label: t('OpenFromCloud'), action: 'cloud_projects' },
             { type: 'separator' },
             { label: t('ImportJSON'), action: 'import', disabled: user?.group === 'viewer' },
             { label: t('ExportJSON'), action: 'export' },
@@ -133,7 +135,7 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, use
                             </div>
                             
                             {[
-                                { label: t('UserPreferences'), action: 'settings' },
+                                { label: t('AccountSettings'), action: 'settings' },
                                 { label: 'License Info', action: 'license' },
                                 { label: 'Usage Statistics', action: 'usage' },
                                 { type: 'separator' },
