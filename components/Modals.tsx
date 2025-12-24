@@ -65,8 +65,8 @@ const parseInline = (text: string) => {
     });
 };
 
-export const AlertModal: React.FC<{ isOpen: boolean, msg: string, onClose: () => void }> = ({ isOpen, msg, onClose }) => (
-    <BaseModal isOpen={isOpen} title="System Message" onClose={onClose} footer={
+export const AlertModal: React.FC<{ isOpen: boolean, msg: string, onClose: () => void, title?: string }> = ({ isOpen, msg, onClose, title }) => (
+    <BaseModal isOpen={isOpen} title={title || "System Message"} onClose={onClose} footer={
         <button onClick={onClose} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">OK</button>
     }>
         <div className="flex items-center gap-3">

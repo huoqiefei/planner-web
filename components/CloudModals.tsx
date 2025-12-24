@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../utils/i18n';
 import { authService } from '../services/authService';
+import { AlertModal, ConfirmModal } from './Modals';
 
 interface CloudLoadModalProps {
     isOpen: boolean;
@@ -15,6 +16,10 @@ export const CloudLoadModal: React.FC<CloudLoadModalProps> = ({ isOpen, onClose,
     const [projects, setProjects] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [selectedId, setSelectedId] = useState<number | null>(null);
+    const [alertMsg, setAlertMsg] = useState<string | null>(null);
+    const [alertTitle, setAlertTitle] = useState<string>('');
+    const [confirmMsg, setConfirmMsg] = useState<string | null>(null);
+    const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -29,7 +34,7 @@ export const CloudLoadModal: React.FC<CloudLoadModalProps> = ({ isOpen, onClose,
             setProjects(list);
         } catch (error) {
             console.error(error);
-            alert('Failed to load projects');
+            setAlertMsg('Failed to load projects'); setAlertTitle('Error');
         } finally {
             setLoading(false);
         }
@@ -44,28 +49,31 @@ export const CloudLoadModal: React.FC<CloudLoadModalProps> = ({ isOpen, onClose,
                 onLoad(response.content);
                 onClose();
             } else {
-                alert('Project file content missing');
+                setAlertMsg('Project file content missing');
+                setAlertTitle('Error');
             }
         } catch (error) {
             console.error(error);
-            alert('Failed to load project');
+            setAlertMsg('Failed to load project');
+            setAlertTitle('Error');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleDelete = async (e: React.MouseEvent, id: number) => {
+    const handleDelete = (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
-        if (!confirm(t('ConfirmDeleteProject'))) return;
-        
-        try {
-            await authService.deleteProject(id);
-            loadProjects();
-            if (selectedId === id) setSelectedId(null);
-        } catch (error) {
-            console.error(error);
-            alert('Failed to delete project');
-        }
+        setConfirmMsg(t('ConfirmDeleteProject'));
+        setConfirmAction(() => async () => {
+            try {
+                await authService.deleteProject(id);
+                loadProjects();
+                if (selectedId === id) setSelectedId(null);
+            } catch (error) {
+                console.error(error);
+                setAlertMsg('Failed to delete project'); setAlertTitle('Error');
+            }
+        });
     };
 
     if (!isOpen) return null;
@@ -123,6 +131,14 @@ export const CloudLoadModal: React.FC<CloudLoadModalProps> = ({ isOpen, onClose,
                     </button>
                 </div>
             </div>
+            <AlertModal isOpen={!!alertMsg} msg={alertMsg || ''} title={alertTitle} onClose={() => setAlertMsg(null)} />
+            <ConfirmModal 
+                isOpen={!!confirmMsg} 
+                msg={confirmMsg || ''} 
+                onConfirm={() => { confirmAction?.(); setConfirmMsg(null); }} 
+                onCancel={() => setConfirmMsg(null)} 
+                lang={lang} 
+            />
         </div>
     );
 };
@@ -139,6 +155,9 @@ export const CloudSaveModal: React.FC<CloudSaveModalProps> = ({ isOpen, onClose,
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [loading, setLoading] = useState(false);
+    const [alertMsg, setAlertMsg] = useState<string | null>(null);
+    const [alertTitle, setAlertTitle] = useState<string>('');
+    const [alertOnClose, setAlertOnClose] = useState<(() => void) | null>(null);
 
     useEffect(() => {
         if (isOpen && projectData) {
@@ -156,11 +175,14 @@ export const CloudSaveModal: React.FC<CloudSaveModalProps> = ({ isOpen, onClose,
                 description, 
                 content: projectData
             });
-            alert(t('SaveSuccess'));
-            onClose();
+            setAlertMsg(t('SaveSuccess'));
+            setAlertTitle('Success');
+            setAlertOnClose(() => onClose);
         } catch (error) {
             console.error(error);
-            alert('Failed to save project');
+            setAlertMsg('Failed to save project');
+            setAlertTitle('Error');
+            setAlertOnClose(null);
         } finally {
             setLoading(false);
         }
@@ -210,6 +232,15 @@ export const CloudSaveModal: React.FC<CloudSaveModalProps> = ({ isOpen, onClose,
                     </button>
                 </div>
             </div>
+            <AlertModal 
+                isOpen={!!alertMsg} 
+                msg={alertMsg || ''} 
+                title={alertTitle} 
+                onClose={() => { 
+                    setAlertMsg(null); 
+                    if (alertOnClose) alertOnClose(); 
+                }} 
+            />
         </div>
     );
 };

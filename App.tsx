@@ -166,7 +166,7 @@ const App: React.FC = () => {
             try {
                 const json = JSON.parse(event.target?.result as string);
                 setData(json); setIsDirty(false);
-            } catch (err) { alert("Failed to parse"); }
+            } catch (err) { setModalData({ msg: "Failed to parse file.", title: "Error" }); setActiveModal('alert'); }
         };
         reader.readAsText(file);
     };
@@ -288,7 +288,8 @@ const App: React.FC = () => {
             const limit = limitMap[role] || 20;
             
             if (data.activities.length >= limit) {
-                alert(`Activity limit reached for ${role} user. Limit: ${limit}`);
+                setModalData({ msg: `Activity limit reached for ${role} user. Limit: ${limit}`, title: "Limit Reached" });
+                setActiveModal('alert');
                 return;
             }
 
@@ -335,8 +336,31 @@ const App: React.FC = () => {
         setData(p => p ? { ...p, assignments: newAssignments } : null);
     };
 
+    const checkPermission = (action: string): boolean => {
+        const role = user?.plannerRole || 'trial';
+        const restrictions: Record<string, string[]> = {
+            'admin': ['admin'],
+            'cloud_save': ['licensed', 'premium', 'admin'],
+            'cloud_load': ['licensed', 'premium', 'admin'],
+            'print': ['licensed', 'premium', 'admin'],
+            'export': ['licensed', 'premium', 'admin'],
+        };
+
+        if (restrictions[action] && !restrictions[action].includes(role)) {
+            setModalData({ 
+                msg: t('AccessDeniedMsg') || "Access Denied. Please upgrade your plan.", 
+                title: t('AccessDenied') || "Access Denied" 
+            });
+            setActiveModal('alert');
+            return false;
+        }
+        return true;
+    };
+
     // Use useCallback to keep reference stable for useEffect
     const handleMenuAction = useCallback((action: string) => {
+        if (!checkPermission(action)) return;
+
         switch(action) {
             case 'import': fileInputRef.current?.click(); break;
             case 'export': handleSave(); break;
@@ -441,7 +465,8 @@ const App: React.FC = () => {
 
         const original = document.querySelector('.combined-view-container');
         if (!original) {
-            alert("Could not find view to print.");
+            setModalData({ msg: "Could not find view to print.", title: "Print Error" });
+            setActiveModal('alert');
             return;
         }
 
@@ -603,7 +628,8 @@ const App: React.FC = () => {
 
         if (!tableHeader || !tableBody || !ganttHeader || !ganttBody) {
             document.body.removeChild(clone);
-            alert("Print Error: Could not parse view structure. Please try again.");
+            setModalData({ msg: "Print Error: Could not parse view structure. Please try again.", title: "Print Error" });
+            setActiveModal('alert');
             return;
         }
 
@@ -863,7 +889,8 @@ const App: React.FC = () => {
 
         } catch (e) {
             console.error("Print Error", e);
-            alert("Print generation failed. Please try again.");
+            setModalData({ msg: "Print generation failed. Please try again.", title: "Error" });
+            setActiveModal('alert');
             if(document.body.contains(clone)) document.body.removeChild(clone);
             if(document.body.contains(staging)) document.body.removeChild(staging);
         }
@@ -1012,7 +1039,7 @@ const App: React.FC = () => {
             </div>
 
             <ContextMenu data={ctx} onClose={() => setCtx(null)} onAction={handleCtxAction} />
-            <AlertModal isOpen={activeModal === 'alert'} msg={modalData?.msg} onClose={() => setActiveModal(null)} />
+            <AlertModal isOpen={activeModal === 'alert'} msg={modalData?.msg} title={modalData?.title} onClose={() => setActiveModal(null)} />
             <ConfirmModal 
                 isOpen={activeModal === 'confirm'} 
                 msg={modalData?.msg} 
@@ -1042,7 +1069,10 @@ const App: React.FC = () => {
                      try { 
                          setData(typeof c === 'string' ? JSON.parse(c) : c); 
                          setIsDirty(false); 
-                     } catch(e) { alert('Failed to parse project'); } 
+                     } catch(e) { 
+                         setModalData({ msg: 'Failed to parse project', title: 'Error' }); 
+                         setActiveModal('alert'); 
+                     } 
                  }} 
                  lang={userSettings.language} 
              />

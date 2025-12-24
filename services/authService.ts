@@ -128,26 +128,20 @@ export const authService = {
         try {
             const response = await fetch(`${this.baseUrl}/register`, {
                 method: 'POST',
-                mode: 'cors',
                 headers: {
-                    'Accept': 'application/json',
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ username, password, mail: email })
             });
 
-            if (!response.ok) {
-                const text = await response.text().catch(() => '');
-                throw new Error(`Registration failed (${response.status}): ${text}`);
-            }
-
             const data = await response.json();
-            if (data.error) {
-                throw new Error(data.error);
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Registration failed');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Registration error:', error);
-            throw error;
+            throw new Error(error.message || 'Registration failed');
         }
     },
 
@@ -191,15 +185,17 @@ export const authService = {
         }
     },
 
-    async adminUserList(page: number = 1, pageSize: number = 20): Promise<{ users: any[], total: number }> {
+    async adminUserList(page: number = 1, pageSize: number = 20): Promise<any> {
         const user = this.getCurrentUser();
         if (!user || !user.token) throw new Error('Not authenticated');
 
         const response = await fetch(`${this.baseUrl}/admin_user_list?page=${page}&pageSize=${pageSize}`, {
-            headers: { 'Authorization': `Bearer ${user.token}` }
+            method: 'GET',
+            headers: { 
+                'Authorization': `Bearer ${user.token}`
+            }
         });
-        const data = await response.json();
-        return data;
+        return await response.json();
     },
 
     async adminUserUpdate(uid: number, role: 'trial' | 'licensed' | 'premium'): Promise<void> {
@@ -236,6 +232,11 @@ export const authService = {
 
         const data = await response.json();
         if (data.error) throw new Error(data.error);
+    },
+
+    async getPublicConfig(): Promise<any> {
+        const response = await fetch(`${this.baseUrl}/public_config`);
+        return await response.json();
     },
 
     logout() {

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ProjectData, Calendar, CalendarException } from '../types';
+import { AlertModal } from './Modals';
 
 interface ProjectSettingsModalProps {
     isOpen: boolean;
@@ -18,6 +19,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
     // Holiday Range State
     const [holidayStart, setHolidayStart] = useState('');
     const [holidayEnd, setHolidayEnd] = useState('');
+    const [alertMsg, setAlertMsg] = useState<string | null>(null);
 
     useEffect(() => {
         if(projectData.meta) setMeta(projectData.meta);
@@ -56,7 +58,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
         
         // Ensure start <= end
         if (start > end) {
-            alert("Start date must be before end date");
+            setAlertMsg("Start date must be before end date");
             return;
         }
 
@@ -309,6 +311,11 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                     <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold shadow-sm">Apply Changes</button>
                 </div>
             </div>
+            <AlertModal 
+                isOpen={!!alertMsg} 
+                msg={alertMsg || ''} 
+                onClose={() => setAlertMsg(null)} 
+            />
         </div>
     );
 };

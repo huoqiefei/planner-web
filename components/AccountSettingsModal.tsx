@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, UserSettings } from '../types';
 import { useTranslation } from '../utils/i18n';
-import { BaseModal } from './Modals';
+import { BaseModal, AlertModal } from './Modals';
 import { authService } from '../services/authService';
 
 interface AccountSettingsModalProps {
@@ -34,6 +34,10 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [passwordError, setPasswordError] = useState('');
+
+    const [alertMsg, setAlertMsg] = useState<string | null>(null);
+    const [alertTitle, setAlertTitle] = useState<string>('');
+
 
     useEffect(() => {
         if (isOpen && user) {
@@ -73,9 +77,11 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 };
                 onUpdateUser(updatedUser);
             }
-            alert('Profile updated successfully!');
+            setAlertMsg(t('SaveSuccess'));
+            setAlertTitle(`${t('Success') || 'Success'}`);
         } catch (error: any) {
-            alert('Failed to update profile: ' + error.message);
+            setAlertMsg(error.message);
+            setAlertTitle('Error');
         } finally {
             setLoading(false);
         }
@@ -83,7 +89,8 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
     const handleSavePreferences = () => {
         onSaveSettings(localSettings);
-        alert('Preferences saved!');
+        setAlertMsg(t('SaveSuccess'));
+        setAlertTitle(`${t('Success') || 'Success'}`);
     };
 
     const handlePasswordChange = async () => {
@@ -93,14 +100,15 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             return;
         }
         if (newPassword !== confirmPassword) {
-            setPasswordError('New passwords do not match');
+            setPasswordError(t('PasswordsDoNotMatch'));
             return;
         }
         
         setLoading(true);
         try {
             await authService.changePassword(oldPassword, newPassword);
-            alert('Password changed successfully');
+            setAlertMsg(t('PasswordChanged'));
+            setAlertTitle(`${t('Success') || 'Success'}`);
             setOldPassword('');
             setNewPassword('');
             setConfirmPassword('');
@@ -111,32 +119,42 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
         }
     };
 
+    const getPlanName = (role?: string) => {
+        switch(role) {
+            case 'trial': return t('Trial');
+            case 'licensed': return t('Licensed');
+            case 'premium': return t('Premium');
+            case 'admin': return t('Admin');
+            default: return t('Trial');
+        }
+    };
+
     return (
         <BaseModal isOpen={isOpen} title={t('AccountSettings')} onClose={onClose}>
-            <div className="flex border-b mb-4">
+            <div className="flex border-b mb-4 overflow-x-auto">
                 <button 
-                    className={`px-4 py-2 ${activeTab === 'profile' ? 'border-b-2 border-blue-600 font-bold text-blue-600' : 'text-slate-600'}`}
+                    className={`px-4 py-2 whitespace-nowrap ${activeTab === 'profile' ? 'border-b-2 border-blue-600 font-bold text-blue-600' : 'text-slate-600'}`}
                     onClick={() => setActiveTab('profile')}
                 >
-                    Profile
+                    {t('General')}
                 </button>
                 <button 
-                    className={`px-4 py-2 ${activeTab === 'preferences' ? 'border-b-2 border-blue-600 font-bold text-blue-600' : 'text-slate-600'}`}
+                    className={`px-4 py-2 whitespace-nowrap ${activeTab === 'preferences' ? 'border-b-2 border-blue-600 font-bold text-blue-600' : 'text-slate-600'}`}
                     onClick={() => setActiveTab('preferences')}
                 >
-                    Preferences
+                    {t('UserPreferences')}
                 </button>
                 <button 
-                    className={`px-4 py-2 ${activeTab === 'subscription' ? 'border-b-2 border-blue-600 font-bold text-blue-600' : 'text-slate-600'}`}
+                    className={`px-4 py-2 whitespace-nowrap ${activeTab === 'subscription' ? 'border-b-2 border-blue-600 font-bold text-blue-600' : 'text-slate-600'}`}
                     onClick={() => setActiveTab('subscription')}
                 >
-                    Subscription
+                    {t('SubscriptionPlan')}
                 </button>
                 <button 
-                    className={`px-4 py-2 ${activeTab === 'security' ? 'border-b-2 border-blue-600 font-bold text-blue-600' : 'text-slate-600'}`}
+                    className={`px-4 py-2 whitespace-nowrap ${activeTab === 'security' ? 'border-b-2 border-blue-600 font-bold text-blue-600' : 'text-slate-600'}`}
                     onClick={() => setActiveTab('security')}
                 >
-                    Security
+                    {t('ChangePassword')}
                 </button>
             </div>
 
@@ -161,7 +179,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                     className="text-sm text-blue-600 hover:underline"
                                     onClick={() => fileInputRef.current?.click()}
                                 >
-                                    Change Avatar
+                                    {t('Edit')}
                                 </button>
                                 <input 
                                     type="file" 
@@ -170,12 +188,11 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                     accept="image/*"
                                     onChange={handleFileChange}
                                 />
-                                <p className="text-xs text-slate-500 mt-1">Click image to upload new avatar</p>
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Nickname</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">{t('Name')}</label>
                             <input 
                                 type="text" 
                                 className="w-full border rounded p-2"
@@ -185,11 +202,21 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">{t('Email')}</label>
                             <input 
                                 type="text" 
                                 className="w-full border rounded p-2 bg-slate-100 text-slate-500"
                                 value={user?.mail || ''}
+                                disabled
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">{t('UserID')}</label>
+                            <input 
+                                type="text" 
+                                className="w-full border rounded p-2 bg-slate-100 text-slate-500"
+                                value={user?.uid || ''}
                                 disabled
                             />
                         </div>
@@ -200,7 +227,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                 onClick={handleSaveProfile}
                                 disabled={loading}
                             >
-                                {loading ? 'Saving...' : 'Save Profile'}
+                                {loading ? t('Processing') : t('Save')}
                             </button>
                         </div>
                     </div>
@@ -208,7 +235,6 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
                 {activeTab === 'preferences' && (
                     <div className="space-y-4">
-                        {/* Copy of UserSettings content */}
                         <div>
                             <h4 className="font-bold border-b mb-2 pb-1">{t('General')}</h4>
                             <div className="space-y-2">
@@ -286,7 +312,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                                 onClick={handleSavePreferences}
                             >
-                                Save Preferences
+                                {t('Save')}
                             </button>
                         </div>
                     </div>
@@ -295,32 +321,41 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 {activeTab === 'subscription' && (
                     <div className="space-y-4">
                         <div className="bg-slate-50 p-4 rounded border">
-                            <h3 className="font-bold text-lg mb-2">Current Plan</h3>
+                            <h3 className="font-bold text-lg mb-2">{t('SubscriptionPlan')}</h3>
                             <div className="flex items-center gap-2 mb-2">
                                 <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-sm font-bold uppercase">
-                                    {user?.plannerRole || 'Trial'}
+                                    {getPlanName(user?.plannerRole)}
                                 </span>
                             </div>
                             <p className="text-sm text-slate-600">
-                                {user?.plannerRole === 'premium' ? 'You have access to all advanced features.' : 
-                                 user?.plannerRole === 'licensed' ? 'You have access to standard features.' : 
-                                 'You are using the trial version.'}
+                                {t('TypechoGroup')}: {user?.group}
                             </p>
                         </div>
                         
-                        {/* Mock Subscription Options */}
-                        <div className="grid grid-cols-3 gap-4 mt-6">
-                            <div className={`border p-4 rounded ${user?.plannerRole === 'trial' ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}>
-                                <h4 className="font-bold">Trial</h4>
-                                <p className="text-xs text-slate-500">20 activities, 1 cloud project</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                            <div className={`border p-4 rounded ${user?.plannerRole === 'trial' ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50' : ''}`}>
+                                <h4 className="font-bold">{t('Trial')}</h4>
+                                <div className="text-xs text-slate-500 mt-2 space-y-1">
+                                    <p>20 {t('ActivitiesLimit')}</p>
+                                    <p>1 {t('CloudProjectsLimit')}</p>
+                                    <p>{t('WatermarkStatus')}: {t('Yes')}</p>
+                                </div>
                             </div>
-                            <div className={`border p-4 rounded ${user?.plannerRole === 'licensed' ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}>
-                                <h4 className="font-bold">Licensed</h4>
-                                <p className="text-xs text-slate-500">100 activities, 3 cloud projects</p>
+                            <div className={`border p-4 rounded ${user?.plannerRole === 'licensed' ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50' : ''}`}>
+                                <h4 className="font-bold">{t('Licensed')}</h4>
+                                <div className="text-xs text-slate-500 mt-2 space-y-1">
+                                    <p>100 {t('ActivitiesLimit')}</p>
+                                    <p>3 {t('CloudProjectsLimit')}</p>
+                                    <p>{t('WatermarkStatus')}: {t('No')}</p>
+                                </div>
                             </div>
-                            <div className={`border p-4 rounded ${user?.plannerRole === 'premium' ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}>
-                                <h4 className="font-bold">Premium</h4>
-                                <p className="text-xs text-slate-500">500 activities, 20 cloud projects</p>
+                            <div className={`border p-4 rounded ${user?.plannerRole === 'premium' ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50' : ''}`}>
+                                <h4 className="font-bold">{t('Premium')}</h4>
+                                <div className="text-xs text-slate-500 mt-2 space-y-1">
+                                    <p>500 {t('ActivitiesLimit')}</p>
+                                    <p>20 {t('CloudProjectsLimit')}</p>
+                                    <p>{t('WatermarkStatus')}: {t('No')}</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -328,14 +363,14 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
                 {activeTab === 'security' && (
                     <div className="space-y-4 max-w-sm">
-                        <h4 className="font-bold border-b pb-2">Change Password</h4>
+                        <h4 className="font-bold border-b pb-2">{t('ChangePassword')}</h4>
                         {passwordError && (
                             <div className="bg-red-50 text-red-600 p-2 rounded text-sm">
                                 {passwordError}
                             </div>
                         )}
                         <div>
-                            <label className="block text-sm font-medium mb-1">Old Password</label>
+                            <label className="block text-sm font-medium mb-1">{t('OldPassword')}</label>
                             <input 
                                 type="password" 
                                 className="w-full border rounded p-2"
@@ -344,7 +379,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-1">New Password</label>
+                            <label className="block text-sm font-medium mb-1">{t('NewPassword')}</label>
                             <input 
                                 type="password" 
                                 className="w-full border rounded p-2"
@@ -353,7 +388,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-1">Confirm New Password</label>
+                            <label className="block text-sm font-medium mb-1">{t('ConfirmPassword')}</label>
                             <input 
                                 type="password" 
                                 className="w-full border rounded p-2"
@@ -367,7 +402,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                 onClick={handlePasswordChange}
                                 disabled={loading}
                             >
-                                {loading ? 'Updating...' : 'Update Password'}
+                                {loading ? t('Processing') : t('Confirm')}
                             </button>
                         </div>
                     </div>

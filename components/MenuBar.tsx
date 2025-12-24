@@ -36,20 +36,20 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, use
 
     const menus: Record<string, any[]> = {
         [t('File')]: [
-            { label: t('CreateNewProject'), action: 'new_project', disabled: user?.group === 'viewer' },
+            { label: t('CreateNewProject'), action: 'new_project' },
             { label: t('OpenExistingProject'), action: 'open_project' },
             { type: 'separator' },
-            { label: t('SaveToCloud'), action: 'cloud_save', disabled: user?.group === 'viewer' },
+            { label: t('SaveToCloud'), action: 'cloud_save' },
             { label: t('OpenFromCloud'), action: 'cloud_projects' },
             { type: 'separator' },
-            { label: t('ImportJSON'), action: 'import', disabled: user?.group === 'viewer' },
+            { label: t('ImportJSON'), action: 'import' },
             { label: t('ExportJSON'), action: 'export' },
             { label: t('Print'), action: 'print' },
         ],
         [t('Edit')]: [
             { label: t('Copy'), action: 'copy' },
-            { label: t('Cut'), action: 'cut', disabled: user?.group === 'viewer' },
-            { label: t('Paste'), action: 'paste', disabled: user?.group === 'viewer' },
+            { label: t('Cut'), action: 'cut' },
+            { label: t('Paste'), action: 'paste' },
             { type: 'separator' },
             { label: t('ColumnsSetup'), action: 'columns' },
             { label: t('UserPreferences'), action: 'settings' },
@@ -58,19 +58,16 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, use
             { label: t('Activities'), action: 'view_activities' },
             { label: t('Resources'), action: 'view_resources' },
             { type: 'separator' },
-            { label: t('ProjectInfo'), action: 'project_info', disabled: user?.group === 'viewer' },
+            { label: t('ProjectInfo'), action: 'project_info' },
         ],
         [t('Help')]: [
             { label: t('About'), action: 'about' },
             { label: 'User Manual', action: 'help' },
+        ],
+        [t('System')]: [
+            { label: t('Configuration'), action: 'admin' },
         ]
     };
-
-    if (user?.group === 'admin') {
-        menus[t('System')] = [
-            { label: t('Configuration'), action: 'admin' },
-        ];
-    }
 
     const handleMenuClick = (menuName: string) => {
         setActiveMenu(activeMenu === menuName ? null : menuName);

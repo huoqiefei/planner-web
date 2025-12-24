@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AdminConfig } from '../types';
+import { AlertModal } from './Modals';
 
 interface AdminDashboardProps {
     isOpen: boolean;
@@ -59,7 +60,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
             onSave(config);
             onClose();
         } catch (e) {
-            alert("Error saving settings. Image might be too large.");
+            setAlertMsg("Error saving settings. Image might be too large.");
         }
     };
 
@@ -261,6 +262,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
                     </div>
                 )}
             </div>
+            <AlertModal 
+                isOpen={!!alertMsg} 
+                msg={alertMsg || ''} 
+                title="Error"
+                onClose={() => setAlertMsg(null)} 
+            />
         </div>
     );
 };

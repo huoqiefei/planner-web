@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
 import { authService } from '../services/authService';
-import { User } from '../types';
+import { User, AdminConfig } from '../types';
 import { useTranslation } from '../utils/i18n';
 
 interface LoginModalProps {
     isOpen: boolean;
     onLoginSuccess: (user: User) => void;
-    onClose: () => void; // Optional if we want to force login
+    onClose: () => void;
     lang?: 'en' | 'zh';
+    adminConfig?: AdminConfig;
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, onClose, lang = 'en' }) => {
+export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, onClose, lang = 'en', adminConfig }) => {
     const { t } = useTranslation(lang);
     const [isLoginMode, setIsLoginMode] = useState(true);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [email, setEmail] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -24,6 +26,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+
+        if (!isLoginMode) {
+            if (password !== confirmPassword) {
+                setError(t('PasswordsDoNotMatch'));
+                return;
+            }
+        }
+
         setLoading(true);
 
         try {
@@ -33,8 +43,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, 
             } else {
                 await authService.register(username, password, email);
                 setIsLoginMode(true);
-                setError('Registration successful! Please login.');
-                // Don't auto-login after register, let them login
+                setError(t('Register') + ' ' + t('SaveSuccess') + '! ' + t('LoginToContinue'));
             }
         } catch (err: any) {
             setError(err.message || 'An error occurred');
@@ -46,14 +55,20 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
             <div className="bg-white rounded-lg shadow-xl w-96 overflow-hidden">
-                <div className="bg-slate-800 text-white p-4 text-center">
-                    <h2 className="text-xl font-bold">{isLoginMode ? t('LoginTitle') : t('RegisterTitle')}</h2>
-                    <p className="text-xs text-slate-300">Planner Web</p>
+                <div className="bg-slate-800 text-white p-6 text-center">
+                    {adminConfig?.appLogo ? (
+                        <div className="flex justify-center mb-3">
+                            <img src={adminConfig.appLogo} alt="Logo" className="h-12 w-auto object-contain" />
+                        </div>
+                    ) : (
+                        <h2 className="text-2xl font-bold mb-1">{adminConfig?.appName || 'Planner Web'}</h2>
+                    )}
+                    <h3 className="text-lg font-medium opacity-90">{isLoginMode ? t('LoginTitle') : t('RegisterTitle')}</h3>
                 </div>
                 
                 <div className="p-6">
                     {error && (
-                        <div className={`mb-4 p-2 text-sm rounded ${error.includes('successful') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        <div className={`mb-4 p-2 text-sm rounded ${error.includes('Success') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                             {error}
                         </div>
                     )}
@@ -94,6 +109,19 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, 
                             />
                         </div>
 
+                        {!isLoginMode && (
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700">{t('ConfirmPassword')}</label>
+                                <input 
+                                    type="password" 
+                                    required
+                                    className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
+                                    value={confirmPassword}
+                                    onChange={e => setConfirmPassword(e.target.value)}
+                                />
+                            </div>
+                        )}
+
                         <button 
                             type="submit" 
                             disabled={loading}
@@ -110,6 +138,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, 
                             onClick={() => {
                                 setIsLoginMode(!isLoginMode);
                                 setError('');
+                                setUsername('');
+                                setPassword('');
+                                setConfirmPassword('');
+                                setEmail('');
                             }}
                         >
                             {isLoginMode ? t('NoAccount') : t('HaveAccount')}
