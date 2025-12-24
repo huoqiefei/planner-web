@@ -84,6 +84,9 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
                 case 'project_delete':
                     $this->projectDelete();
                     break;
+                case 'change_password':
+                    $this->changePassword();
+                    break;
                 case 'sys_config_get':
                     $this->sysConfigGet();
                     break;
@@ -175,6 +178,16 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
 
     private function sendLoginResponse($user) {
         $meta = $this->getUserMeta($user['uid']);
+        // Add role to user array for token generation
+        $user['planner_role'] = isset($meta['planner_role']) ? $meta['planner_role'] : 'trial';
+        
+        // Auto-map if not set but group is set
+        if ($user['planner_role'] === 'trial' && isset($user['group'])) {
+             if ($user['group'] === 'contributor') $user['planner_role'] = 'licensed';
+             if ($user['group'] === 'editor') $user['planner_role'] = 'premium';
+             if ($user['group'] === 'administrator') $user['planner_role'] = 'admin';
+        }
+
         $token = $this->generateToken($user);
         
         $this->sendResponse([
@@ -185,6 +198,7 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
                 'username' => $user['name'],
                 'mail' => $user['mail'],
                 'group' => $user['group'],
+                'plannerRole' => $user['planner_role'],
                 'meta' => $meta
             ]
         ]);
@@ -258,12 +272,21 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
 
         $meta = $this->getUserMeta($dbUser['uid']);
 
+        // Determine Role
+        $plannerRole = isset($meta['planner_role']) ? $meta['planner_role'] : 'trial';
+        if ($plannerRole === 'trial') {
+             if ($dbUser['group'] === 'contributor') $plannerRole = 'licensed';
+             if ($dbUser['group'] === 'editor') $plannerRole = 'premium';
+             if ($dbUser['group'] === 'administrator') $plannerRole = 'admin';
+        }
+
         $this->sendResponse([
             'uid' => $dbUser['uid'],
             'name' => $dbUser['screenName'],
             'username' => $dbUser['name'],
             'mail' => $dbUser['mail'],
             'group' => $dbUser['group'],
+            'plannerRole' => $plannerRole,
             'meta' => $meta
         ]);
     }
@@ -438,6 +461,7 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
         $payload = json_encode([
             'uid' => $user['uid'],
             'group' => $user['group'],
+            'planner_role' => isset($user['planner_role']) ? $user['planner_role'] : 'trial',
             'iat' => time(),
             'exp' => time() + (86400 * 7) // 7 days
         ]);
@@ -508,6 +532,44 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
     }
 
     /**
+     * Change Password
+     */
+    private function changePassword()
+    {
+        $user = $this->verifyToken();
+        if (!$user) return;
+
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        
+        $oldPassword = isset($data['oldPassword']) ? $data['oldPassword'] : '';
+        $newPassword = isset($data['newPassword']) ? $data['newPassword'] : '';
+
+        if (empty($oldPassword) || empty($newPassword)) {
+            $this->sendError('Old and new passwords are required', 400);
+            return;
+        }
+
+        // Verify old password
+        $dbUser = $this->db->fetchRow($this->db->select('password')
+            ->from('table.users')
+            ->where('uid = ?', $user['uid']));
+
+        if (!$dbUser || !Typecho_Common::hashValidate($oldPassword, $dbUser['password'])) {
+            $this->sendError('Incorrect old password', 401);
+            return;
+        }
+
+        $newHash = Typecho_Common::hash($newPassword);
+
+        $this->db->query($this->db->update('table.users')
+            ->rows(['password' => $newHash])
+            ->where('uid = ?', $user['uid']));
+
+        $this->sendResponse(['status' => 'success']);
+    }
+
+    /**
      * Save/Upload Project
      */
     private function projectSave()
@@ -526,6 +588,36 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
         if (empty($content)) {
             $this->sendError('Project content is empty', 400);
             return;
+        }
+
+        // Check Limits for NEW projects
+        if (!$projectId) {
+            // Determine Role
+            $meta = $this->getUserMeta($user['uid']);
+            $plannerRole = isset($meta['planner_role']) ? $meta['planner_role'] : '';
+            $group = $user['group'];
+            
+            if (!$plannerRole) {
+                if ($group === 'subscriber') $plannerRole = 'trial';
+                elseif ($group === 'contributor') $plannerRole = 'licensed';
+                elseif ($group === 'editor') $plannerRole = 'premium';
+                elseif ($group === 'administrator') $plannerRole = 'admin';
+                else $plannerRole = 'trial';
+            }
+
+            $limit = 1; // Default Trial
+            if ($plannerRole === 'licensed') $limit = 3;
+            if ($plannerRole === 'premium') $limit = 20;
+            if ($plannerRole === 'admin') $limit = 9999;
+
+            $count = $this->db->fetchObject($this->db->select(['COUNT(id)' => 'num'])
+                ->from($this->prefix . 'planner_projects')
+                ->where('uid = ?', $user['uid']))->num;
+
+            if ($count >= $limit) {
+                $this->sendError("Project limit reached for your account type ({$plannerRole}). Limit: {$limit}", 403);
+                return;
+            }
         }
 
         $uploadDir = __TYPECHO_ROOT_DIR__ . '/usr/uploads/planner_projects/';

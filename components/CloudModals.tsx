@@ -154,7 +154,7 @@ export const CloudSaveModal: React.FC<CloudSaveModalProps> = ({ isOpen, onClose,
             await authService.saveProject({
                 name, 
                 description, 
-                content: JSON.stringify(projectData)
+                content: projectData
             });
             alert(t('SaveSuccess'));
             onClose();

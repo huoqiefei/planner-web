@@ -17,7 +17,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
     isOpen, onClose, user, settings, onSaveSettings, onUpdateUser 
 }) => {
     const { t } = useTranslation(settings.language);
-    const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'subscription'>('profile');
+    const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'subscription' | 'security'>('profile');
     
     // Profile State
     const [nickname, setNickname] = useState('');
@@ -28,6 +28,12 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
     // Preferences State
     const [localSettings, setLocalSettings] = useState(settings);
+
+    // Security State
+    const [oldPassword, setOldPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [passwordError, setPasswordError] = useState('');
 
     useEffect(() => {
         if (isOpen && user) {
@@ -80,6 +86,31 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
         alert('Preferences saved!');
     };
 
+    const handlePasswordChange = async () => {
+        setPasswordError('');
+        if (!oldPassword || !newPassword || !confirmPassword) {
+            setPasswordError('All fields are required');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setPasswordError('New passwords do not match');
+            return;
+        }
+        
+        setLoading(true);
+        try {
+            await authService.changePassword(oldPassword, newPassword);
+            alert('Password changed successfully');
+            setOldPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+        } catch (error: any) {
+            setPasswordError(error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <BaseModal isOpen={isOpen} title={t('AccountSettings')} onClose={onClose}>
             <div className="flex border-b mb-4">
@@ -100,6 +131,12 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                     onClick={() => setActiveTab('subscription')}
                 >
                     Subscription
+                </button>
+                <button 
+                    className={`px-4 py-2 ${activeTab === 'security' ? 'border-b-2 border-blue-600 font-bold text-blue-600' : 'text-slate-600'}`}
+                    onClick={() => setActiveTab('security')}
+                >
+                    Security
                 </button>
             </div>
 
@@ -275,16 +312,63 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                         <div className="grid grid-cols-3 gap-4 mt-6">
                             <div className={`border p-4 rounded ${user?.plannerRole === 'trial' ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}>
                                 <h4 className="font-bold">Trial</h4>
-                                <p className="text-xs text-slate-500">Basic features</p>
+                                <p className="text-xs text-slate-500">20 activities, 1 cloud project</p>
                             </div>
                             <div className={`border p-4 rounded ${user?.plannerRole === 'licensed' ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}>
                                 <h4 className="font-bold">Licensed</h4>
-                                <p className="text-xs text-slate-500">Standard features</p>
+                                <p className="text-xs text-slate-500">100 activities, 3 cloud projects</p>
                             </div>
                             <div className={`border p-4 rounded ${user?.plannerRole === 'premium' ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}>
                                 <h4 className="font-bold">Premium</h4>
-                                <p className="text-xs text-slate-500">All features</p>
+                                <p className="text-xs text-slate-500">500 activities, 20 cloud projects</p>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'security' && (
+                    <div className="space-y-4 max-w-sm">
+                        <h4 className="font-bold border-b pb-2">Change Password</h4>
+                        {passwordError && (
+                            <div className="bg-red-50 text-red-600 p-2 rounded text-sm">
+                                {passwordError}
+                            </div>
+                        )}
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Old Password</label>
+                            <input 
+                                type="password" 
+                                className="w-full border rounded p-2"
+                                value={oldPassword}
+                                onChange={e => setOldPassword(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">New Password</label>
+                            <input 
+                                type="password" 
+                                className="w-full border rounded p-2"
+                                value={newPassword}
+                                onChange={e => setNewPassword(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Confirm New Password</label>
+                            <input 
+                                type="password" 
+                                className="w-full border rounded p-2"
+                                value={confirmPassword}
+                                onChange={e => setConfirmPassword(e.target.value)}
+                            />
+                        </div>
+                        <div className="pt-2">
+                            <button 
+                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                                onClick={handlePasswordChange}
+                                disabled={loading}
+                            >
+                                {loading ? 'Updating...' : 'Update Password'}
+                            </button>
                         </div>
                     </div>
                 )}

@@ -282,6 +282,16 @@ const App: React.FC = () => {
             setActiveModal('confirm');
         }
         if (act === 'addAct' || act === 'addActSame') {
+            // Activity Limit Check
+            const role = user?.plannerRole || 'trial';
+            const limitMap: Record<string, number> = { 'trial': 20, 'licensed': 100, 'premium': 500, 'admin': 9999 };
+            const limit = limitMap[role] || 20;
+            
+            if (data.activities.length >= limit) {
+                alert(`Activity limit reached for ${role} user. Limit: ${limit}`);
+                return;
+            }
+
             const wbsId = act === 'addActSame' ? data.activities.find(a => a.id === id)?.wbsId : id;
             if (!wbsId) return;
             const max = data.activities.reduce((m, a) => { const match = a.id.match(/(\d+)/); return match ? Math.max(m, parseInt(match[1])) : m; }, 1000);
@@ -420,6 +430,14 @@ const App: React.FC = () => {
     const executePrint = async (settings: PrintSettings) => {
         if (view !== 'activities') setView('activities');
         await new Promise(r => setTimeout(r, 200));
+
+        // Permission Check for Watermark
+        const role = user?.plannerRole || 'trial';
+        // Follower (Trial): Watermark
+        // Contributor (Licensed) / Editor (Premium): No Watermark
+        let enableWatermark = adminConfig.enableWatermark;
+        if (role === 'trial') enableWatermark = true;
+        else if (['licensed', 'premium', 'admin'].includes(role)) enableWatermark = false;
 
         const original = document.querySelector('.combined-view-container');
         if (!original) {
@@ -716,7 +734,7 @@ const App: React.FC = () => {
 
             // PREPARE WATERMARK
             let wmDataUrl = '';
-            if (adminConfig.enableWatermark) {
+            if (enableWatermark) {
                 const wmCanvas = document.createElement('canvas');
                 wmCanvas.width = pageW;
                 wmCanvas.height = pageH;
@@ -909,6 +927,7 @@ const App: React.FC = () => {
                 onNew={handleNew} 
                 onOpen={(e) => handleOpen(e)}
                 onSave={handleSave}
+                onCloudSave={() => setActiveModal('cloud_save')}
                 onPrint={() => setActiveModal('print')} 
                 onSettings={() => setActiveModal('project_settings')} 
                 title={data.meta.title} 

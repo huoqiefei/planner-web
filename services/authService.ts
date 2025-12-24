@@ -216,6 +216,28 @@ export const authService = {
         });
     },
 
+    async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+        const user = this.getCurrentUser();
+        if (!user || !user.token) throw new Error('Not authenticated');
+
+        const response = await fetch(`${this.baseUrl}/change_password`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user.token}`
+            },
+            body: JSON.stringify({ oldPassword, newPassword })
+        });
+
+        if (!response.ok) {
+            const text = await response.text().catch(() => '');
+            throw new Error(`Password change failed (${response.status}): ${text}`);
+        }
+
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+    },
+
     logout() {
         localStorage.removeItem(STORAGE_KEY);
     },
