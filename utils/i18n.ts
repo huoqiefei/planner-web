@@ -203,7 +203,6 @@ export const translations = {
         UserManagement: 'User Management',
         SaveConfig: 'Save Configuration',
         // New Keys
-        ConfirmPassword: 'Confirm Password',
         AppName: 'App Name',
         CopyrightText: 'Copyright Text',
         EnableWatermark: 'Enable Watermark',
@@ -224,7 +223,6 @@ export const translations = {
         ChangePassword: 'Change Password',
         OldPassword: 'Old Password',
         NewPassword: 'New Password',
-        PasswordsDoNotMatch: 'Passwords do not match',
         PasswordChanged: 'Password changed successfully',
         PermissionDenied: 'Permission Denied',
         FeatureRestricted: 'This feature is restricted for your account type.',
