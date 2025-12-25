@@ -181,15 +181,25 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
 
     private function sendLoginResponse($user) {
         $meta = $this->getUserMeta($user['uid']);
-        // Add role to user array for token generation
-        $user['planner_role'] = isset($meta['planner_role']) ? $meta['planner_role'] : 'trial';
         
-        // Auto-map if not set but group is set
-        if ($user['planner_role'] === 'trial' && isset($user['group'])) {
-             if ($user['group'] === 'contributor') $user['planner_role'] = 'licensed';
-             if ($user['group'] === 'editor') $user['planner_role'] = 'premium';
-             if ($user['group'] === 'administrator') $user['planner_role'] = 'admin';
+        // Default from DB or trial
+        $plannerRole = isset($meta['planner_role']) ? $meta['planner_role'] : 'trial';
+        
+        // Force/Auto-map based on Group
+        if ($user['group'] === 'administrator') {
+            $plannerRole = 'admin';
+        } else if ($user['group'] === 'editor') {
+            $plannerRole = 'premium';
+        } else if ($user['group'] === 'contributor') {
+            $plannerRole = 'licensed';
+        } else if ($user['group'] === 'subscriber') {
+             // Subscriber keeps DB role (likely trial) unless upgraded
+             // But if DB is empty, it's trial.
+             if (!isset($meta['planner_role'])) $plannerRole = 'trial';
         }
+
+        // Update user array for token generation
+        $user['planner_role'] = $plannerRole;
 
         $token = $this->generateToken($user);
         
@@ -201,7 +211,7 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
                 'username' => $user['name'],
                 'mail' => $user['mail'],
                 'group' => $user['group'],
-                'plannerRole' => $user['planner_role'],
+                'plannerRole' => $plannerRole,
                 'meta' => $meta
             ]
         ]);
@@ -285,10 +295,16 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
 
         // Determine Role
         $plannerRole = isset($meta['planner_role']) ? $meta['planner_role'] : 'trial';
-        if ($plannerRole === 'trial') {
-             if ($dbUser['group'] === 'contributor') $plannerRole = 'licensed';
-             if ($dbUser['group'] === 'editor') $plannerRole = 'premium';
-             if ($dbUser['group'] === 'administrator') $plannerRole = 'admin';
+        
+        // Force/Auto-map based on Group
+        if ($dbUser['group'] === 'administrator') {
+            $plannerRole = 'admin';
+        } else if ($dbUser['group'] === 'editor') {
+            $plannerRole = 'premium';
+        } else if ($dbUser['group'] === 'contributor') {
+            $plannerRole = 'licensed';
+        } else if ($dbUser['group'] === 'subscriber') {
+             if (!isset($meta['planner_role'])) $plannerRole = 'trial';
         }
 
         $this->sendResponse([
@@ -605,15 +621,18 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
         if (!$projectId) {
             // Determine Role
             $meta = $this->getUserMeta($user['uid']);
-            $plannerRole = isset($meta['planner_role']) ? $meta['planner_role'] : '';
+            $plannerRole = isset($meta['planner_role']) ? $meta['planner_role'] : 'trial';
             $group = $user['group'];
             
-            if (!$plannerRole) {
-                if ($group === 'subscriber') $plannerRole = 'trial';
-                elseif ($group === 'contributor') $plannerRole = 'licensed';
-                elseif ($group === 'editor') $plannerRole = 'premium';
-                elseif ($group === 'administrator') $plannerRole = 'admin';
-                else $plannerRole = 'trial';
+            // Force/Auto-map based on Group
+            if ($group === 'administrator') {
+                $plannerRole = 'admin';
+            } else if ($group === 'editor') {
+                $plannerRole = 'premium';
+            } else if ($group === 'contributor') {
+                $plannerRole = 'licensed';
+            } else if ($group === 'subscriber') {
+                 if (!isset($meta['planner_role'])) $plannerRole = 'trial';
             }
 
             $limit = 1; // Default Trial

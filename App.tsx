@@ -13,9 +13,9 @@ import ResourcesPanel from './components/ResourcesPanel';
 import ProjectSettingsModal from './components/ProjectSettingsModal';
 import { AlertModal, ConfirmModal, AboutModal, PrintSettingsModal, BatchAssignModal, HelpModal, ColumnSetupModal, AdminModal } from './components/Modals';
 import { AccountSettingsModal } from './components/AccountSettingsModal';
-import SettingsModal from './components/SettingsModal';
 import { LoginModal } from './components/LoginModal';
 import { CloudLoadModal, CloudSaveModal } from './components/CloudModals';
+import { usePermissions } from './hooks/usePermissions';
 import { useTranslation } from './utils/i18n';
 
 // --- APP ---
@@ -64,6 +64,7 @@ const App: React.FC = () => {
     });
 
     const { t } = useTranslation(userSettings.language);
+    const { checkPermission } = usePermissions(user, userSettings.language, setModalData, setActiveModal);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -357,42 +358,7 @@ const App: React.FC = () => {
         setData(p => p ? { ...p, assignments: newAssignments } : null);
     };
 
-    const checkPermission = (action: string): boolean => {
-        const role = user?.plannerRole || 'trial';
-        const group = user?.group || 'viewer';
 
-        // 1. Group-based Access Control (Viewer Restrictions)
-        if (group === 'viewer') {
-            const viewerDenied = ['new_project', 'export', 'cloud_save', 'project_info', 'admin', 'cut', 'paste', 'delete'];
-            if (viewerDenied.includes(action)) {
-                setModalData({ 
-                    msg: t('AccessDeniedMsg') || "Access Denied. Read-only access.", 
-                    title: t('AccessDenied') || "Access Denied" 
-                });
-                setActiveModal('alert');
-                return false;
-            }
-        }
-
-        // 2. Subscription-based Access Control (Planner Role)
-        const restrictions: Record<string, string[]> = {
-            'admin': ['admin'],
-            'cloud_save': ['licensed', 'premium', 'admin'],
-            'cloud_load': ['licensed', 'premium', 'admin'],
-            'print': ['licensed', 'premium', 'admin'],
-            'export': ['licensed', 'premium', 'admin'],
-        };
-
-        if (restrictions[action] && !restrictions[action].includes(role)) {
-            setModalData({ 
-                msg: t('AccessDeniedMsg') || "Access Denied. Please upgrade your plan.", 
-                title: t('AccessDenied') || "Access Denied" 
-            });
-            setActiveModal('alert');
-            return false;
-        }
-        return true;
-    };
 
     // Use useCallback to keep reference stable for useEffect
     const handleMenuAction = useCallback((action: string) => {

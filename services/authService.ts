@@ -261,6 +261,7 @@ export const authService = {
             case 'administrator': return 'admin';
             case 'editor': return 'editor';
             case 'contributor': return 'editor';
+            case 'subscriber': return 'editor';
             default: return 'viewer';
         }
     },
