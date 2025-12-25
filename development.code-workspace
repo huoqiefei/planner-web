@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"name": "planner-web",
+			"path": "."
+		}
+	],
+	"settings": {}
+}

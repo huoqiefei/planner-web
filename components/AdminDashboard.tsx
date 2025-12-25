@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AdminConfig } from '../types';
+import { authService } from '../services/authService';
 import { AlertModal } from './Modals';
 
 interface AdminDashboardProps {
@@ -21,17 +22,54 @@ const DEFAULT_CONFIG: AdminConfig = {
 };
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave, adminConfig }) => {
+    const [activeTab, setActiveTab] = useState<'config' | 'users'>('config');
     const [alertMsg, setAlertMsg] = useState<string | null>(null);
 
     const [config, setConfig] = useState<AdminConfig>(adminConfig || DEFAULT_CONFIG);
+    
+    // User Management State
+    const [users, setUsers] = useState<any[]>([]);
+    const [userLoading, setUserLoading] = useState(false);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const PAGE_SIZE = 10;
 
     useEffect(() => {
         if (isOpen) {
             if (adminConfig) {
                 setConfig(adminConfig);
             }
+            if (activeTab === 'users') {
+                loadUsers(1);
+            }
         }
-    }, [isOpen, adminConfig]);
+    }, [isOpen, adminConfig, activeTab]);
+
+    const loadUsers = async (pageNum: number = page) => {
+        setUserLoading(true);
+        try {
+            const data = await authService.adminUserList(pageNum, PAGE_SIZE);
+            if (data.users) {
+                setUsers(data.users);
+                setTotalPages(Math.ceil((data.total || 0) / PAGE_SIZE));
+                setPage(pageNum);
+            }
+        } catch (e) {
+            console.error(e);
+            setAlertMsg("Failed to load users. Ensure you are an administrator.");
+        } finally {
+            setUserLoading(false);
+        }
+    };
+
+    const handleUserRoleUpdate = async (uid: number, role: string) => {
+        try {
+            await authService.adminUserUpdate(uid, role as any);
+            setUsers(users.map(u => u.uid === uid ? { ...u, meta: { ...u.meta, planner_role: role } } : u));
+        } catch (e) {
+            setAlertMsg("Failed to update user role.");
+        }
+    };
 
     const handleSaveConfig = () => {
         try {
@@ -209,7 +247,87 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
                             <button onClick={onClose} className="px-4 py-2 text-slate-500 hover:text-slate-800 text-sm">Cancel</button>
                             <button onClick={handleSaveConfig} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-bold">Save Configuration</button>
                         </div>
-                    </div>
+                    </>
+                    ) : (
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                                <h4 className="font-bold text-slate-700">User List</h4>
+                                <button onClick={() => loadUsers(page)} className="text-blue-600 text-xs hover:underline">Refresh</button>
+                            </div>
+
+                            {userLoading ? (
+                                <div className="text-center py-8 text-slate-500">Loading users...</div>
+                            ) : (
+                                <>
+                                <div className="border rounded overflow-hidden">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-slate-100 text-slate-600 font-bold border-b">
+                                            <tr>
+                                                <th className="p-2">UID</th>
+                                                <th className="p-2">Name</th>
+                                                <th className="p-2">Email</th>
+                                                <th className="p-2">Typecho Group</th>
+                                                <th className="p-2">Planner Role</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {users.map(u => {
+                                                const currentRole = u.meta?.planner_role || 'trial';
+                                                return (
+                                                    <tr key={u.uid} className="hover:bg-slate-50">
+                                                        <td className="p-2">{u.uid}</td>
+                                                        <td className="p-2 font-medium">{u.screenName || u.name}</td>
+                                                        <td className="p-2 text-slate-500">{u.mail}</td>
+                                                        <td className="p-2 capitalize text-slate-500">{u.group}</td>
+                                                        <td className="p-2">
+                                                            <select 
+                                                                className={`border rounded p-1 text-xs font-bold ${
+                                                                    currentRole === 'admin' ? 'text-purple-700 bg-purple-50 border-purple-200' :
+                                                                    currentRole === 'premium' ? 'text-amber-700 bg-amber-50 border-amber-200' :
+                                                                    currentRole === 'licensed' ? 'text-green-700 bg-green-50 border-green-200' :
+                                                                    'text-slate-700 bg-slate-50'
+                                                                }`}
+                                                                value={currentRole}
+                                                                onChange={(e) => handleUserRoleUpdate(u.uid, e.target.value)}
+                                                                disabled={u.group === 'administrator' && currentRole === 'admin'} // Protect main admin
+                                                            >
+                                                                <option value="trial">Trial (Free)</option>
+                                                                <option value="licensed">Licensed (Standard)</option>
+                                                                <option value="premium">Premium (All Features)</option>
+                                                                <option value="admin">Admin</option>
+                                                            </select>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                    {users.length === 0 && <div className="p-4 text-center text-slate-500">No users found.</div>}
+                                </div>
+                                
+                                {totalPages > 1 && (
+                                    <div className="flex justify-center gap-2 mt-4 items-center">
+                                        <button 
+                                            disabled={page === 1}
+                                            onClick={() => loadUsers(page - 1)}
+                                            className="px-3 py-1 border rounded hover:bg-slate-100 disabled:opacity-50 text-sm"
+                                        >
+                                            Prev
+                                        </button>
+                                        <span className="text-sm text-slate-600">Page {page} of {totalPages}</span>
+                                        <button 
+                                            disabled={page === totalPages}
+                                            onClick={() => loadUsers(page + 1)}
+                                            className="px-3 py-1 border rounded hover:bg-slate-100 disabled:opacity-50 text-sm"
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+                                )}
+                            </>
+                            )}
+                        </div>
+                    )}
                 </div>
             <AlertModal 
                 isOpen={!!alertMsg} 

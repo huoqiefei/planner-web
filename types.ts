@@ -127,7 +127,7 @@ export interface User {
     group: UserRole; // Mapped from Typecho group
     token?: string;
     avatar?: string;
-    plannerRole?: 'trial' | 'licensed' | 'premium';
+    plannerRole?: 'trial' | 'licensed' | 'premium' | 'admin';
 }
 
 export interface AdminConfig {
@@ -140,6 +140,7 @@ export interface AdminConfig {
     watermarkImage?: string; // Base64 string
     appLogo?: string; // Base64 string for Landing Page & default Watermark
     ganttBarRatio: number; // 0.1 to 0.8
+    aiSettings?: AISettings;
 }
 
 export type AIProvider = 'google' | 'openai' | 'deepseek';

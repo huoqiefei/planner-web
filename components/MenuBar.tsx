@@ -66,6 +66,7 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, use
         ],
         [t('System')]: [
             { label: t('Configuration'), action: 'admin' },
+            { label: t('AIConfiguration'), action: 'ai_settings' },
         ]
     };
 

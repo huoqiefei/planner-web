@@ -13,6 +13,7 @@ import ResourcesPanel from './components/ResourcesPanel';
 import ProjectSettingsModal from './components/ProjectSettingsModal';
 import { AlertModal, ConfirmModal, AboutModal, PrintSettingsModal, BatchAssignModal, HelpModal, ColumnSetupModal, AdminModal } from './components/Modals';
 import { AccountSettingsModal } from './components/AccountSettingsModal';
+import SettingsModal from './components/SettingsModal';
 import { LoginModal } from './components/LoginModal';
 import { CloudLoadModal, CloudSaveModal } from './components/CloudModals';
 import { useTranslation } from './utils/i18n';
@@ -91,7 +92,8 @@ const App: React.FC = () => {
                      watermarkOpacity: remote.watermarkOpacity ? parseFloat(remote.watermarkOpacity) : prev.watermarkOpacity,
                      ganttBarRatio: remote.ganttBarRatio ? parseFloat(remote.ganttBarRatio) : prev.ganttBarRatio,
                      appLogo: remote.appLogo || prev.appLogo,
-                     watermarkImage: remote.watermarkImage || prev.watermarkImage
+                     watermarkImage: remote.watermarkImage || prev.watermarkImage,
+                     aiSettings: remote.aiSettings || prev.aiSettings
                  }));
             }
         } catch (e) { console.error("Failed to load system config", e); }
@@ -100,6 +102,19 @@ const App: React.FC = () => {
     useEffect(() => {
         loadSystemConfig();
     }, [loadSystemConfig]);
+
+    useEffect(() => {
+        if (user?.group === 'admin') {
+             authService.getSystemConfig().then(res => {
+                 if (res.config) {
+                     setAdminConfig(prev => ({
+                         ...prev,
+                         ...res.config
+                     }));
+                 }
+             }).catch(e => console.error("Failed to load admin config", e));
+        }
+    }, [user]);
 
     const handleSaveAdminConfig = async (newConfig: AdminConfig) => {
         setAdminConfig(newConfig);
@@ -111,6 +126,20 @@ const App: React.FC = () => {
             console.error("Failed to save config remote", e);
              setModalData({ msg: "Failed to save to backend. Changes applied locally.", title: "Error" });
              setActiveModal('alert');
+        }
+    };
+
+    const handleSaveAISettings = async (aiSettings: any) => {
+        const newConfig = { ...adminConfig, aiSettings };
+        setAdminConfig(newConfig);
+        try {
+            await authService.saveSystemConfig(newConfig);
+            setModalData({ msg: "AI Configuration saved.", title: "Success" });
+            setActiveModal('alert');
+        } catch (e) {
+            console.error("Failed to save AI config", e);
+            setModalData({ msg: "Failed to save AI config to backend.", title: "Error" });
+            setActiveModal('alert');
         }
     };
 
@@ -448,6 +477,7 @@ const App: React.FC = () => {
             case 'help': setActiveModal('help'); break;
             case 'about': setActiveModal('about'); break;
             case 'admin': setActiveModal('admin'); break;
+            case 'ai_settings': setActiveModal('ai_settings'); break;
             case 'cloud_load': setActiveModal('cloud_load'); break;
             case 'cloud_save': setActiveModal('cloud_save'); break;
             case 'license': setModalData({ msg: "License: Standard Edition\nExpires: 2025-12-31" }); setActiveModal('alert'); break;
@@ -1072,6 +1102,12 @@ const App: React.FC = () => {
             <AboutModal isOpen={activeModal === 'about'} onClose={() => setActiveModal(null)} customCopyright={adminConfig.copyrightText} />
             <HelpModal isOpen={activeModal === 'help'} onClose={() => setActiveModal(null)} />
             <AdminModal isOpen={activeModal === 'admin'} onClose={() => setActiveModal(null)} onSave={handleSaveAdminConfig} adminConfig={adminConfig} />
+            <SettingsModal 
+                isOpen={activeModal === 'ai_settings'} 
+                onClose={() => setActiveModal(null)} 
+                onSave={handleSaveAISettings} 
+                currentSettings={adminConfig.aiSettings || { provider: 'google', apiKey: '', model: 'gemini-2.5-flash' }} 
+            />
             <AccountSettingsModal 
                 isOpen={activeModal === 'user_settings'} 
                 user={user}

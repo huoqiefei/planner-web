@@ -264,6 +264,7 @@ export const translations = {
         ProjectInfo: '项目信息...',
         System: '系统',
         Configuration: '系统配置',
+        AIConfiguration: 'AI 配置',
         Help: '帮助',
         About: '关于',
         General: '常规',
