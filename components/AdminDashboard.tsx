@@ -211,7 +211,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
                         </div>
                     </div>
                 </div>
-            </div>
             <AlertModal 
                 isOpen={!!alertMsg} 
                 msg={alertMsg || ''} 
