@@ -75,7 +75,7 @@ export const authService = {
                 group: this.mapTypechoGroupToRole(authCategory),
                 token: token || userData.token,
                 avatar: userData.avatar,
-                plannerRole: userData.planner_role || 'trial'
+                plannerRole: userData.plannerRole || userData.planner_role || 'trial'
             };
             
             this.saveUser(user);

@@ -73,6 +73,9 @@ class PlannerAuth_Plugin implements Typecho_Plugin_Interface
         // Register API route
         // Matches /planner/api/[action]
         Helper::addRoute('planner_api', '/planner/api/[action]', 'PlannerAuth_Action', 'dispatch');
+
+        // Register Admin Panel
+        Helper::addPanel(3, 'PlannerAuth/panel.php', 'Planner Authorization', 'Manage Planner User Roles', 'administrator');
         
         return _t('Planner Auth Plugin Activated');
     }
@@ -83,6 +86,7 @@ class PlannerAuth_Plugin implements Typecho_Plugin_Interface
     public static function deactivate()
     {
         Helper::removeRoute('planner_api');
+        Helper::removePanel(3, 'PlannerAuth/panel.php');
     }
 
     /**

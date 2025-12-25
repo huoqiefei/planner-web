@@ -64,11 +64,13 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, use
             { label: t('About'), action: 'about' },
             { label: 'User Manual', action: 'help' },
         ],
-        [t('System')]: [
-            { label: t('Configuration'), action: 'admin' },
-            { label: t('AIConfiguration'), action: 'ai_settings' },
-        ]
     };
+
+    if (user?.plannerRole === 'admin') {
+        menus[t('System')] = [
+            { label: t('Configuration'), action: 'admin' },
+        ];
+    }
 
     const handleMenuClick = (menuName: string) => {
         setActiveMenu(activeMenu === menuName ? null : menuName);
