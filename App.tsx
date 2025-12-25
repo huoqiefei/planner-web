@@ -11,11 +11,10 @@ import CombinedView from './components/CombinedView';
 import DetailsPanel from './components/DetailsPanel';
 import ResourcesPanel from './components/ResourcesPanel';
 import ProjectSettingsModal from './components/ProjectSettingsModal';
-import { AlertModal, ConfirmModal, AboutModal, PrintSettingsModal, BatchAssignModal, HelpModal, ColumnSetupModal } from './components/Modals';
+import { AlertModal, ConfirmModal, AboutModal, PrintSettingsModal, BatchAssignModal, HelpModal, ColumnSetupModal, AdminModal } from './components/Modals';
 import { AccountSettingsModal } from './components/AccountSettingsModal';
 import { LoginModal } from './components/LoginModal';
 import { CloudLoadModal, CloudSaveModal } from './components/CloudModals';
-import { SystemSettingsModal } from './components/SystemSettingsModal';
 import { useTranslation } from './utils/i18n';
 
 // --- APP ---
@@ -75,24 +74,18 @@ const App: React.FC = () => {
         } else {
             setIsLoginOpen(true);
         }
-
-        const saved = localStorage.getItem('planner_admin_config');
-        if(saved) {
-            try { setAdminConfig({ ...adminConfig, ...JSON.parse(saved) }); } catch(e) {}
-        }
     }, []);
 
     const loadSystemConfig = useCallback(async () => {
-        if (!user) return;
         try {
-            const res = await authService.getSystemConfig();
+            const res = await authService.getPublicConfig();
             if (res.config) {
                  const remote = res.config;
                  setAdminConfig(prev => ({
                      ...prev,
                      appName: remote.appName || prev.appName,
                      copyrightText: remote.copyrightText || prev.copyrightText,
-                     enableWatermark: remote.enableWatermark === 'true',
+                     enableWatermark: remote.enableWatermark === 'true' || remote.enableWatermark === true,
                      watermarkText: remote.watermarkText || prev.watermarkText,
                      watermarkFontSize: remote.watermarkFontSize ? parseInt(remote.watermarkFontSize) : prev.watermarkFontSize,
                      watermarkOpacity: remote.watermarkOpacity ? parseFloat(remote.watermarkOpacity) : prev.watermarkOpacity,
@@ -102,11 +95,24 @@ const App: React.FC = () => {
                  }));
             }
         } catch (e) { console.error("Failed to load system config", e); }
-    }, [user]);
+    }, []);
 
     useEffect(() => {
-        if(user) loadSystemConfig();
-    }, [user, loadSystemConfig]);
+        loadSystemConfig();
+    }, [loadSystemConfig]);
+
+    const handleSaveAdminConfig = async (newConfig: AdminConfig) => {
+        setAdminConfig(newConfig);
+        try {
+            await authService.saveSystemConfig(newConfig);
+            setModalData({ msg: t('SystemConfigSaved') || "System configuration saved.", title: t('Success') || "Success" });
+            setActiveModal('alert');
+        } catch (e) {
+            console.error("Failed to save config remote", e);
+             setModalData({ msg: "Failed to save to backend. Changes applied locally.", title: "Error" });
+             setActiveModal('alert');
+        }
+    };
 
     const handleLoginSuccess = (user: User) => {
         setUser(user);
@@ -338,6 +344,22 @@ const App: React.FC = () => {
 
     const checkPermission = (action: string): boolean => {
         const role = user?.plannerRole || 'trial';
+        const group = user?.group || 'viewer';
+
+        // 1. Group-based Access Control (Viewer Restrictions)
+        if (group === 'viewer') {
+            const viewerDenied = ['new_project', 'export', 'cloud_save', 'project_info', 'admin', 'cut', 'paste', 'delete'];
+            if (viewerDenied.includes(action)) {
+                setModalData({ 
+                    msg: t('AccessDeniedMsg') || "Access Denied. Read-only access.", 
+                    title: t('AccessDenied') || "Access Denied" 
+                });
+                setActiveModal('alert');
+                return false;
+            }
+        }
+
+        // 2. Subscription-based Access Control (Planner Role)
         const restrictions: Record<string, string[]> = {
             'admin': ['admin'],
             'cloud_save': ['licensed', 'premium', 'admin'],
@@ -939,7 +961,7 @@ const App: React.FC = () => {
         return (
             <div className="flex flex-col h-full bg-slate-100 items-center justify-center">
                  <div className="animate-pulse text-slate-500 font-bold">Loading Interface...</div>
-                 <LoginModal isOpen={isLoginOpen} onLoginSuccess={handleLoginSuccess} onClose={() => {}} lang={userSettings.language} />
+                 <LoginModal isOpen={isLoginOpen} onLoginSuccess={handleLoginSuccess} onClose={() => {}} lang={userSettings.language} adminConfig={adminConfig} />
             </div>
         );
     }
@@ -951,12 +973,12 @@ const App: React.FC = () => {
             </div>
             
             <Toolbar 
-                onNew={handleNew} 
-                onOpen={(e) => handleOpen(e)}
-                onSave={handleSave}
-                onCloudSave={() => setActiveModal('cloud_save')}
-                onPrint={() => setActiveModal('print')} 
-                onSettings={() => setActiveModal('project_settings')} 
+                onNew={() => { if(checkPermission('new_project')) handleNew(); }} 
+                onOpen={(e) => { if(checkPermission('open_project')) handleOpen(e); }}
+                onSave={() => { if(checkPermission('export')) handleSave(); }}
+                onCloudSave={() => { if(checkPermission('cloud_save')) setActiveModal('cloud_save'); }}
+                onPrint={() => { if(checkPermission('print')) setActiveModal('print'); }} 
+                onSettings={() => { if(checkPermission('project_info')) setActiveModal('project_settings'); }} 
                 title={data.meta.title} 
                 isDirty={isDirty}
                 uiFontPx={userSettings.uiFontPx}
@@ -1049,6 +1071,7 @@ const App: React.FC = () => {
             />
             <AboutModal isOpen={activeModal === 'about'} onClose={() => setActiveModal(null)} customCopyright={adminConfig.copyrightText} />
             <HelpModal isOpen={activeModal === 'help'} onClose={() => setActiveModal(null)} />
+            <AdminModal isOpen={activeModal === 'admin'} onClose={() => setActiveModal(null)} onSave={handleSaveAdminConfig} adminConfig={adminConfig} />
             <AccountSettingsModal 
                 isOpen={activeModal === 'user_settings'} 
                 user={user}
@@ -1061,7 +1084,6 @@ const App: React.FC = () => {
             <ColumnSetupModal isOpen={activeModal === 'columns'} onClose={() => setActiveModal(null)} visibleColumns={userSettings.visibleColumns} onSave={(cols) => setUserSettings({...userSettings, visibleColumns: cols})} lang={userSettings.language} />
             <ProjectSettingsModal isOpen={activeModal === 'project_settings'} onClose={() => setActiveModal(null)} projectData={data} onUpdateProject={handleProjectUpdate} />
             <BatchAssignModal isOpen={activeModal === 'batchRes'} onClose={() => setActiveModal(null)} resources={data.resources} onAssign={handleBatchAssign} lang={userSettings.language} />
-            <SystemSettingsModal isOpen={activeModal === 'admin'} onClose={() => { setActiveModal(null); loadSystemConfig(); }} lang={userSettings.language} />
             <CloudLoadModal 
                  isOpen={activeModal === 'cloud_load'} 
                  onClose={() => setActiveModal(null)} 

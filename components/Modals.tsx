@@ -126,8 +126,8 @@ export const AboutModal: React.FC<{ isOpen: boolean, onClose: () => void, custom
     );
 };
 
-export const AdminModal: React.FC<{ isOpen: boolean, onClose: () => void, onSave: (c: AdminConfig) => void }> = ({ isOpen, onClose, onSave }) => {
-    return <AdminDashboard isOpen={isOpen} onClose={onClose} onSave={onSave} />; 
+export const AdminModal: React.FC<{ isOpen: boolean, onClose: () => void, onSave: (c: AdminConfig) => void, adminConfig: AdminConfig }> = ({ isOpen, onClose, onSave, adminConfig }) => {
+    return <AdminDashboard isOpen={isOpen} onClose={onClose} onSave={onSave} adminConfig={adminConfig} />; 
 };
 
 const DEFAULT_MANUAL = `# Planner Web - User Operation Manual

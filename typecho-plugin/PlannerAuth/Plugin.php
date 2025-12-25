@@ -45,14 +45,6 @@ class PlannerAuth_Plugin implements Typecho_Plugin_Interface
             )";
             $db->query($sqlProjects);
 
-            $sqlSettings = "CREATE TABLE IF NOT EXISTS " . $prefix . "planner_settings (
-                id SERIAL PRIMARY KEY,
-                conf_key VARCHAR(100) NOT NULL UNIQUE,
-                conf_value TEXT,
-                updated_at INT
-            )";
-            $db->query($sqlSettings);
-
         } else {
             $sql = "CREATE TABLE IF NOT EXISTS `" . $prefix . "planner_usermeta` (
                 `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -76,16 +68,6 @@ class PlannerAuth_Plugin implements Typecho_Plugin_Interface
                 KEY `uid` (`uid`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
             $db->query($sqlProjects);
-
-            $sqlSettings = "CREATE TABLE IF NOT EXISTS `" . $prefix . "planner_settings` (
-                `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-                `conf_key` varchar(100) NOT NULL,
-                `conf_value` text,
-                `updated_at` int(10) unsigned,
-                PRIMARY KEY (`id`),
-                UNIQUE KEY `conf_key` (`conf_key`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
-            $db->query($sqlSettings);
         }
 
         // Register API route

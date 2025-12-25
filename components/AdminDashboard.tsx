@@ -7,6 +7,7 @@ interface AdminDashboardProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (config: AdminConfig) => void;
+    adminConfig: AdminConfig;
 }
 
 const DEFAULT_CONFIG: AdminConfig = {
@@ -19,48 +20,25 @@ const DEFAULT_CONFIG: AdminConfig = {
     ganttBarRatio: 0.35
 };
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave }) => {
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [username, setUsername] = useState('admin');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave, adminConfig }) => {
+    const [alertMsg, setAlertMsg] = useState<string | null>(null);
 
-    const [config, setConfig] = useState<AdminConfig>(DEFAULT_CONFIG);
+    const [config, setConfig] = useState<AdminConfig>(adminConfig || DEFAULT_CONFIG);
 
     useEffect(() => {
         if (isOpen) {
-            // Load from localStorage
-            const saved = localStorage.getItem('planner_admin_config');
-            if (saved) {
-                try {
-                    setConfig({ ...DEFAULT_CONFIG, ...JSON.parse(saved) });
-                } catch (e) {
-                    setConfig(DEFAULT_CONFIG);
-                }
+            if (adminConfig) {
+                setConfig(adminConfig);
             }
-            // Reset Login on open
-            setIsLoggedIn(false);
-            setPassword('');
-            setError('');
         }
-    }, [isOpen]);
-
-    const handleLogin = () => {
-        if (username === 'admin' && password === 'zzpoikdfa40') {
-            setIsLoggedIn(true);
-            setError('');
-        } else {
-            setError('Invalid credentials');
-        }
-    };
+    }, [isOpen, adminConfig]);
 
     const handleSaveConfig = () => {
         try {
-            localStorage.setItem('planner_admin_config', JSON.stringify(config));
             onSave(config);
             onClose();
         } catch (e) {
-            setAlertMsg("Error saving settings. Image might be too large.");
+            setAlertMsg("Error saving settings.");
         }
     };
 
@@ -90,41 +68,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
                     <button onClick={onClose} className="hover:text-red-300 text-lg">×</button>
                 </div>
 
-                {!isLoggedIn ? (
-                    <div className="p-8 flex flex-col gap-4">
-                        <div className="text-center mb-4">
-                            <h3 className="text-slate-700 font-bold text-lg">Login Required</h3>
-                            <p className="text-slate-500 text-sm">Please enter administrator credentials.</p>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Username</label>
-                            <input 
-                                className="w-full border p-2 rounded" 
-                                value={username} 
-                                onChange={e => setUsername(e.target.value)}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Password</label>
-                            <input 
-                                type="password" 
-                                className="w-full border p-2 rounded" 
-                                value={password} 
-                                onChange={e => setPassword(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                            />
-                        </div>
-                        {error && <div className="text-red-600 text-xs font-bold text-center">{error}</div>}
-                        <button onClick={handleLogin} className="mt-2 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 font-bold">Access Dashboard</button>
+                <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
+                    <div className="bg-blue-50 border border-blue-200 p-2 text-xs text-blue-800 rounded mb-4">
+                        System Settings are saved to the backend server.
                     </div>
-                ) : (
-                    <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
-                        <div className="bg-blue-50 border border-blue-200 p-2 text-xs text-blue-800 rounded mb-4">
-                            System Settings are saved locally to this browser.
-                        </div>
 
-                        <div className="space-y-4 border-b pb-4">
-                            <h4 className="font-bold text-slate-700">General Info</h4>
+                    <div className="space-y-4 border-b pb-4">
+                        <h4 className="font-bold text-slate-700">General Info</h4>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1">Software Name</label>
                                 <input 
@@ -260,7 +210,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
                             <button onClick={handleSaveConfig} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-bold">Save Configuration</button>
                         </div>
                     </div>
-                )}
+                </div>
             </div>
             <AlertModal 
                 isOpen={!!alertMsg} 

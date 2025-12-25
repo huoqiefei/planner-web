@@ -773,12 +773,16 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
             return;
         }
 
-        $rows = $this->db->fetchAll($this->db->select()
-            ->from($this->prefix . 'planner_settings'));
-            
+        $options = Typecho_Widget::widget('Widget_Options');
         $config = [];
-        foreach ($rows as $row) {
-            $config[$row['conf_key']] = $row['conf_value'];
+        // Check if option exists in table.options
+        // Note: Custom options might not be automatically loaded by Widget_Options unless registered, 
+        // but we can query DB directly to be safe or rely on dynamic property if Typecho supports it for all options.
+        // Direct DB query is safer for custom inserted options.
+        
+        $row = $this->db->fetchRow($this->db->select('value')->from('table.options')->where('name = ?', 'planner_system_config'));
+        if ($row) {
+            $config = json_decode($row['value'], true);
         }
         
         $this->sendResponse(['config' => $config]);
@@ -800,32 +804,30 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
         
-        $table = $this->prefix . 'planner_settings';
+        // Fetch current
+        $current = [];
+        $row = $this->db->fetchRow($this->db->select('value')->from('table.options')->where('name = ?', 'planner_system_config'));
+        if ($row) {
+            $current = json_decode($row['value'], true);
+        }
 
-        foreach ($data as $key => $value) {
-            if (is_array($value) || is_object($value)) {
-                $value = json_encode($value);
-            }
+        if (is_array($data)) {
+            $current = array_merge($current, $data);
+        }
 
-            $existing = $this->db->fetchRow($this->db->select()
-                ->from($table)
-                ->where('conf_key = ?', $key));
-            
-            if ($existing) {
-                $this->db->query($this->db->update($table)
-                    ->rows([
-                        'conf_value' => $value,
-                        'updated_at' => time()
-                    ])
-                    ->where('id = ?', $existing['id']));
-            } else {
-                $this->db->query($this->db->insert($table)
-                    ->rows([
-                        'conf_key' => $key,
-                        'conf_value' => $value,
-                        'updated_at' => time()
-                    ]));
-            }
+        $value = json_encode($current);
+
+        if ($row) {
+            $this->db->query($this->db->update('table.options')
+                ->rows(['value' => $value])
+                ->where('name = ?', 'planner_system_config'));
+        } else {
+            $this->db->query($this->db->insert('table.options')
+                ->rows([
+                    'name' => 'planner_system_config',
+                    'user' => 0,
+                    'value' => $value
+                ]));
         }
 
         $this->sendResponse(['status' => 'success']);
@@ -836,13 +838,18 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
      */
     private function publicConfig()
     {
-        $rows = $this->db->fetchAll($this->db->select()
-            ->from($this->prefix . 'planner_settings')
-            ->where('conf_key IN ?', ['appLogo', 'appName', 'watermarkText', 'watermarkEnabled']));
-            
+        $row = $this->db->fetchRow($this->db->select('value')->from('table.options')->where('name = ?', 'planner_system_config'));
         $config = [];
-        foreach ($rows as $row) {
-            $config[$row['conf_key']] = $row['conf_value'];
+        
+        if ($row) {
+             $fullConfig = json_decode($row['value'], true);
+             // Filter public keys
+             $allowed = ['appLogo', 'appName', 'watermarkText', 'enableWatermark', 'watermarkFontSize', 'watermarkOpacity', 'watermarkImage', 'copyrightText', 'ganttBarRatio'];
+             if (is_array($fullConfig)) {
+                 foreach ($allowed as $key) {
+                     if (isset($fullConfig[$key])) $config[$key] = $fullConfig[$key];
+                 }
+             }
         }
         
         $this->sendResponse(['config' => $config]);

@@ -39,32 +39,24 @@ const Toolbar: React.FC<ToolbarProps> = ({
     const btnSize = Math.max(30, fontSize * 2.2); 
     const iconSize = Math.max(16, fontSize * 1.2); 
     
-    const isViewer = user?.group === 'viewer';
-
     return (
         <div className="bg-slate-100 p-1 border-b border-slate-300 flex items-center gap-1 shadow-sm flex-shrink-0 select-none" style={{ height: `${btnSize + 8}px` }}>
-            {!isViewer && (
-                <button onClick={onNew} style={{ width: btnSize, height: btnSize }} className="flex flex-col items-center justify-center hover:bg-slate-200 rounded text-slate-700" title="New">
-                    <div style={{ width: iconSize, height: iconSize }}>{Icons.New}</div>
-                </button>
-            )}
+            <button onClick={onNew} style={{ width: btnSize, height: btnSize }} className="flex flex-col items-center justify-center hover:bg-slate-200 rounded text-slate-700" title="New">
+                <div style={{ width: iconSize, height: iconSize }}>{Icons.New}</div>
+            </button>
             <button onClick={() => fileRef.current?.click()} style={{ width: btnSize, height: btnSize }} className="flex flex-col items-center justify-center hover:bg-slate-200 rounded text-slate-700" title="Open">
                 <div style={{ width: iconSize, height: iconSize }}>{Icons.Open}</div>
             </button>
             <input type="file" ref={fileRef} onChange={onOpen} className="hidden" accept=".json" />
             {title && (
                 <>
-                    {!isViewer && (
-                        <>
-                            <button onClick={onSave} style={{ width: btnSize, height: btnSize }} className="flex flex-col items-center justify-center hover:bg-slate-200 rounded text-slate-700" title="Save JSON">
-                                <div style={{ width: iconSize, height: iconSize }}>{Icons.Save}</div>
-                            </button>
-                            {onCloudSave && (
-                                <button onClick={onCloudSave} style={{ width: btnSize, height: btnSize }} className="flex flex-col items-center justify-center hover:bg-slate-200 rounded text-slate-700" title="Save to Cloud">
-                                    <div style={{ width: iconSize, height: iconSize }}>{Icons.CloudSave}</div>
-                                </button>
-                            )}
-                        </>
+                    <button onClick={onSave} style={{ width: btnSize, height: btnSize }} className="flex flex-col items-center justify-center hover:bg-slate-200 rounded text-slate-700" title="Save JSON">
+                        <div style={{ width: iconSize, height: iconSize }}>{Icons.Save}</div>
+                    </button>
+                    {onCloudSave && (
+                        <button onClick={onCloudSave} style={{ width: btnSize, height: btnSize }} className="flex flex-col items-center justify-center hover:bg-slate-200 rounded text-slate-700" title="Save to Cloud">
+                            <div style={{ width: iconSize, height: iconSize }}>{Icons.CloudSave}</div>
+                        </button>
                     )}
                     <div className="w-px bg-slate-300 mx-1" style={{ height: btnSize }}></div>
                     
@@ -81,17 +73,14 @@ const Toolbar: React.FC<ToolbarProps> = ({
                     
                     <div className="w-px bg-slate-300 mx-1" style={{ height: btnSize }}></div>
                     
-                    {!isViewer && (
-                        <>
-                        <button onClick={onSettings} style={{ width: btnSize, height: btnSize }} className="flex flex-col items-center justify-center hover:bg-slate-200 rounded text-slate-700" title="Settings">
-                            <div style={{ width: iconSize, height: iconSize }}>{Icons.Settings}</div>
-                        </button>
-                        <button onClick={onPrint} style={{ width: btnSize, height: btnSize }} className="flex flex-col items-center justify-center hover:bg-slate-200 rounded text-slate-700" title="Print">
-                            <div style={{ width: iconSize, height: iconSize }}>{Icons.Print}</div>
-                        </button>
-                        <div className="w-px bg-slate-300 mx-1" style={{ height: btnSize }}></div>
-                        </>
-                    )}
+                    <button onClick={onSettings} style={{ width: btnSize, height: btnSize }} className="flex flex-col items-center justify-center hover:bg-slate-200 rounded text-slate-700" title="Settings">
+                        <div style={{ width: iconSize, height: iconSize }}>{Icons.Settings}</div>
+                    </button>
+                    <button onClick={onPrint} style={{ width: btnSize, height: btnSize }} className="flex flex-col items-center justify-center hover:bg-slate-200 rounded text-slate-700" title="Print">
+                        <div style={{ width: iconSize, height: iconSize }}>{Icons.Print}</div>
+                    </button>
+                    <div className="w-px bg-slate-300 mx-1" style={{ height: btnSize }}></div>
+
                     <div className="font-bold text-slate-600 px-2" style={{ fontSize: `${fontSize}px` }}>{title} {isDirty ? '*' : ''}</div>
                 </>
             )}
