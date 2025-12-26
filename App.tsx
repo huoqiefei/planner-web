@@ -63,6 +63,8 @@ const App: React.FC = () => {
         visibleColumns: ['id', 'name', 'duration', 'start', 'finish', 'float', 'preds'] 
     });
 
+    const [settingsTab, setSettingsTab] = useState<'profile' | 'preferences' | 'subscription' | 'security' | 'usage'>('profile');
+
     const { t } = useTranslation(userSettings.language);
     const { checkPermission } = usePermissions(user, userSettings.language, setModalData, setActiveModal);
 
@@ -440,7 +442,11 @@ const App: React.FC = () => {
             case 'project_info': setActiveModal('project_settings'); break;
             case 'view_activities': setView('activities'); break;
             case 'view_resources': setView('resources'); break;
-            case 'settings': setActiveModal('user_settings'); break;
+            case 'settings': setSettingsTab('preferences'); setActiveModal('user_settings'); break;
+            case 'settings_profile': setSettingsTab('profile'); setActiveModal('user_settings'); break;
+            case 'settings_security': setSettingsTab('security'); setActiveModal('user_settings'); break;
+            case 'settings_subscription': setSettingsTab('subscription'); setActiveModal('user_settings'); break;
+            case 'settings_usage': setSettingsTab('usage'); setActiveModal('user_settings'); break;
             case 'help': setActiveModal('help'); break;
             case 'about': setActiveModal('about'); break;
             case 'admin': setActiveModal('admin'); break;
@@ -964,7 +970,62 @@ const App: React.FC = () => {
     }
 
     return (
-        <div className="flex flex-col h-full bg-slate-100" onClick={() => setCtx(null)}>
+        <div className="flex flex-col h-full" onClick={() => setCtx(null)}>
+            <style>{`
+                @media print {
+                    .toolbar-container,
+                    .view-tabs-container,
+                    .details-panel,
+                    .resources-panel,
+                    .ctx-menu,
+                    .modal-overlay {
+                        display: none !important;
+                    }
+                    /* MenuBar Container */
+                    .h-8.flex-shrink-0.relative.z-50 {
+                        display: none !important;
+                    }
+                    
+                    /* Reset Layout */
+                    .flex.flex-col.h-full {
+                        display: block !important;
+                        height: auto !important;
+                        overflow: visible !important;
+                    }
+                    
+                    .flex-grow.overflow-hidden {
+                        display: block !important;
+                        height: auto !important;
+                        overflow: visible !important;
+                    }
+                    
+                    .combined-view-container {
+                        position: static !important;
+                        height: auto !important;
+                        width: 100% !important;
+                        overflow: visible !important;
+                        border: none !important;
+                    }
+                    
+                    /* Expand Body */
+                    body, html, #root {
+                        height: auto !important;
+                        overflow: visible !important;
+                        background-color: white !important;
+                    }
+                    
+                    /* Expand P6 View */
+                    .p6-body, .p6-header {
+                        width: 100% !important;
+                        overflow: visible !important;
+                        max-height: none !important;
+                    }
+                    
+                    ::-webkit-scrollbar {
+                        display: none;
+                    }
+                }
+            `}</style>
             <div className="h-8 flex-shrink-0 relative z-50">
                 <MenuBar 
                     onAction={handleMenuAction} 
@@ -995,7 +1056,7 @@ const App: React.FC = () => {
             <input type="file" ref={fileInputRef} onChange={handleOpen} className="hidden" accept=".json" />
 
             <div className="flex-grow flex flex-col overflow-hidden">
-                <div className="bg-slate-300 border-b flex px-2 pt-1 gap-1 shrink-0" style={{ fontSize: `${userSettings.uiFontPx || 13}px` }}>
+                <div className="view-tabs-container bg-slate-300 border-b flex px-2 pt-1 gap-1 shrink-0" style={{ fontSize: `${userSettings.uiFontPx || 13}px` }}>
                     {['Activities', 'Resources'].map(v => (
                         <button key={v} onClick={() => setView(v.toLowerCase() as any)} className={`px-4 py-1 font-bold rounded-t ${view === v.toLowerCase() ? 'bg-white text-blue-900' : 'text-slate-600 hover:bg-slate-200'}`}>
                             {t(v as any)}
@@ -1083,8 +1144,15 @@ const App: React.FC = () => {
                 onSaveSettings={setUserSettings} 
                 onUpdateUser={setUser}
                 onClose={() => setActiveModal(null)} 
+                initialTab={settingsTab}
             />
-            <PrintSettingsModal isOpen={activeModal === 'print'} onClose={() => setActiveModal(null)} onPrint={executePrint} lang={userSettings.language} />
+            <PrintSettingsModal 
+                isOpen={activeModal === 'print'} 
+                onClose={() => setActiveModal(null)} 
+                onPrint={executePrint} 
+                onSystemPrint={() => window.print()}
+                lang={userSettings.language} 
+            />
             <ColumnSetupModal isOpen={activeModal === 'columns'} onClose={() => setActiveModal(null)} visibleColumns={userSettings.visibleColumns} onSave={(cols) => setUserSettings({...userSettings, visibleColumns: cols})} lang={userSettings.language} />
             <ProjectSettingsModal isOpen={activeModal === 'project_settings'} onClose={() => setActiveModal(null)} projectData={data} onUpdateProject={handleProjectUpdate} />
             <BatchAssignModal isOpen={activeModal === 'batchRes'} onClose={() => setActiveModal(null)} resources={data.resources} onAssign={handleBatchAssign} lang={userSettings.language} />

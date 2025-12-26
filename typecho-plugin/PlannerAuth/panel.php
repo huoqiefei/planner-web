@@ -226,8 +226,8 @@ if (isset($_POST['do']) && $_POST['do'] == 'delete_project') {
                     $search = isset($_GET['search']) ? trim($_GET['search']) : '';
                     
                     $query = $db->select('p.*', 'u.screenName', 'u.name as username')
-                        ->from($prefix . 'planner_projects', 'p')
-                        ->join('table.users', 'p.uid = u.uid', 'u')
+                        ->from($prefix . 'planner_projects as p')
+                        ->join('table.users as u', 'p.uid = u.uid')
                         ->order('p.updated_at', Typecho_Db::SORT_DESC);
                         
                     if ($search) {

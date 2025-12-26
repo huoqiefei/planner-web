@@ -367,7 +367,7 @@ export const UserSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void,
     );
 };
 
-export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void, onPrint: (s: PrintSettings) => void, lang?: 'en'|'zh' }> = ({ isOpen, onClose, onPrint, lang='en' }) => {
+export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void, onPrint: (s: PrintSettings) => void, onSystemPrint: () => void, lang?: 'en'|'zh' }> = ({ isOpen, onClose, onPrint, onSystemPrint, lang='en' }) => {
     const [settings, setSettings] = useState<PrintSettings>({ 
         paperSize: 'a3', 
         orientation: 'landscape',
@@ -383,8 +383,9 @@ export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void
     return (
         <BaseModal isOpen={isOpen} title={t('PageSetup')} onClose={onClose} footer={
             <>
+                <button onClick={onSystemPrint} className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 mr-auto">{t('SystemPrint') || 'Browser Print'}</button>
                 <button onClick={onClose} className="px-3 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50">{t('Cancel')}</button>
-                <button onClick={() => { onPrint(settings); onClose(); }} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">{t('PrintPreview')}</button>
+                <button onClick={() => { onPrint(settings); onClose(); }} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">{t('ExportPDF') || 'Export PDF'}</button>
             </>
         }>
             <div className="space-y-4 text-sm">

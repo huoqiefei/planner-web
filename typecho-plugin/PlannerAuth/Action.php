@@ -36,35 +36,36 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
             $this->pluginOptions->corsOrigin = '*';
         }
 
-        // CORS Headers
+        // CORS Headers - Send immediately using native header() to avoid Typecho buffering issues on error
         $origin = $this->pluginOptions->corsOrigin ? $this->pluginOptions->corsOrigin : '*';
-        
-        // If specific origin is set, use it. If *, we need to handle credentials carefully.
-        // For 'Access-Control-Allow-Credentials: true', 'Access-Control-Allow-Origin' cannot be '*'.
         
         $requestOrigin = $this->request->getHeader('Origin');
         if ($origin === '*') {
-             // Echo back the request origin if it exists, effectively allowing all (but valid for credentials)
              if ($requestOrigin) {
                  $origin = $requestOrigin;
              }
         } else {
-             // Normalize configured origin
              $origin = rtrim($origin, '/*');
              $origin = rtrim($origin, '/');
         }
 
-        $this->response->setHeader('Access-Control-Allow-Origin', $origin);
-        $this->response->setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-        $this->response->setHeader('Access-Control-Allow-Credentials', 'true');
-        $this->response->setHeader('Access-Control-Max-Age', '86400');
-        $this->response->setHeader('Content-Type', 'application/json');
+        header('Access-Control-Allow-Origin: ' . $origin);
+        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+        header('Access-Control-Allow-Credentials: true');
+        header('Access-Control-Max-Age: 86400');
+        header('Content-Type: application/json');
         
         if ($this->request->is('OPTIONS')) {
             http_response_code(204);
             exit;
         }
+    }
+
+    protected function log($message) {
+        $logFile = __DIR__ . '/debug.log';
+        $timestamp = date('Y-m-d H:i:s');
+        file_put_contents($logFile, "[$timestamp] $message\n", FILE_APPEND);
     }
 
     public function execute()

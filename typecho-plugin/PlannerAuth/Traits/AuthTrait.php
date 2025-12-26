@@ -188,6 +188,9 @@ trait PlannerAuth_Traits_AuthTrait
 
     private function verifyToken()
     {
+        // Debug
+        $this->log("verifyToken called");
+        
         // Try to get token from multiple sources
         $token = null;
         $authHeader = $this->request->getHeader('Authorization');

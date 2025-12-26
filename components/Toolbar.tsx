@@ -40,7 +40,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
     const iconSize = Math.max(16, fontSize * 1.2); 
     
     return (
-        <div className="bg-slate-100 p-1 border-b border-slate-300 flex items-center gap-1 shadow-sm flex-shrink-0 select-none" style={{ height: `${btnSize + 8}px` }}>
+        <div className="toolbar-container bg-slate-100 p-1 border-b border-slate-300 flex items-center gap-1 shadow-sm flex-shrink-0 select-none" style={{ height: `${btnSize + 8}px` }}>
             <button onClick={onNew} style={{ width: btnSize, height: btnSize }} className="flex flex-col items-center justify-center hover:bg-slate-200 rounded text-slate-700" title="New">
                 <div style={{ width: iconSize, height: iconSize }}>{Icons.New}</div>
             </button>

@@ -283,7 +283,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
                                                 <th className="p-2">UID</th>
                                                 <th className="p-2">Name</th>
                                                 <th className="p-2">Email</th>
-                                                <th className="p-2">Typecho Group</th>
                                                 <th className="p-2">Planner Role</th>
                                             </tr>
                                         </thead>
@@ -295,7 +294,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
                                                         <td className="p-2">{u.uid}</td>
                                                         <td className="p-2 font-medium">{u.screenName || u.name}</td>
                                                         <td className="p-2 text-slate-500">{u.mail}</td>
-                                                        <td className="p-2 capitalize text-slate-500">{u.group}</td>
                                                         <td className="p-2">
                                                             <select 
                                                                 className={`border rounded p-1 text-xs font-bold ${

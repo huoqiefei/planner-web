@@ -11,13 +11,20 @@ interface AccountSettingsModalProps {
     settings: UserSettings;
     onSaveSettings: (s: UserSettings) => void;
     onUpdateUser: (u: User) => void;
+    initialTab?: 'profile' | 'preferences' | 'subscription' | 'security' | 'usage';
 }
 
 export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ 
-    isOpen, onClose, user, settings, onSaveSettings, onUpdateUser 
+    isOpen, onClose, user, settings, onSaveSettings, onUpdateUser, initialTab = 'profile'
 }) => {
     const { t } = useTranslation(settings.language);
-    const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'subscription' | 'security'>('profile');
+    const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'subscription' | 'security' | 'usage'>(initialTab);
+    
+    useEffect(() => {
+        if (isOpen) {
+            setActiveTab(initialTab);
+        }
+    }, [isOpen, initialTab]);
     
     // Profile State
     const [nickname, setNickname] = useState('');
@@ -129,46 +136,30 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
         }
     };
 
+    // Get Title based on active tab
+    const getTitle = () => {
+        switch(activeTab) {
+            case 'profile': return t('AccountSettings');
+            case 'preferences': return t('UserPreferences');
+            case 'subscription': return t('SubscriptionPlan');
+            case 'usage': return t('UsageStatistics');
+            case 'security': return t('ChangePassword');
+            default: return t('AccountSettings');
+        }
+    };
+
     return (
         <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] backdrop-blur-sm ${!isOpen ? 'hidden' : ''}`} onClick={onClose}>
             <div className="bg-white rounded-lg shadow-2xl w-[800px] max-w-[95vw] overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
                 {/* Header */}
-                <div className="bg-slate-800 text-white px-4 py-3 font-bold flex justify-between items-center shrink-0">
-                    <span>{t('AccountSettings')}</span>
-                    <button onClick={onClose} className="hover:text-red-300 text-lg">×</button>
+                <div className="bg-slate-800 text-white px-6 py-4 font-bold flex justify-between items-center shrink-0">
+                    <span className="text-lg">{getTitle()}</span>
+                    <button onClick={onClose} className="hover:text-red-300 text-2xl leading-none">&times;</button>
                 </div>
 
                 <div className="flex flex-1 overflow-hidden">
-                    {/* Left Sidebar Tabs */}
-                    <div className="w-48 bg-slate-100 border-r flex-shrink-0 py-2">
-                        <button 
-                            className={`w-full text-left px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'profile' ? 'bg-white text-blue-600 border-l-4 border-blue-600' : 'text-slate-600 hover:bg-slate-200 border-l-4 border-transparent'}`}
-                            onClick={() => setActiveTab('profile')}
-                        >
-                            {t('General')}
-                        </button>
-                        <button 
-                            className={`w-full text-left px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'preferences' ? 'bg-white text-blue-600 border-l-4 border-blue-600' : 'text-slate-600 hover:bg-slate-200 border-l-4 border-transparent'}`}
-                            onClick={() => setActiveTab('preferences')}
-                        >
-                            {t('UserPreferences')}
-                        </button>
-                        <button 
-                            className={`w-full text-left px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'subscription' ? 'bg-white text-blue-600 border-l-4 border-blue-600' : 'text-slate-600 hover:bg-slate-200 border-l-4 border-transparent'}`}
-                            onClick={() => setActiveTab('subscription')}
-                        >
-                            {t('SubscriptionPlan')}
-                        </button>
-                        <button 
-                            className={`w-full text-left px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'security' ? 'bg-white text-blue-600 border-l-4 border-blue-600' : 'text-slate-600 hover:bg-slate-200 border-l-4 border-transparent'}`}
-                            onClick={() => setActiveTab('security')}
-                        >
-                            {t('ChangePassword')}
-                        </button>
-                    </div>
-
-                    {/* Right Content Area */}
-                    <div className="flex-1 p-6 overflow-y-auto bg-white">
+                    {/* Content Area - Full Width (No Sidebar) */}
+                    <div className="flex-1 p-8 overflow-y-auto bg-white">
                         {activeTab === 'profile' && (
                             <div className="space-y-6 max-w-lg">
                                 <div className="flex items-center gap-6">
@@ -347,9 +338,6 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                             {getPlanName(user?.plannerRole)}
                                         </span>
                                     </div>
-                                    <p className="text-sm text-slate-600">
-                                        {t('TypechoGroup')}: <span className="font-medium text-slate-800 capitalize">{user?.group}</span>
-                                    </p>
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -378,6 +366,54 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'usage' && (
+                            <div className="space-y-6">
+                                <h3 className="font-bold text-xl mb-3 text-slate-800">{t('UsageStatistics')}</h3>
+                                {user?.usage ? (
+                                    <div className="space-y-6">
+                                        <div className="bg-white border rounded-lg p-6 shadow-sm">
+                                            <h4 className="font-bold text-lg mb-4 text-slate-700">{t('ProjectUsage')}</h4>
+                                            
+                                            <div className="mb-2 flex justify-between items-end">
+                                                <span className="text-sm text-slate-500">{t('Used')} / {t('Limit')}</span>
+                                                <span className="text-2xl font-bold text-blue-600">
+                                                    {user.usage.project_count} <span className="text-sm text-slate-400 font-normal">/ {user.usage.project_limit > 9000 ? '∞' : user.usage.project_limit}</span>
+                                                </span>
+                                            </div>
+                                            
+                                            <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden mb-2">
+                                                <div 
+                                                    className={`h-full rounded-full transition-all duration-500 ${user.usage.project_count >= user.usage.project_limit ? 'bg-red-500' : 'bg-blue-500'}`} 
+                                                    style={{ width: `${Math.min(100, (user.usage.project_count / (user.usage.project_limit > 9000 ? 100 : user.usage.project_limit)) * 100)}%` }}
+                                                />
+                                            </div>
+                                            
+                                            {user.usage.project_limit <= 9000 && (
+                                                <p className="text-right text-sm text-slate-500">
+                                                    {t('Remaining' as any)}: <span className="font-bold text-green-600">{Math.max(0, user.usage.project_limit - user.usage.project_count)}</span>
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="bg-slate-50 border rounded-lg p-4 text-center">
+                                                <div className="text-sm text-slate-500 mb-1">{t('Activities' as any)}</div>
+                                                <div className="text-2xl font-bold text-slate-700">{user.usage.activity_count}</div>
+                                            </div>
+                                            <div className="bg-slate-50 border rounded-lg p-4 text-center">
+                                                <div className="text-sm text-slate-500 mb-1">{t('Resources' as any)}</div>
+                                                <div className="text-2xl font-bold text-slate-700">{user.usage.resource_count}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-10 text-slate-500">
+                                        {t('NoDataAvailable' as any)}
+                                    </div>
+                                )}
                             </div>
                         )}
 
