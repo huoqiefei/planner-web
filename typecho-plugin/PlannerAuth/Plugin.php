@@ -100,8 +100,31 @@ class PlannerAuth_Plugin implements Typecho_Plugin_Interface
             $db->query($sqlProjects);
         }
 
-        // 2. Upgrade Tables (Add columns if missing)
-        self::upgradeDatabase($db, $prefix, $adapter);
+        // 2. Check for new columns (Upgrade)
+        try {
+            $tableName = $prefix . 'planner_projects';
+            $rows = $db->fetchAll($db->query("SELECT * FROM $tableName LIMIT 1"));
+            // We just need to check if columns exist. If table is empty, we can't check columns easily in generic way without specific DB queries.
+            // But we can try to Select the specific columns. If it fails, we add them.
+            
+            try {
+                $db->query("SELECT activity_count FROM $tableName LIMIT 1");
+            } catch (Typecho_Db_Query_Exception $e) {
+                // Column missing
+                if ("Pdo_Pgsql" === $adapter || "Pgsql" === $adapter) {
+                    $db->query("ALTER TABLE $tableName ADD COLUMN activity_count INT DEFAULT 0");
+                    $db->query("ALTER TABLE $tableName ADD COLUMN resource_count INT DEFAULT 0");
+                } elseif ("Pdo_SQLite" === $adapter || "SQLite" === $adapter) {
+                    $db->query("ALTER TABLE $tableName ADD COLUMN activity_count INTEGER DEFAULT 0");
+                    $db->query("ALTER TABLE $tableName ADD COLUMN resource_count INTEGER DEFAULT 0");
+                } else {
+                    $db->query("ALTER TABLE `$tableName` ADD COLUMN `activity_count` int(10) DEFAULT 0");
+                    $db->query("ALTER TABLE `$tableName` ADD COLUMN `resource_count` int(10) DEFAULT 0");
+                }
+            }
+        } catch (Exception $e) {
+            // Table might not exist yet if CREATE failed, ignore
+        }
 
         // 3. Register Routes and Panel
         Helper::addRoute('planner_api', '/planner/api/[action]', 'PlannerAuth_Action', 'dispatch');

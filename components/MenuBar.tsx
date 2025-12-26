@@ -9,9 +9,10 @@ interface MenuBarProps {
     uiSize: UISize;
     uiFontPx?: number;
     user: User | null;
+    onRefreshUser?: () => void;
 }
 
-const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, user }) => {
+const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, user, onRefreshUser }) => {
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const [showUserMenu, setShowUserMenu] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -19,6 +20,13 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, use
     const { t } = useTranslation(lang);
 
     const fontSize = uiFontPx || 13;
+
+    // Refresh user data when menu opens
+    useEffect(() => {
+        if (showUserMenu && onRefreshUser) {
+            onRefreshUser();
+        }
+    }, [showUserMenu]);
 
     // Close menu when clicking outside
     useEffect(() => {
@@ -136,26 +144,43 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, use
 
                             {user.usage && (
                                 <div className="px-4 py-3 border-b border-slate-200 text-xs text-slate-600">
-                                    <div className="font-semibold text-slate-700 mb-2">Usage Statistics</div>
-                                    <div className="flex justify-between mb-1">
-                                        <span>Projects:</span>
-                                        <span className={user.usage.project_count >= user.usage.project_limit ? 'text-red-600 font-bold' : ''}>
-                                            {user.usage.project_count} / {user.usage.project_limit > 9000 ? '∞' : user.usage.project_limit}
-                                        </span>
+                                    <div className="font-semibold text-slate-700 mb-2 flex justify-between items-center">
+                                        <span>Usage Statistics</span>
+                                        <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 cursor-pointer hover:bg-slate-200" onClick={() => onRefreshUser && onRefreshUser()} title="Refresh Data">↻</span>
                                     </div>
-                                    <div className="w-full bg-slate-200 h-1.5 rounded-full mb-2 overflow-hidden">
-                                        <div 
-                                            className={`h-full rounded-full ${user.usage.project_count >= user.usage.project_limit ? 'bg-red-500' : 'bg-green-500'}`} 
-                                            style={{ width: `${Math.min(100, (user.usage.project_count / (user.usage.project_limit > 9000 ? 100 : user.usage.project_limit)) * 100)}%` }}
-                                        />
-                                    </div>
-                                    <div className="flex justify-between mb-1">
-                                        <span>Activities:</span>
-                                        <span>{user.usage.activity_count}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Resources:</span>
-                                        <span>{user.usage.resource_count}</span>
+                                    
+                                    <div className="space-y-2">
+                                        <div>
+                                            <div className="flex justify-between mb-1">
+                                                <span>Projects Quota:</span>
+                                                <span className={user.usage.project_count >= user.usage.project_limit ? 'text-red-600 font-bold' : 'font-medium'}>
+                                                    {user.usage.project_count} / {user.usage.project_limit > 9000 ? '∞' : user.usage.project_limit}
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                                                <div 
+                                                    className={`h-full rounded-full transition-all duration-500 ${user.usage.project_count >= user.usage.project_limit ? 'bg-red-500' : 'bg-blue-500'}`} 
+                                                    style={{ width: `${Math.min(100, (user.usage.project_count / (user.usage.project_limit > 9000 ? 100 : user.usage.project_limit)) * 100)}%` }}
+                                                />
+                                            </div>
+                                            {user.usage.project_limit <= 9000 && (
+                                                <div className="flex justify-between mt-1 text-[11px] text-slate-500">
+                                                    <span>Remaining:</span>
+                                                    <span className="font-medium text-green-600">{Math.max(0, user.usage.project_limit - user.usage.project_count)}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 pt-1">
+                                            <div className="bg-slate-50 p-1.5 rounded text-center border border-slate-100">
+                                                <div className="text-[10px] text-slate-400">Activities</div>
+                                                <div className="font-medium text-slate-700">{user.usage.activity_count}</div>
+                                            </div>
+                                            <div className="bg-slate-50 p-1.5 rounded text-center border border-slate-100">
+                                                <div className="text-[10px] text-slate-400">Resources</div>
+                                                <div className="font-medium text-slate-700">{user.usage.resource_count}</div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             )}

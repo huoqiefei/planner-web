@@ -137,7 +137,13 @@ trait PlannerAuth_Traits_UserTrait
             if (move_uploaded_file($file['tmp_name'], $targetPath)) {
                 $avatarUrl = '/usr/uploads/avatars/' . $fileName; 
                 $this->updateUserMeta($user['uid'], 'avatar', $avatarUrl);
-                $this->sendResponse(['status' => 'success', 'avatar' => $avatarUrl]);
+                
+                // Return full URL for immediate display
+                $options = Typecho_Widget::widget('Widget_Options');
+                $siteUrl = $options->siteUrl;
+                $fullAvatarUrl = rtrim($siteUrl, '/') . '/' . ltrim($avatarUrl, '/');
+
+                $this->sendResponse(['status' => 'success', 'avatar' => $fullAvatarUrl]);
                 return;
             }
         }

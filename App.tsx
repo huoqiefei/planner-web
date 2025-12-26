@@ -78,6 +78,20 @@ const App: React.FC = () => {
         }
     }, []);
 
+    const handleRefreshUser = async () => {
+        try {
+            const updatedUser = await authService.refreshUser();
+            setUser(updatedUser);
+        } catch (error) {
+            console.error("Failed to refresh user:", error);
+            // If session expired, user will be logged out by authService, but we need to update state
+            if ((error as Error).message === 'Session expired') {
+                setUser(null);
+                setIsLoginOpen(true);
+            }
+        }
+    };
+
     const loadSystemConfig = useCallback(async () => {
         try {
             const res = await authService.getPublicConfig();
@@ -952,7 +966,14 @@ const App: React.FC = () => {
     return (
         <div className="flex flex-col h-full bg-slate-100" onClick={() => setCtx(null)}>
             <div className="h-8 flex-shrink-0 relative z-50">
-                <MenuBar onAction={handleMenuAction} lang={userSettings.language} uiSize={userSettings.uiSize} uiFontPx={userSettings.uiFontPx} user={user} />
+                <MenuBar 
+                    onAction={handleMenuAction} 
+                    lang={userSettings.language} 
+                    uiSize={userSettings.uiSize} 
+                    uiFontPx={userSettings.uiFontPx} 
+                    user={user} 
+                    onRefreshUser={handleRefreshUser}
+                />
             </div>
             
             <Toolbar 

@@ -87,6 +87,49 @@ export const authService = {
         }
     },
 
+    async refreshUser(): Promise<User> {
+        const user = this.getCurrentUser();
+        if (!user || !user.token) throw new Error('Not authenticated');
+
+        try {
+            const response = await fetch(`${this.baseUrl}/user?token=${user.token}`, {
+                method: 'GET',
+                headers: { 
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${user.token}`
+                }
+            });
+            
+            if (!response.ok) {
+                 if (response.status === 401 || response.status === 403) {
+                     this.logout();
+                     throw new Error('Session expired');
+                 }
+                 throw new Error('Failed to refresh user data');
+            }
+
+            const data = await response.json();
+            
+            // Merge with existing user to preserve token if not returned
+            const updatedUser: User = {
+                ...user,
+                uid: (data.uid || user.uid).toString(),
+                name: data.name || data.screenName || user.name,
+                mail: data.mail || user.mail,
+                group: data.group ? this.mapTypechoGroupToRole(data.group) : user.group,
+                avatar: data.avatar || user.avatar,
+                plannerRole: data.plannerRole || user.plannerRole,
+                usage: data.usage
+            };
+
+            this.saveUser(updatedUser);
+            return updatedUser;
+        } catch (error) {
+            console.error('Refresh user error:', error);
+            throw error;
+        }
+    },
+
     async register(username: string, password: string, email: string): Promise<void> {
         try {
             const response = await fetch(`${this.baseUrl}/register`, {

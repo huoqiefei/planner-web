@@ -79,6 +79,25 @@ if (isset($_POST['do']) && $_POST['do'] == 'delete_file') {
     Typecho_Response::redirect($options->adminUrl . 'extending.php?panel=PlannerAuth%2Fpanel.php&tab=files');
 }
 
+// Delete Project
+if (isset($_POST['do']) && $_POST['do'] == 'delete_project') {
+    $pid = intval($_POST['pid']);
+    $project = $db->fetchRow($db->select()->from($prefix . 'planner_projects')->where('id = ?', $pid));
+    
+    if ($project) {
+        // Delete file
+        if (file_exists($project['file_path'])) {
+            @unlink($project['file_path']);
+        }
+        // Delete DB record
+        $db->query($db->delete($prefix . 'planner_projects')->where('id = ?', $pid));
+        Typecho_Widget::widget('Widget_Notice')->set(_t('Project deleted'), 'success');
+    } else {
+        Typecho_Widget::widget('Widget_Notice')->set(_t('Project not found'), 'error');
+    }
+    Typecho_Response::redirect($options->adminUrl . 'extending.php?panel=PlannerAuth%2Fpanel.php&tab=projects');
+}
+
 ?>
 
 <div class="main">
@@ -93,6 +112,9 @@ if (isset($_POST['do']) && $_POST['do'] == 'delete_file') {
                 <ul class="typecho-option-tabs fix-tabs clearfix">
                     <li class="<?php if($tab == 'users') echo 'current'; ?>">
                         <a href="<?php echo $options->adminUrl('extending.php?panel=PlannerAuth%2Fpanel.php&tab=users'); ?>"><?php _e('User Management'); ?></a>
+                    </li>
+                    <li class="<?php if($tab == 'projects') echo 'current'; ?>">
+                        <a href="<?php echo $options->adminUrl('extending.php?panel=PlannerAuth%2Fpanel.php&tab=projects'); ?>"><?php _e('Projects'); ?></a>
                     </li>
                     <li class="<?php if($tab == 'files') echo 'current'; ?>">
                         <a href="<?php echo $options->adminUrl('extending.php?panel=PlannerAuth%2Fpanel.php&tab=files'); ?>"><?php _e('File Management'); ?></a>
@@ -199,43 +221,111 @@ if (isset($_POST['do']) && $_POST['do'] == 'delete_file') {
                         </tbody>
                     </table>
 
-                <?php elseif ($tab == 'files'): ?>
+                <?php elseif ($tab == 'projects'): ?>
                     <?php
-                        // Helper to scan directory
-                        function getFiles($dir, $type) {
-                            $files = [];
-                            if (is_dir($dir)) {
-                                $scan = scandir($dir);
-                                foreach ($scan as $f) {
-                                    if ($f == '.' || $f == '..') continue;
-                                    $path = $dir . '/' . $f;
-                                    if (is_file($path)) {
-                                        $files[] = [
-                                            'name' => $f,
-                                            'path' => $path,
-                                            'size' => filesize($path),
-                                            'time' => filemtime($path),
-                                            'type' => $type
-                                        ];
-                                    }
-                                }
-                            }
-                            return $files;
-                        }
-
-                        $projectFiles = getFiles(__TYPECHO_ROOT_DIR__ . '/usr/uploads/planner_projects', 'Project');
-                        $avatarFiles = getFiles(__TYPECHO_ROOT_DIR__ . '/usr/uploads/avatars', 'Avatar');
-                        $allFiles = array_merge($projectFiles, $avatarFiles);
+                    $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+                    
+                    $query = $db->select('p.*', 'u.screenName', 'u.name as username')
+                        ->from($prefix . 'planner_projects', 'p')
+                        ->join('table.users', 'p.uid = u.uid', 'u')
+                        ->order('p.updated_at', Typecho_Db::SORT_DESC);
                         
-                        // Sort by time desc
-                        usort($allFiles, function($a, $b) {
-                            return $b['time'] - $a['time'];
-                        });
+                    if ($search) {
+                        $query->where('p.name LIKE ? OR u.screenName LIKE ? OR u.name LIKE ?', "%$search%", "%$search%", "%$search%");
+                    }
+                    
+                    $projects = $db->fetchAll($query);
                     ?>
+                    
+                    <div class="typecho-list-operate clearfix">
+                        <form method="get">
+                            <input type="hidden" name="panel" value="PlannerAuth/panel.php" />
+                            <input type="hidden" name="tab" value="projects" />
+                            <div class="search" role="search">
+                                <input type="text" class="text-s" placeholder="<?php _e('Search project or user'); ?>" value="<?php echo htmlspecialchars($search); ?>" name="search" />
+                                <button type="submit" class="btn btn-s"><?php _e('Search'); ?></button>
+                            </div>
+                        </form>
+                    </div>
+
                     <table class="typecho-list-table striped hover">
+                        <colgroup>
+                            <col width="5%"/>
+                            <col width="20%"/>
+                            <col width="15%"/>
+                            <col width="15%"/>
+                            <col width="15%"/>
+                            <col width="15%"/>
+                            <col width="15%"/>
+                        </colgroup>
                         <thead>
                             <tr>
-                                <th>Type</th>
+                                <th>ID</th>
+                                <th>Project Name</th>
+                                <th>User</th>
+                                <th>Activities / Resources</th>
+                                <th>Created</th>
+                                <th>Updated</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if(empty($projects)): ?>
+                            <tr><td colspan="7"><h6 class="typecho-list-table-title"><?php _e('No projects found'); ?></h6></td></tr>
+                            <?php else: ?>
+                            <?php foreach ($projects as $proj): ?>
+                            <?php
+                                // Construct download URL
+                                $downloadUrl = Typecho_Common::url('/usr/uploads/planner_projects/' . basename($proj['file_path']), $options->siteUrl);
+                            ?>
+                            <tr>
+                                <td><?php echo $proj['id']; ?></td>
+                                <td><?php echo htmlspecialchars($proj['name']); ?></td>
+                                <td><?php echo htmlspecialchars($proj['screenName'] ? $proj['screenName'] : $proj['username']); ?></td>
+                                <td><?php echo intval($proj['activity_count']); ?> / <?php echo intval($proj['resource_count']); ?></td>
+                                <td><?php echo date('Y-m-d', $proj['created_at']); ?></td>
+                                <td><?php echo date('Y-m-d H:i', $proj['updated_at']); ?></td>
+                                <td>
+                                    <a href="<?php echo $downloadUrl; ?>" target="_blank" class="btn btn-xs btn-primary" download><?php _e('Download'); ?></a>
+                                    <form method="post" action="<?php echo $options->adminUrl('extending.php?panel=PlannerAuth%2Fpanel.php&tab=projects'); ?>" style="display:inline;" onsubmit="return confirm('<?php _e('Are you sure you want to delete this project?'); ?>');">
+                                        <input type="hidden" name="do" value="delete_project" />
+                                        <input type="hidden" name="pid" value="<?php echo $proj['id']; ?>" />
+                                        <button type="submit" class="btn btn-xs btn-warn"><?php _e('Delete'); ?></button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+
+                <?php elseif ($tab == 'files'): ?>
+                    <?php
+                    // List files in planner_projects directory
+                    $uploadDir = __TYPECHO_ROOT_DIR__ . '/usr/uploads/planner_projects/';
+                    $files = [];
+                    if (is_dir($uploadDir)) {
+                        $scan = scandir($uploadDir);
+                        foreach ($scan as $f) {
+                            if ($f == '.' || $f == '..') continue;
+                            $files[] = [
+                                'name' => $f,
+                                'path' => $uploadDir . $f,
+                                'size' => filesize($uploadDir . $f),
+                                'time' => filemtime($uploadDir . $f)
+                            ];
+                        }
+                    }
+                    ?>
+                    <table class="typecho-list-table striped hover">
+                        <colgroup>
+                            <col width="40%"/>
+                            <col width="20%"/>
+                            <col width="20%"/>
+                            <col width="20%"/>
+                        </colgroup>
+                        <thead>
+                            <tr>
                                 <th>Filename</th>
                                 <th>Size</th>
                                 <th>Date</th>
@@ -243,14 +333,13 @@ if (isset($_POST['do']) && $_POST['do'] == 'delete_file') {
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($allFiles as $file): ?>
+                            <?php foreach ($files as $file): ?>
                             <tr>
-                                <td><?php echo $file['type']; ?></td>
                                 <td><?php echo $file['name']; ?></td>
-                                <td><?php echo round($file['size'] / 1024, 2); ?> KB</td>
-                                <td><?php echo date('Y-m-d H:i:s', $file['time']); ?></td>
+                                <td><?php echo number_format($file['size'] / 1024, 2); ?> KB</td>
+                                <td><?php echo date('Y-m-d H:i', $file['time']); ?></td>
                                 <td>
-                                    <form method="post" action="<?php echo $options->adminUrl('extending.php?panel=PlannerAuth%2Fpanel.php&tab=files'); ?>" onsubmit="return confirm('Delete this file?');">
+                                    <form method="post" action="<?php echo $options->adminUrl('extending.php?panel=PlannerAuth%2Fpanel.php&tab=files'); ?>" style="display:inline;" onsubmit="return confirm('<?php _e('Are you sure?'); ?>');">
                                         <input type="hidden" name="do" value="delete_file" />
                                         <input type="hidden" name="path" value="<?php echo $file['path']; ?>" />
                                         <button type="submit" class="btn btn-xs btn-warn"><?php _e('Delete'); ?></button>
@@ -263,25 +352,38 @@ if (isset($_POST['do']) && $_POST['do'] == 'delete_file') {
 
                 <?php elseif ($tab == 'settings'): ?>
                     <?php
-                        $row = $db->fetchRow($db->select('value')->from('table.options')->where('name = ?', 'planner_system_config'));
-                        $configValue = $row ? $row['value'] : "{\n\t\"appName\": \"Planner\",\n\t\"copyrightText\": \"© 2024 Planner\",\n\t\"enableWatermark\": false\n}";
-                        // Prettify if possible
-                        $decoded = json_decode($configValue);
-                        if ($decoded) {
-                            $configValue = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                    $config = '';
+                    $row = $db->fetchRow($db->select('value')->from('table.options')->where('name = ?', 'planner_system_config'));
+                    if ($row) {
+                        // Pretty print JSON
+                        $json = json_decode($row['value']);
+                        if ($json) {
+                            $config = json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                        } else {
+                            $config = $row['value'];
                         }
+                    } else {
+                         // Default Config
+                         $default = [
+                             'allow_registration' => true,
+                             'max_file_size_mb' => 10,
+                             'support_email' => 'support@example.com'
+                         ];
+                         $config = json_encode($default, JSON_PRETTY_PRINT);
+                    }
                     ?>
                     <form method="post" action="<?php echo $options->adminUrl('extending.php?panel=PlannerAuth%2Fpanel.php&tab=settings'); ?>">
                         <input type="hidden" name="do" value="save_config" />
-                        <p>
-                            <label for="sys_config" class="typecho-label"><?php _e('System Configuration (JSON)'); ?></label>
-                            <textarea name="sys_config" id="sys_config" style="width: 100%; height: 400px; font-family: monospace; font-size: 14px; background: #f9f9f9; border: 1px solid #ddd; padding: 10px;"><?php echo htmlspecialchars($configValue); ?></textarea>
-                        </p>
-                        <p class="submit">
-                            <button type="submit" class="btn primary"><?php _e('Save Configuration'); ?></button>
-                        </p>
+                        <ul class="typecho-option typecho-option-submit">
+                            <li>
+                                <label class="typecho-label" for="sys_config"><?php _e('Global Configuration (JSON)'); ?></label>
+                                <textarea name="sys_config" id="sys_config" rows="15" class="w-100 mono"><?php echo htmlspecialchars($config); ?></textarea>
+                                <p class="description"><?php _e('Configure global settings for the Planner application in JSON format.'); ?></p>
+                            </li>
+                        </ul>
+                        <button type="submit" class="btn primary"><?php _e('Save Configuration'); ?></button>
                     </form>
-                    
+
                 <?php endif; ?>
             </div>
         </div>
