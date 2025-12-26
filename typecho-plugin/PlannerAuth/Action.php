@@ -382,12 +382,15 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
             return;
         }
 
-        $users = $this->db->fetchAll($this->db->select('uid', 'name', 'screenName', 'mail', 'group', 'created')
+        // Select all columns to avoid 'group' keyword collision
+        $users = $this->db->fetchAll($this->db->select()
             ->from('table.users')
             ->order('uid', Typecho_Db::SORT_ASC));
 
         foreach ($users as &$u) {
             $u['meta'] = $this->getUserMeta($u['uid']);
+            // Filter sensitive data if needed, but admin is trusted
+            unset($u['password']);
         }
 
         $this->sendResponse(['users' => $users]);

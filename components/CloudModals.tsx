@@ -179,6 +179,7 @@ export const CloudSaveModal: React.FC<CloudSaveModalProps> = ({ isOpen, onClose,
         setLoading(true);
         try {
             await authService.saveProject({
+                id: projectData.meta?.cloudId, // Pass ID if exists to update
                 name, 
                 description, 
                 content: projectData
