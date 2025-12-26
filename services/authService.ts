@@ -84,44 +84,6 @@ export const authService = {
             console.error('Login error:', error);
             throw error;
         }
-    
-
-        // Mocking logic for demonstration
-        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
-
-        // if (username === 'admin' && password === 'admin') {
-        //     const user: User = {
-        //         uid: '1',
-        //         name: 'Administrator',
-        //         mail: 'admin@example.com',
-        //         group: 'admin',
-        //         token: 'mock-jwt-token-admin'
-        //     };
-        //     this.saveUser(user);
-        //     return user;
-        // } else if (username === 'editor' && password === 'editor') {
-        //      const user: User = {
-        //         uid: '2',
-        //         name: 'Editor',
-        //         mail: 'editor@example.com',
-        //         group: 'editor',
-        //         token: 'mock-jwt-token-editor'
-        //     };
-        //     this.saveUser(user);
-        //     return user;
-        // } else if (username === 'viewer' && password === 'viewer') {
-        //      const user: User = {
-        //         uid: '3',
-        //         name: 'Viewer',
-        //         mail: 'viewer@example.com',
-        //         group: 'viewer',
-        //         token: 'mock-jwt-token-viewer'
-        //     };
-        //     this.saveUser(user);
-        //     return user;
-        // }
-
-        throw new Error('Invalid credentials');
     },
 
     async register(username: string, password: string, email: string): Promise<void> {
@@ -154,7 +116,8 @@ export const authService = {
         if (data.avatar) formData.append('avatar', data.avatar);
 
         try {
-            const response = await fetch(`${this.baseUrl}/update_profile`, {
+            // Append token to URL as fallback for header stripping
+            const response = await fetch(`${this.baseUrl}/update_profile?token=${user.token}`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${user.token}`
@@ -189,12 +152,14 @@ export const authService = {
         const user = this.getCurrentUser();
         if (!user || !user.token) throw new Error('Not authenticated');
 
-        const response = await fetch(`${this.baseUrl}/admin_user_list?page=${page}&pageSize=${pageSize}`, {
+        const response = await fetch(`${this.baseUrl}/admin_user_list?page=${page}&pageSize=${pageSize}&token=${user.token}`, {
             method: 'GET',
             headers: { 
                 'Authorization': `Bearer ${user.token}`
             }
         });
+        
+        if (!response.ok) throw new Error(`Failed to load users: ${response.statusText}`);
         return await response.json();
     },
 
@@ -202,7 +167,7 @@ export const authService = {
         const user = this.getCurrentUser();
         if (!user || !user.token) throw new Error('Not authenticated');
 
-        await fetch(`${this.baseUrl}/admin_user_update`, {
+        const response = await fetch(`${this.baseUrl}/admin_user_update?token=${user.token}`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -210,13 +175,15 @@ export const authService = {
             },
             body: JSON.stringify({ uid, role })
         });
+        
+        if (!response.ok) throw new Error(`Failed to update user: ${response.statusText}`);
     },
 
     async changePassword(oldPassword: string, newPassword: string): Promise<void> {
         const user = this.getCurrentUser();
         if (!user || !user.token) throw new Error('Not authenticated');
 
-        const response = await fetch(`${this.baseUrl}/change_password`, {
+        const response = await fetch(`${this.baseUrl}/change_password?token=${user.token}`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -270,9 +237,15 @@ export const authService = {
         const user = this.getCurrentUser();
         if (!user || !user.token) throw new Error('Not authenticated');
 
-        const response = await fetch(`${this.baseUrl}/project_list`, {
+        const response = await fetch(`${this.baseUrl}/project_list?token=${user.token}`, {
             headers: { 'Authorization': `Bearer ${user.token}` }
         });
+        
+        if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`Failed to load projects (${response.status}): ${text}`);
+        }
+
         const data = await response.json();
         return data.projects || [];
     },
@@ -281,7 +254,7 @@ export const authService = {
         const user = this.getCurrentUser();
         if (!user || !user.token) throw new Error('Not authenticated');
 
-        const response = await fetch(`${this.baseUrl}/project_save`, {
+        const response = await fetch(`${this.baseUrl}/project_save?token=${user.token}`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -289,6 +262,12 @@ export const authService = {
             },
             body: JSON.stringify(project)
         });
+        
+        if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`Failed to save project (${response.status}): ${text}`);
+        }
+        
         return await response.json();
     },
 
@@ -296,9 +275,14 @@ export const authService = {
         const user = this.getCurrentUser();
         if (!user || !user.token) throw new Error('Not authenticated');
 
-        const response = await fetch(`${this.baseUrl}/project_get?id=${id}`, {
+        const response = await fetch(`${this.baseUrl}/project_get?id=${id}&token=${user.token}`, {
             headers: { 'Authorization': `Bearer ${user.token}` }
         });
+        
+        if (!response.ok) {
+             throw new Error(`Failed to load project (${response.status})`);
+        }
+        
         return await response.json();
     },
 
@@ -306,7 +290,7 @@ export const authService = {
         const user = this.getCurrentUser();
         if (!user || !user.token) throw new Error('Not authenticated');
 
-        await fetch(`${this.baseUrl}/project_delete`, {
+        const response = await fetch(`${this.baseUrl}/project_delete?token=${user.token}`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -314,15 +298,22 @@ export const authService = {
             },
             body: JSON.stringify({ id })
         });
+        
+        if (!response.ok) {
+             throw new Error(`Failed to delete project (${response.status})`);
+        }
     },
 
     async getSystemConfig(): Promise<any> {
         const user = this.getCurrentUser();
         if (!user || !user.token) throw new Error('Not authenticated');
 
-        const response = await fetch(`${this.baseUrl}/sys_config_get`, {
+        const response = await fetch(`${this.baseUrl}/sys_config_get?token=${user.token}`, {
             headers: { 'Authorization': `Bearer ${user.token}` }
         });
+        
+        if (!response.ok) throw new Error(`Failed to load config`);
+        
         return await response.json();
     },
 
@@ -330,7 +321,7 @@ export const authService = {
         const user = this.getCurrentUser();
         if (!user || !user.token) throw new Error('Not authenticated');
 
-        await fetch(`${this.baseUrl}/sys_config_save`, {
+        await fetch(`${this.baseUrl}/sys_config_save?token=${user.token}`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -338,5 +329,6 @@ export const authService = {
             },
             body: JSON.stringify(config)
         });
+        // Assuming success if no throw, or add response.ok check
     }
 };

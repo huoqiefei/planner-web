@@ -206,6 +206,11 @@ trait PlannerAuth_Traits_AuthTrait
             }
         }
 
+        // Fallback: Check for token in Query String or POST body
+        if (!$authHeader) {
+            $authHeader = $this->request->get('token');
+        }
+
         if (!$authHeader) {
             $this->sendError('No token provided', 401);
             return false;

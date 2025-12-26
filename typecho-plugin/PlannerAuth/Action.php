@@ -1,6 +1,8 @@
 <?php
 if (!defined('__TYPECHO_ROOT_DIR__')) exit;
 
+require_once 'Traits/ResponseTrait.php';
+require_once 'Traits/MetaTrait.php';
 require_once 'Traits/AuthTrait.php';
 require_once 'Traits/UserTrait.php';
 require_once 'Traits/ProjectTrait.php';
@@ -8,6 +10,8 @@ require_once 'Traits/AdminTrait.php';
 
 class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
 {
+    use PlannerAuth_Traits_ResponseTrait;
+    use PlannerAuth_Traits_MetaTrait;
     use PlannerAuth_Traits_AuthTrait;
     use PlannerAuth_Traits_UserTrait;
     use PlannerAuth_Traits_ProjectTrait;
