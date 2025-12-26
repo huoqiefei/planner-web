@@ -120,6 +120,13 @@ export interface PrintSettings {
 
 export type UserRole = 'admin' | 'editor' | 'viewer';
 
+export interface UserUsage {
+    project_count: number;
+    project_limit: number;
+    activity_count: number;
+    resource_count: number;
+}
+
 export interface User {
     uid: string;
     name: string;
@@ -128,6 +135,7 @@ export interface User {
     token?: string;
     avatar?: string;
     plannerRole?: 'trial' | 'licensed' | 'premium' | 'admin';
+    usage?: UserUsage;
 }
 
 export interface AdminConfig {

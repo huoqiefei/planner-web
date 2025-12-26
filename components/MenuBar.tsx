@@ -128,16 +128,41 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, use
                     </div>
 
                     {showUserMenu && (
-                        <div className="absolute right-0 top-full mt-1 bg-white border border-slate-400 shadow-lg min-w-[180px] z-50 py-1 rounded-sm">
-                            <div className="px-4 py-2 border-b border-slate-200 mb-1">
-                                <div className="font-bold text-slate-800">{user.name}</div>
-                                <div className="text-xs text-slate-500 capitalize">{user.group}</div>
+                        <div className="absolute right-0 top-full mt-1 bg-white border border-slate-400 shadow-lg min-w-[240px] z-50 py-1 rounded-sm">
+                            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
+                                <div className="font-bold text-slate-800 text-base">{user.name}</div>
+                                <div className="text-xs text-slate-500 capitalize mt-0.5">{user.group} ({user.plannerRole || 'Trial'})</div>
                             </div>
+
+                            {user.usage && (
+                                <div className="px-4 py-3 border-b border-slate-200 text-xs text-slate-600">
+                                    <div className="font-semibold text-slate-700 mb-2">Usage Statistics</div>
+                                    <div className="flex justify-between mb-1">
+                                        <span>Projects:</span>
+                                        <span className={user.usage.project_count >= user.usage.project_limit ? 'text-red-600 font-bold' : ''}>
+                                            {user.usage.project_count} / {user.usage.project_limit > 9000 ? '∞' : user.usage.project_limit}
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-slate-200 h-1.5 rounded-full mb-2 overflow-hidden">
+                                        <div 
+                                            className={`h-full rounded-full ${user.usage.project_count >= user.usage.project_limit ? 'bg-red-500' : 'bg-green-500'}`} 
+                                            style={{ width: `${Math.min(100, (user.usage.project_count / (user.usage.project_limit > 9000 ? 100 : user.usage.project_limit)) * 100)}%` }}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between mb-1">
+                                        <span>Activities:</span>
+                                        <span>{user.usage.activity_count}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Resources:</span>
+                                        <span>{user.usage.resource_count}</span>
+                                    </div>
+                                </div>
+                            )}
                             
                             {[
                                 { label: t('AccountSettings'), action: 'settings' },
                                 { label: 'License Info', action: 'license' },
-                                { label: 'Usage Statistics', action: 'usage' },
                                 { type: 'separator' },
                                 { label: 'Logout', action: 'logout', danger: true }
                             ].map((item, idx) => (

@@ -38,9 +38,20 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
 
         // CORS Headers
         $origin = $this->pluginOptions->corsOrigin ? $this->pluginOptions->corsOrigin : '*';
-        if ($origin !== '*') {
-            $origin = rtrim($origin, '/*');
-            $origin = rtrim($origin, '/');
+        
+        // If specific origin is set, use it. If *, we need to handle credentials carefully.
+        // For 'Access-Control-Allow-Credentials: true', 'Access-Control-Allow-Origin' cannot be '*'.
+        
+        $requestOrigin = $this->request->getHeader('Origin');
+        if ($origin === '*') {
+             // Echo back the request origin if it exists, effectively allowing all (but valid for credentials)
+             if ($requestOrigin) {
+                 $origin = $requestOrigin;
+             }
+        } else {
+             // Normalize configured origin
+             $origin = rtrim($origin, '/*');
+             $origin = rtrim($origin, '/');
         }
 
         $this->response->setHeader('Access-Control-Allow-Origin', $origin);

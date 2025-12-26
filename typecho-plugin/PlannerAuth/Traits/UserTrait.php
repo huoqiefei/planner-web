@@ -37,6 +37,50 @@ trait PlannerAuth_Traits_UserTrait
              if (!isset($meta['planner_role'])) $plannerRole = 'trial';
         }
 
+        // Handle Avatar URL (Prepend Site URL)
+        $avatar = isset($meta['avatar']) ? $meta['avatar'] : null;
+        if ($avatar && strpos($avatar, 'http') !== 0) {
+             $options = Typecho_Widget::widget('Widget_Options');
+             $siteUrl = $options->siteUrl;
+             $avatar = rtrim($siteUrl, '/') . '/' . ltrim($avatar, '/');
+        }
+
+        // Usage Statistics
+        $stats = [
+            'project_count' => 0,
+            'project_limit' => 1,
+            'activity_count' => 0,
+            'resource_count' => 0
+        ];
+
+        // Limits
+        if ($plannerRole === 'licensed') $stats['project_limit'] = 3;
+        if ($plannerRole === 'premium') $stats['project_limit'] = 20;
+        if ($plannerRole === 'admin') $stats['project_limit'] = 9999;
+
+        // DB Stats
+        try {
+            $projectStats = $this->db->fetchRow($this->db->select([
+                'COUNT(id)' => 'p_count',
+                'SUM(activity_count)' => 'a_count',
+                'SUM(resource_count)' => 'r_count'
+            ])
+            ->from($this->prefix . 'planner_projects')
+            ->where('uid = ?', $dbUser['uid']));
+
+            if ($projectStats) {
+                $stats['project_count'] = intval($projectStats['p_count']);
+                $stats['activity_count'] = intval($projectStats['a_count']);
+                $stats['resource_count'] = intval($projectStats['r_count']);
+            }
+        } catch (Exception $e) {
+            // Ignore if columns missing (backwards compatibility)
+            $count = $this->db->fetchObject($this->db->select(['COUNT(id)' => 'num'])
+                ->from($this->prefix . 'planner_projects')
+                ->where('uid = ?', $dbUser['uid']))->num;
+            $stats['project_count'] = intval($count);
+        }
+
         $this->sendResponse([
             'uid' => $dbUser['uid'],
             'name' => $dbUser['screenName'],
@@ -44,8 +88,9 @@ trait PlannerAuth_Traits_UserTrait
             'mail' => $dbUser['mail'],
             'group' => $dbUser['group'],
             'plannerRole' => $plannerRole,
-            'avatar' => isset($meta['avatar']) ? $meta['avatar'] : null,
-            'meta' => $meta
+            'avatar' => $avatar,
+            'meta' => $meta,
+            'usage' => $stats
         ]);
     }
 

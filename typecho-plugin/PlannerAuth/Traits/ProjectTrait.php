@@ -40,6 +40,17 @@ trait PlannerAuth_Traits_ProjectTrait
             return;
         }
 
+        // Calculate Stats
+        $activityCount = 0;
+        $resourceCount = 0;
+        
+        if (isset($content['activities']) && is_array($content['activities'])) {
+            $activityCount = count($content['activities']);
+        }
+        if (isset($content['resources']) && is_array($content['resources'])) {
+            $resourceCount = count($content['resources']);
+        }
+
         // Check Limits for NEW projects
         if (!$projectId) {
             // Determine Role
@@ -107,6 +118,8 @@ trait PlannerAuth_Traits_ProjectTrait
                         'name' => $name,
                         'description' => $description,
                         'file_path' => $filePath,
+                        'activity_count' => $activityCount,
+                        'resource_count' => $resourceCount,
                         'updated_at' => time()
                     ])
                     ->where('id = ?', $projectId));
@@ -121,6 +134,8 @@ trait PlannerAuth_Traits_ProjectTrait
                     'name' => $name,
                     'description' => $description,
                     'file_path' => $filePath,
+                    'activity_count' => $activityCount,
+                    'resource_count' => $resourceCount,
                     'created_at' => time(),
                     'updated_at' => time()
                 ]));
