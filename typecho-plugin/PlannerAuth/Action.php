@@ -212,6 +212,7 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
                 'mail' => $user['mail'],
                 'group' => $user['group'],
                 'plannerRole' => $plannerRole,
+                'avatar' => isset($meta['avatar']) ? $meta['avatar'] : null,
                 'meta' => $meta
             ]
         ]);
@@ -314,6 +315,7 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
             'mail' => $dbUser['mail'],
             'group' => $dbUser['group'],
             'plannerRole' => $plannerRole,
+            'avatar' => isset($meta['avatar']) ? $meta['avatar'] : null,
             'meta' => $meta
         ]);
     }
@@ -359,10 +361,10 @@ class PlannerAuth_Action extends Typecho_Widget implements Widget_Interface_Do
             $targetPath = $uploadDir . $fileName;
             
             if (move_uploaded_file($file['tmp_name'], $targetPath)) {
-                $avatarUrl = '/usr/uploads/avatars/' . $fileName; // Relative path usually works if root is set correctly
-                // Or better, assume API is relative to index.php, so we might need full URL or relative to root
-                // For now, store relative path
+                $avatarUrl = '/usr/uploads/avatars/' . $fileName; 
                 $this->updateUserMeta($user['uid'], 'avatar', $avatarUrl);
+                $this->sendResponse(['status' => 'success', 'avatar' => $avatarUrl]);
+                return;
             }
         }
 

@@ -370,6 +370,7 @@ const App: React.FC = () => {
             case 'print': setActiveModal('print'); break;
             case 'new_project': handleNew(); break;
             case 'open_project': fileInputRef.current?.click(); break;
+            case 'cloud_save': setActiveModal('cloud_save'); break;
             case 'cloud_projects': setActiveModal('cloud_load'); break;
             case 'logout': handleLogout(); break;
             case 'copy': 

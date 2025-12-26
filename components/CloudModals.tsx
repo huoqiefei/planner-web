@@ -46,7 +46,15 @@ export const CloudLoadModal: React.FC<CloudLoadModalProps> = ({ isOpen, onClose,
         try {
             const response = await authService.getProject(selectedId);
             if (response.content) {
-                onLoad(response.content);
+                // Inject Cloud ID into meta for future updates
+                const content = {
+                    ...response.content,
+                    meta: {
+                        ...response.content.meta,
+                        cloudId: selectedId
+                    }
+                };
+                onLoad(content);
                 onClose();
             } else {
                 setAlertMsg('Project file content missing');
