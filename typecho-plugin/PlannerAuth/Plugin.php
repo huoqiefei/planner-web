@@ -25,6 +25,7 @@ class PlannerAuth_Plugin implements Typecho_Plugin_Interface
         
         // Create custom user meta table
         if ("Pdo_Pgsql" === $adapter || "Pgsql" === $adapter) {
+            // PostgreSQL logic (unchanged)
             $sql = "CREATE TABLE IF NOT EXISTS " . $prefix . "planner_usermeta (
                 id SERIAL PRIMARY KEY,
                 uid INT NOT NULL,
@@ -45,7 +46,30 @@ class PlannerAuth_Plugin implements Typecho_Plugin_Interface
             )";
             $db->query($sqlProjects);
 
+        } elseif ("Pdo_SQLite" === $adapter || "SQLite" === $adapter) {
+            // SQLite Logic
+            $sql = "CREATE TABLE IF NOT EXISTS " . $prefix . "planner_usermeta (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                uid INTEGER NOT NULL,
+                meta_key TEXT NOT NULL,
+                meta_value TEXT,
+                UNIQUE (uid, meta_key)
+            )";
+            $db->query($sql);
+
+            $sqlProjects = "CREATE TABLE IF NOT EXISTS " . $prefix . "planner_projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                uid INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT,
+                file_path TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )";
+            $db->query($sqlProjects);
+            
         } else {
+            // MySQL Logic (Default)
             $sql = "CREATE TABLE IF NOT EXISTS `" . $prefix . "planner_usermeta` (
                 `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
                 `uid` int(10) unsigned NOT NULL,
