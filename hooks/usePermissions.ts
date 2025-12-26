@@ -34,11 +34,10 @@ export const usePermissions = (
         // 2. Subscription-based Access Control (Planner Role)
         const restrictions: Record<string, string[]> = {
             'admin': ['admin'],
-            'cloud_save': ['licensed', 'premium', 'admin'],
-            'cloud_load': ['licensed', 'premium', 'admin'],
             'print': ['licensed', 'premium', 'admin'],
-            'export': ['licensed', 'premium', 'admin'],
-            'cloud_projects': ['licensed', 'premium', 'admin'],
+            // 'export': ['licensed', 'premium', 'admin'], // JSON Export allowed for all
+            // 'cloud_save': Allowed for all (Backend enforces limits)
+            // 'cloud_load': Allowed for all
         };
 
         if (restrictions[action] && !restrictions[action].includes(role)) {
