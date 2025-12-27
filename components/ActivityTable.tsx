@@ -219,11 +219,27 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
 
                                 {/* Predecessors */}
                                 {visibleCols.includes('preds') && (
-                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center" style={{ width: colWidths.preds }}>
+                                    <div 
+                                        className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center" 
+                                        style={{ width: colWidths.preds }}
+                                        onDoubleClick={() => {
+                                            if (row.type === 'Activity' && (!editing || editing.id !== row.id || editing.field !== 'predecessors')) {
+                                                startEdit(row.id, 'predecessors', null);
+                                            }
+                                        }}
+                                    >
                                         {row.type === 'Activity' && (editing?.id===row.id && editing?.field==='predecessors' ? (
-                                            <input autoFocus className="w-full h-full border-2 border-blue-400 px-1 rounded text-xs" value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} />
+                                            <input 
+                                                autoFocus 
+                                                className="w-full h-full border-2 border-blue-400 px-1 rounded text-xs" 
+                                                value={editVal} 
+                                                onChange={e=>setEditVal(e.target.value)} 
+                                                onBlur={saveEdit} 
+                                                onKeyDown={handleKeyDown} 
+                                                onDoubleClick={(e) => e.stopPropagation()}
+                                            />
                                         ) : (
-                                            <span onDoubleClick={() => startEdit(row.id, 'predecessors', null)} className="truncate text-xs w-full block" title={row.data.predecessors?.map((p:any)=>p.activityId).join(',')}>
+                                            <span className="truncate text-xs w-full block" title={row.data.predecessors?.map((p:any)=>p.activityId).join(',')}>
                                                 {row.data.predecessors?.map((p:any) => {
                                                     if(p.type === 'FS' && p.lag === 0) return p.activityId;
                                                     const lagStr = p.lag > 0 ? `+${p.lag}` : p.lag < 0 ? `${p.lag}` : '';
