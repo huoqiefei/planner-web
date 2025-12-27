@@ -39,7 +39,7 @@ if (isset($_POST['do']) && $_POST['do'] == 'update_role') {
     }
     
     Typecho_Widget::widget('Widget_Notice')->set(_t('User role updated successfully'), 'success');
-    Typecho_Response::redirect($options->adminUrl . 'extending.php?panel=PlannerAuth%2Fpanel.php&tab=users');
+    Typecho_Response::getInstance()->redirect($options->adminUrl . 'extending.php?panel=PlannerAuth%2Fpanel.php&tab=users');
 }
 
 // Save System Config
@@ -95,7 +95,7 @@ if (isset($_POST['do']) && $_POST['do'] == 'delete_project') {
     } else {
         Typecho_Widget::widget('Widget_Notice')->set(_t('Project not found'), 'error');
     }
-    Typecho_Response::redirect($options->adminUrl . 'extending.php?panel=PlannerAuth%2Fpanel.php&tab=projects');
+    Typecho_Response::getInstance()->redirect($options->adminUrl . 'extending.php?panel=PlannerAuth%2Fpanel.php&tab=projects');
 }
 
 ?>

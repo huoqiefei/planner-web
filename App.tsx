@@ -606,10 +606,10 @@ const App: React.FC = () => {
 
         if (schedule.activities.length > 0) {
             schedule.activities.forEach(a => {
-                const startT = a.startDate.getTime();
+                // const startT = a.startDate.getTime(); // Removed to enforce Project Start Date anchor
                 const endT = a.endDate.getTime();
                 if (endT > maxEnd) maxEnd = endT;
-                if (startT < minStart) minStart = startT;
+                // if (startT < minStart) minStart = startT; // FIX: Strict adherence to Project Start Date unless custom range
             });
         }
 

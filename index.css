@@ -152,12 +152,22 @@ input:focus, select:focus {
         overflow: visible !important;
         display: flex !important;
         flex-direction: row !important; /* Ensure side-by-side */
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        align-items: flex-start !important;
     }
 
     /* Ensure children take proper width */
     .combined-view-container > div {
         overflow: visible !important;
         height: auto !important;
+    }
+
+    .gantt-component {
+        overflow: visible !important;
+        height: auto !important;
+        display: block !important;
+        flex: 1 1 auto !important;
     }
 
     /* Table Body expansion */
