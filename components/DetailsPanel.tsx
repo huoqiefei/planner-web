@@ -28,7 +28,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
     // Collapsed State View
     if (!isVisible) {
         return (
-            <div className="h-8 border-t bg-slate-100 flex items-center justify-between px-2 flex-shrink-0 cursor-pointer hover:bg-slate-200 transition-colors border-slate-300" onClick={onToggle}>
+            <div className="details-panel h-8 border-t bg-slate-100 flex items-center justify-between px-2 flex-shrink-0 cursor-pointer hover:bg-slate-200 transition-colors border-slate-300" onClick={onToggle}>
                 <span className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t('ActivityDetails')}</span>
                 <button className="text-slate-500 hover:text-blue-600">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"/></svg>
@@ -38,7 +38,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
     }
 
     if (!activity) return (
-        <div className="h-64 border-t bg-slate-50 flex flex-col" style={{ fontSize: `${fontSizePx}px` }}>
+        <div className="details-panel h-64 border-t bg-slate-50 flex flex-col" style={{ fontSize: `${fontSizePx}px` }}>
             <div className="bg-slate-200 border-b border-slate-300 px-1 pt-1 h-8 flex justify-between items-center">
                  <div className="flex gap-1 h-full items-end">
                     <button className="px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm bg-white text-black border-b-white -mb-px">{t('General')}</button>
@@ -114,7 +114,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
     const selResObj = resources.find(r => r.id === selRes);
 
     return (
-        <div className="h-64 border-t-4 border-slate-300 bg-white flex flex-col flex-shrink-0 shadow-[0_-2px_5px_rgba(0,0,0,0.05)] transition-all" style={{ fontSize: `${fontSizePx}px` }}>
+        <div className="details-panel h-64 border-t-4 border-slate-300 bg-white flex flex-col flex-shrink-0 shadow-[0_-2px_5px_rgba(0,0,0,0.05)] transition-all" style={{ fontSize: `${fontSizePx}px` }}>
             <div className="flex bg-slate-100 border-b border-slate-300 px-1 pt-1 gap-1 select-none h-8 items-end justify-between">
                 <div className="flex gap-1 h-full items-end">
                     {['General', 'Status', 'Resources', 'Relationships'].map(key => (

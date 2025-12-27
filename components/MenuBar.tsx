@@ -90,6 +90,16 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, use
         setActiveMenu(null);
     };
 
+    const getRoleDisplayName = (role: string) => {
+        const map: Record<string, string> = {
+            'trial': t('FreeTrial') || 'Free Trial',
+            'licensed': t('StandardPlan') || 'Standard Plan',
+            'premium': t('ProPlan') || 'Pro Plan',
+            'admin': t('Administrator') || 'Administrator'
+        };
+        return map[role] || role;
+    };
+
     return (
         <div className="bg-slate-200 border-b border-slate-300 flex justify-between select-none h-8 items-center px-1" ref={menuRef} style={{ fontSize: `${fontSize}px` }}>
             <div className="flex h-full">
@@ -143,7 +153,7 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, use
                         <div className="absolute right-0 top-full mt-1 bg-white border border-slate-400 shadow-lg min-w-[240px] z-50 py-1 rounded-sm">
                             <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
                                 <div className="font-bold text-slate-800 text-base">{user.name}</div>
-                                <div className="text-xs text-slate-500 capitalize mt-0.5">{user.plannerRole || 'Trial'}</div>
+                                <div className="text-xs text-slate-500 capitalize mt-0.5">{getRoleDisplayName(user.plannerRole || 'trial')}</div>
                             </div>
 
                             {[

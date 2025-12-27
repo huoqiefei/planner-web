@@ -28,6 +28,8 @@ const formatDate = (date: Date): string => {
     return `${y}-${m}-${d}`;
 };
 
+const SCROLLBAR_WIDTH = 14;
+
 // Helper for Resizable Headers
 const ResizableHeader: React.FC<{ 
     width: number, 
@@ -220,8 +222,8 @@ const CombinedView: React.FC<CombinedViewProps> = ({
             {/* LEFT: TABLE */}
             <div className="flex flex-col border-r border-slate-300 bg-white flex-shrink-0" style={{ width: tableWidth + 2 }}>
                 {/* Header */}
-                <div className="p6-header bg-slate-100 border-b border-slate-300 font-bold text-slate-600 flex" style={{ height: headerHeight }}>
-                    {isColVisible('id') && 
+            <div className="p6-header bg-slate-100 border-b border-slate-300 font-bold text-slate-600 flex" style={{ height: headerHeight, paddingRight: SCROLLBAR_WIDTH }}>
+                {isColVisible('id') && 
                         <ResizableHeader width={colWidths.id} onResize={w => setColWidths(p => ({...p, id: w}))} dataCol="id">
                             {t('ActivityID')}
                         </ResizableHeader>
@@ -259,7 +261,7 @@ const CombinedView: React.FC<CombinedViewProps> = ({
                 </div>
 
                 {/* Body */}
-                <div ref={tableBodyRef} className="flex-grow overflow-y-auto overflow-x-hidden custom-scrollbar bg-white p6-table-body" onScroll={handleTableScroll}>
+                <div ref={tableBodyRef} className="flex-grow overflow-y-scroll overflow-x-hidden custom-scrollbar bg-white p6-table-body" onScroll={handleTableScroll}>
                     {flatRows.map(row => {
                         const isSel = selectedIds.includes(row.id);
                         const isWBS = row.type === 'WBS';

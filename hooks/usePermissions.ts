@@ -34,12 +34,13 @@ export const usePermissions = (
         // 2. Subscription-based Access Control (Planner Role)
         const restrictions: Record<string, string[]> = {
             'admin': ['admin'],
-            'print': ['licensed', 'premium', 'admin'],
-            // 'export': ['licensed', 'premium', 'admin'], // JSON Export allowed for all
-            // 'cloud_save': Allowed for all (Backend enforces limits)
-            // 'cloud_load': Allowed for all
+            'export': ['licensed', 'premium', 'admin'],
+            'print': ['trial', 'licensed', 'premium', 'admin'], // Allow print for all, watermarked for trial
+            'cloud_save': ['trial', 'licensed', 'premium', 'admin'],
+            'cloud_load': ['trial', 'licensed', 'premium', 'admin'],
         };
 
+        // If action is restricted and user role is not in the allowed list
         if (restrictions[action] && !restrictions[action].includes(role)) {
             setModalData({ 
                 msg: t('AccessDeniedMsg') || "Access Denied. Please upgrade your plan.", 
