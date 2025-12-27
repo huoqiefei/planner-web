@@ -1,4 +1,4 @@
-import React, { useState, useRef, useImperativeHandle } from 'react';
+import React, { useState, useRef, useImperativeHandle, useEffect } from 'react';
 import { Activity, WBSNode, Predecessor, RelationType } from '../types';
 import { useAppStore } from '../stores/useAppStore';
 import { useProjectOperations } from '../hooks/useProjectOperations';
@@ -40,6 +40,7 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
         setSelIds: onSelect, 
         setCtx, 
         userSettings,
+        setUserSettings,
         schedule 
     } = useAppStore();
 
@@ -54,9 +55,19 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
         overscan: 10
     });
 
-    const [colWidths, setColWidths] = useState({ id: 180, name: 250, duration: 60, start: 90, finish: 90, float: 50, preds: 150 });
+    const [colWidths, setColWidths] = useState(userSettings.columnWidths || { id: 180, name: 250, duration: 60, start: 90, finish: 90, float: 50, preds: 150 });
     const [editing, setEditing] = useState<{id: string, field: string} | null>(null);
     const [editVal, setEditVal] = useState('');
+
+    // Sync TO store with debounce
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (JSON.stringify(colWidths) !== JSON.stringify(userSettings.columnWidths)) {
+                setUserSettings((s) => ({ ...s, columnWidths: colWidths }));
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [colWidths, setUserSettings, userSettings.columnWidths]);
 
     const fontSizePx = userSettings.uiFontPx || 13;
     const visibleCols = userSettings.visibleColumns || ['id', 'name', 'duration', 'start', 'finish', 'float', 'preds'];
@@ -137,7 +148,7 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
             >
                 <div className="flex h-full p6-header" style={{ minWidth: totalContentWidth }}>
                     {userSettings.gridSettings.showVertical && (
-                        <div className="w-8 border-r border-slate-300 flex items-center justify-center bg-slate-200 text-slate-500 flex-shrink-0">#</div>
+                        <div className="w-8 border-r border-slate-300 flex items-center justify-center bg-slate-200 text-slate-500 flex-shrink-0" data-col="index" style={{ width: 32 }}>#</div>
                     )}
                     {visibleCols.includes('id') && <ResizableHeader width={colWidths.id} onResize={w=>setColWidths({...colWidths, id:w})} dataCol="id">{t('ActivityID')}</ResizableHeader>}
                     {visibleCols.includes('name') && <ResizableHeader width={colWidths.name} onResize={w=>setColWidths({...colWidths, name:w})} dataCol="name">{t('ActivityName')}</ResizableHeader>}
@@ -168,7 +179,7 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
                                 onContextMenu={(e) => handleContextMenu(e, row.id, row.type)}
                             >
                                 {userSettings.gridSettings.showVertical && (
-                                    <div className="w-8 flex-shrink-0 border-r border-slate-200 flex items-center justify-center text-xs text-slate-400 select-none bg-slate-50">
+                                    <div className="w-8 flex-shrink-0 border-r border-slate-200 flex items-center justify-center text-xs text-slate-400 select-none bg-slate-50 p6-cell" data-col="index" style={{ width: 32 }}>
                                         {index + 1}
                                     </div>
                                 )}

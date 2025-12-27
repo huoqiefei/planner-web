@@ -70,13 +70,23 @@ export const usePrint = ({
         
         const isColVisible = (el: Element) => {
             const colId = el.getAttribute('data-col');
-            return colId && allowedCols.includes(colId);
+            return colId && (allowedCols.includes(colId) || colId === 'index');
         };
 
         headerCells.forEach((cell: any) => {
             if(isColVisible(cell)) {
+                // Force explicit width for index column if needed, though style.width should catch it
                 const w = parseFloat(cell.style.width || '0');
                 if(w>0) tableWidth += w;
+                
+                // Print styling for header cells
+                cell.style.display = 'flex';
+                cell.style.alignItems = 'center';
+                cell.style.justifyContent = 'center';
+                if(cell.getAttribute('data-col') === 'index') {
+                    cell.style.backgroundColor = '#f1f5f9'; // bg-slate-100
+                    cell.style.color = '#64748b'; // text-slate-500
+                }
             } else {
                 cell.style.display = 'none';
             }
@@ -90,12 +100,21 @@ export const usePrint = ({
                 cell.style.display = 'flex'; 
                 cell.style.alignItems = 'center'; 
                 cell.style.overflow = 'visible'; 
-                cell.style.paddingTop = '0px'; // Reset padding to allow flex centering
-                cell.style.paddingBottom = '0px'; // Reset padding to allow flex centering
+                cell.style.padding = '0 4px'; // Horizontal padding only
                 
                 // FORCE BORDER VISIBILITY
                 cell.style.borderRight = '1px solid #94a3b8'; // Darker color for print visibility
                 cell.style.height = 'auto'; // Allow stretch
+                cell.style.boxSizing = 'border-box';
+
+                // Fix nested div alignment (especially for ID column with indentation)
+                const innerDivs = cell.querySelectorAll('div');
+                innerDivs.forEach((d: HTMLElement) => {
+                    d.style.display = 'flex';
+                    d.style.alignItems = 'center';
+                    d.style.height = 'auto';
+                    d.style.minHeight = '100%';
+                });
 
                 // CRITICAL FIX: Target ALL spans to fix ID text clipping
                 // (ID cell has multiple spans: one for icon, one for text)
@@ -104,9 +123,11 @@ export const usePrint = ({
                     span.style.textOverflow = 'clip'; 
                     span.style.overflow = 'visible'; 
                     span.style.whiteSpace = 'nowrap';
-                    span.style.lineHeight = 'normal'; 
+                    span.style.lineHeight = '1.2'; // Tight line height
                     span.style.height = 'auto'; 
                     span.style.maxHeight = 'none'; // Ensure no max-height constraints
+                    span.style.display = 'inline-block'; // Ensure proper height calculation
+                    span.style.verticalAlign = 'middle';
                 });
             }
         });
@@ -236,6 +257,15 @@ export const usePrint = ({
         tableBody.style.height = 'auto';
         tableBody.style.overflow = 'visible';
         tableBody.style.flexShrink = '0';
+        
+        // FIX: Ensure inner content of tableBody doesn't overflow
+        const tableBodyInner = tableBody.firstElementChild as HTMLElement;
+        if (tableBodyInner) {
+            tableBodyInner.style.width = '100%';
+            tableBodyInner.style.minWidth = '0'; // Override any existing min-width
+            tableBodyInner.style.overflow = 'visible';
+        }
+
         bodyAssembly.appendChild(tableBody);
 
         ganttBody.style.width = `${ganttWidth}px`;

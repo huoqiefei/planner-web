@@ -103,6 +103,8 @@ export interface UserSettings {
     uiFontPx?: number;
     gridSettings: GridSettings;
     visibleColumns: string[]; // Added
+    columnWidths?: Record<string, number>;
+    ganttZoom?: 'day' | 'week' | 'month' | 'quarter' | 'year';
 }
 
 export interface PrintSettings {

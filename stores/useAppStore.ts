@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { ProjectData, ScheduleResult, UserSettings, AdminConfig, User } from '../types';
 
 interface AppState {
@@ -58,7 +59,9 @@ interface AppState {
     setUserSettings: (settings: UserSettings | ((prev: UserSettings) => UserSettings)) => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>()(
+    persist(
+        (set) => ({
     // Initial Values
     user: null,
     isLoginOpen: false,
@@ -94,7 +97,9 @@ export const useAppStore = create<AppState>((set) => ({
         uiSize: 'small',
         uiFontPx: 13,
         gridSettings: { showVertical: true, verticalInterval: 'auto', showHorizontal: true, showWBSLines: true },
-        visibleColumns: ['id', 'name', 'duration', 'start', 'finish', 'float', 'preds'] 
+        visibleColumns: ['id', 'name', 'duration', 'start', 'finish', 'float', 'preds'],
+        columnWidths: { id: 180, name: 250, duration: 60, start: 90, finish: 90, float: 50, preds: 150 },
+        ganttZoom: 'day'
     },
 
     // Setters
@@ -107,7 +112,10 @@ export const useAppStore = create<AppState>((set) => ({
         schedule: typeof schedule === 'function' ? (schedule as any)(state.schedule) : schedule 
     })),
     setView: (view) => set({ view }),
-    setGanttZoom: (ganttZoom) => set({ ganttZoom }),
+    setGanttZoom: (ganttZoom) => set((state) => ({ 
+        ganttZoom,
+        userSettings: { ...state.userSettings, ganttZoom } 
+    })),
     setExpandedWbsIds: (expandedWbsIds) => set((state) => ({
         expandedWbsIds: typeof expandedWbsIds === 'function' ? expandedWbsIds(state.expandedWbsIds) : expandedWbsIds
     })),
@@ -126,7 +134,25 @@ export const useAppStore = create<AppState>((set) => ({
         adminConfig: typeof config === 'function' ? config(state.adminConfig) : config
     })),
     
-    setUserSettings: (settings) => set((state) => ({
-        userSettings: typeof settings === 'function' ? settings(state.userSettings) : settings
-    }))
-}));
+    setUserSettings: (settings) => set((state) => {
+        const newSettings = typeof settings === 'function' ? settings(state.userSettings) : settings;
+        // Sync top-level state if present in settings
+        const updates: any = { userSettings: newSettings };
+        if (newSettings.ganttZoom) updates.ganttZoom = newSettings.ganttZoom;
+        return updates;
+    })
+}),
+{
+    name: 'planner-storage',
+    storage: createJSONStorage(() => localStorage),
+    partialize: (state) => ({ 
+        userSettings: state.userSettings,
+        adminConfig: state.adminConfig,
+        // Also persist top-level view states if needed, but syncing with userSettings is better
+        ganttZoom: state.ganttZoom, 
+        view: state.view,
+        showDetails: state.showDetails,
+        showRelations: state.showRelations
+    }),
+}
+));
