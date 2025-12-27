@@ -367,7 +367,10 @@ export const usePrint = ({
             
             // Fix overly large scaling for small content: Cap at 100% size (1/3 of 3x capture)
             const maxAuto = 1/3;
-            const autoScale = Math.min(fitRatio, maxAuto);
+            // Ensure minimum readability: Don't shrink below 25% (approx 75% of screen size)
+            const minReadableScale = 0.25; 
+            
+            const autoScale = Math.max(Math.min(fitRatio, maxAuto), minReadableScale);
 
             const scaleFactor = settings.scalingMode === 'custom' 
                 ? (1/3) * (settings.scalePercent / 100) 
@@ -376,6 +379,13 @@ export const usePrint = ({
             const headerH = headerCanvas.height * scaleFactor;
             const bodyTotalH = bodyCanvas.height * scaleFactor;
             
+            // Calculate Source Dimensions
+            const tableSourceW = tableWidth * 3; 
+            const ganttSourceW = ganttWidth * 3;
+            
+            const tablePdfW = tableSourceW * scaleFactor;
+            const ganttAvailablePdfW = contentW - tablePdfW;
+
             let yOffset = 0; 
             let heightLeft = bodyTotalH;
 
@@ -421,89 +431,122 @@ export const usePrint = ({
             }
 
             // PAGINATION LOOP
+            // Vertical Loop (Rows)
             while (heightLeft > 0) {
-                // Custom Header Text
-                if (customHeaderCanvas) {
-                    const aspect = customHeaderCanvas.width / customHeaderCanvas.height;
-                    const drawH = 40; // Fixed height for header
-                    const drawW = drawH * aspect;
-                    const x = (pageW - drawW) / 2; // Center
-                    pdf.addImage(customHeaderCanvas.toDataURL('image/png'), 'PNG', x, margin, drawW, drawH);
-                } else if (settings.headerText) {
-                    pdf.setFontSize(14);
-                    pdf.setTextColor(50);
-                    pdf.text(settings.headerText, pageW / 2, margin + 15, { align: 'center' });
-                }
-
-                const tableHeaderY = margin + customHeaderH;
-
-                // Table Header Image
-                pdf.addImage(headerCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin, tableHeaderY, headerCanvas.width * scaleFactor, headerH);
-                
-                // Draw a box around header region (clamped to page)
-                const headerBoxW = Math.min(contentW, headerCanvas.width * scaleFactor);
-                pdf.setDrawColor(203, 213, 225); 
-                pdf.rect(margin, tableHeaderY, headerBoxW, headerH);
-
-                // Body Slice
-                const availableH = contentH - headerH - 10;
-                const sliceH = Math.min(heightLeft, availableH);
-                
+                const sliceH_pdf = Math.min(contentH - headerH - 10, heightLeft);
                 const sourceY = yOffset / scaleFactor;
-                const sourceH = sliceH / scaleFactor;
+                const sourceH = sliceH_pdf / scaleFactor;
+                
+                // Horizontal Loop (Columns)
+                let xOffset = 0; // Relative to Gantt Start
+                // If ganttSourceW is 0 (just table?), loop once.
+                const loopLimit = Math.max(1, ganttSourceW);
+                
+                while (xOffset < loopLimit) {
+                    if (yOffset > 0 || xOffset > 0) pdf.addPage();
 
-                const sliceCanvas = document.createElement('canvas');
-                sliceCanvas.width = bodyCanvas.width;
-                // Safety check for tiny sourceH
-                if (sourceH > 0) {
-                    sliceCanvas.height = sourceH;
-                    const sCtx = sliceCanvas.getContext('2d');
-                    if (sCtx) {
-                        sCtx.drawImage(
-                            bodyCanvas, 
-                            0, sourceY, bodyCanvas.width, sourceH, 
-                            0, 0, sliceCanvas.width, sliceCanvas.height 
-                        );
-                        
-                        pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin, tableHeaderY + headerH, sliceCanvas.width * scaleFactor, sliceH);
-                        
-                        const bodyBoxW = Math.min(contentW, sliceCanvas.width * scaleFactor);
-                        pdf.rect(margin, tableHeaderY + headerH, bodyBoxW, sliceH);
+                    // 1. Custom Header
+                    if (customHeaderCanvas) {
+                        const aspect = customHeaderCanvas.width / customHeaderCanvas.height;
+                        const drawH = 40; 
+                        const drawW = drawH * aspect;
+                        const x = (pageW - drawW) / 2; 
+                        pdf.addImage(customHeaderCanvas.toDataURL('image/png'), 'PNG', x, margin, drawW, drawH);
+                    } else if (settings.headerText) {
+                        pdf.setFontSize(14);
+                        pdf.setTextColor(50);
+                        pdf.text(settings.headerText, pageW / 2, margin + 15, { align: 'center' });
                     }
+
+                    const tableHeaderY = margin + customHeaderH;
+
+                    // 2. Draw Table Header (Fixed on Left)
+                    const tHeaderCanvas = document.createElement('canvas');
+                    tHeaderCanvas.width = tableSourceW;
+                    tHeaderCanvas.height = headerCanvas.height;
+                    const thCtx = tHeaderCanvas.getContext('2d');
+                    if (thCtx) {
+                         thCtx.drawImage(headerCanvas, 0, 0, tableSourceW, headerCanvas.height, 0, 0, tableSourceW, headerCanvas.height);
+                         pdf.addImage(tHeaderCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin, tableHeaderY, tablePdfW, headerH);
+                    }
+
+                    // 3. Draw Gantt Header Slice
+                    const sliceW_source = Math.min(ganttSourceW - xOffset, ganttAvailablePdfW / scaleFactor);
+                    const sliceW_pdf = sliceW_source * scaleFactor;
+                    
+                    if (sliceW_source > 0) {
+                        const gHeaderCanvas = document.createElement('canvas');
+                        gHeaderCanvas.width = sliceW_source;
+                        gHeaderCanvas.height = headerCanvas.height;
+                        const ghCtx = gHeaderCanvas.getContext('2d');
+                        if (ghCtx) {
+                            ghCtx.drawImage(headerCanvas, tableSourceW + xOffset, 0, sliceW_source, headerCanvas.height, 0, 0, sliceW_source, headerCanvas.height);
+                            pdf.addImage(gHeaderCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin + tablePdfW, tableHeaderY, sliceW_pdf, headerH);
+                        }
+                    }
+                    
+                    // Draw Header Border
+                    pdf.setDrawColor(203, 213, 225);
+                    pdf.rect(margin, tableHeaderY, tablePdfW + sliceW_pdf, headerH);
+
+                    // 4. Draw Table Body Slice (Fixed on Left)
+                    if (sourceH > 0) {
+                        const tBodyCanvas = document.createElement('canvas');
+                        tBodyCanvas.width = tableSourceW;
+                        tBodyCanvas.height = sourceH;
+                        const tbCtx = tBodyCanvas.getContext('2d');
+                        if (tbCtx) {
+                            tbCtx.drawImage(bodyCanvas, 0, sourceY, tableSourceW, sourceH, 0, 0, tableSourceW, sourceH);
+                            pdf.addImage(tBodyCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin, tableHeaderY + headerH, tablePdfW, sliceH_pdf);
+                        }
+                        
+                        // 5. Draw Gantt Body Slice
+                        if (sliceW_source > 0) {
+                             const gBodyCanvas = document.createElement('canvas');
+                             gBodyCanvas.width = sliceW_source;
+                             gBodyCanvas.height = sourceH;
+                             const gbCtx = gBodyCanvas.getContext('2d');
+                             if (gbCtx) {
+                                 gbCtx.drawImage(bodyCanvas, tableSourceW + xOffset, sourceY, sliceW_source, sourceH, 0, 0, sliceW_source, sourceH);
+                                 pdf.addImage(gBodyCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin + tablePdfW, tableHeaderY + headerH, sliceW_pdf, sliceH_pdf);
+                             }
+                        }
+                        
+                        // Body Border
+                        pdf.rect(margin, tableHeaderY + headerH, tablePdfW + sliceW_pdf, sliceH_pdf);
+                    }
+
+                    // Watermark (Draw AFTER content to be on top)
+                    if (wmDataUrl) {
+                        pdf.addImage(wmDataUrl, 'PNG', 0, 0, pageW, pageH, undefined, 'FAST');
+                    }
+
+                    // Custom Footer
+                    const footerY = pageH - margin - 10;
+                    pdf.setFontSize(10);
+                    pdf.setTextColor(100);
+                    
+                    if (settings.footerText) {
+                        pdf.text(settings.footerText, pageW / 2, footerY, { align: 'center' });
+                    }
+
+                    if (settings.showPageNumber) {
+                        const pageNum = pdf.getNumberOfPages();
+                        if (settings.footerText) pdf.text(`Page ${pageNum}`, pageW - margin, footerY, { align: 'right' });
+                        else pdf.text(`- ${pageNum} -`, pageW / 2, footerY, { align: 'center' });
+                    }
+                    
+                    if (settings.showDate) {
+                         const dateStr = new Date().toLocaleDateString();
+                         pdf.text(dateStr, margin, footerY);
+                    }
+
+                    xOffset += sliceW_source;
+                    if (sliceW_source <= 0) break;
                 }
 
-                // Watermark (Draw AFTER content to be on top)
-                if (wmDataUrl) {
-                    pdf.addImage(wmDataUrl, 'PNG', 0, 0, pageW, pageH, undefined, 'FAST');
-                }
-
-                // Custom Footer
-                const footerY = pageH - margin - 10;
-                pdf.setFontSize(10);
-                pdf.setTextColor(100);
-                
-                if (settings.footerText) {
-                    pdf.text(settings.footerText, pageW / 2, footerY, { align: 'center' });
-                }
-
-                if (settings.showPageNumber) {
-                    const pageNum = pdf.getNumberOfPages();
-                    // const text = settings.footerText ? `- ${pageNum} -` : `- ${pageNum} -`;
-                    // const x = settings.footerText ? pageW - margin - 20 : pageW / 2;
-                    // If center is taken by footerText, move page number to right
-                    if (settings.footerText) pdf.text(`Page ${pageNum}`, pageW - margin, footerY, { align: 'right' });
-                    else pdf.text(`- ${pageNum} -`, pageW / 2, footerY, { align: 'center' });
-                }
-                
-                if (settings.showDate) {
-                     const dateStr = new Date().toLocaleDateString();
-                     pdf.text(dateStr, margin, footerY);
-                }
-
-                heightLeft -= sliceH;
-                yOffset += sliceH;
-
-                if (heightLeft > 0) pdf.addPage();
+                heightLeft -= sliceH_pdf;
+                yOffset += sliceH_pdf;
             }
 
             window.open(pdf.output('bloburl'), '_blank');

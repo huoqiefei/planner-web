@@ -349,14 +349,62 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
 
                 const midX = startX + (endX - startX)/2;
                 
+                let path = '';
+                const gap = 15;
+                const r = 5; // Corner radius
+
+                // Logic for Orthogonal Routing with Rounded Corners
+                if (endX >= startX + gap) {
+                    // Standard Forward
+                    const dy = endY - startY;
+                    const signY = dy >= 0 ? 1 : -1;
+                    
+                    if (Math.abs(dy) < 2 * r) {
+                        path = `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`;
+                    } else {
+                        path = `M ${startX} ${startY} L ${midX - r} ${startY} 
+                                Q ${midX} ${startY} ${midX} ${startY + signY * r} 
+                                L ${midX} ${endY - signY * r} 
+                                Q ${midX} ${endY} ${midX + r} ${endY} 
+                                L ${endX} ${endY}`;
+                    }
+                } else {
+                    // Backward / Overlap
+                    const p1x = startX + gap;
+                    const p2x = endX - gap;
+                    const midY = startY + (endY - startY)/2;
+                    
+                    const dy1 = midY - startY;
+                    const signY1 = dy1 >= 0 ? 1 : -1;
+                    const dy2 = endY - midY;
+                    const signY2 = dy2 >= 0 ? 1 : -1;
+                    
+                    if (Math.abs(dy1) < 2 * r || Math.abs(dy2) < 2 * r || Math.abs(p1x - p2x) < 2 * r) {
+                         path = `M ${startX} ${startY} L ${p1x} ${startY} L ${p1x} ${midY} L ${p2x} ${midY} L ${p2x} ${endY} L ${endX} ${endY}`;
+                    } else {
+                        path = `M ${startX} ${startY} L ${p1x - r} ${startY}
+                                Q ${p1x} ${startY} ${p1x} ${startY + signY1 * r}
+                                L ${p1x} ${midY - signY1 * r}
+                                Q ${p1x} ${midY} ${p1x - r} ${midY}
+                                L ${p2x + r} ${midY}
+                                Q ${p2x} ${midY} ${p2x} ${midY + signY2 * r}
+                                L ${p2x} ${endY - signY2 * r}
+                                Q ${p2x} ${endY} ${p2x + r} ${endY}
+                                L ${endX} ${endY}`;
+                    }
+                }
+
                 rels.push(
                     <path 
                         key={`${row.id}-${pred.activityId}`}
-                        d={`M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`}
+                        d={path}
                         fill="none"
-                        stroke="#94a3b8"
-                        strokeWidth="1"
+                        stroke="#94a3b8" 
+                        strokeWidth="1.2"
+                        strokeLinejoin="round"
                         markerEnd="url(#arrow)"
+                        opacity="0.6"
+                        className="hover:stroke-blue-500 hover:opacity-100 hover:stroke-2 transition-all"
                     />
                 );
             });
