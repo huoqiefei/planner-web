@@ -25,7 +25,15 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
     onScroll, headerHeight, rowHeight 
 }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
+    const headerRef = useRef<HTMLDivElement>(null);
     useImperativeHandle(ref, () => containerRef.current as HTMLDivElement);
+
+    const handleBodyScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        if (headerRef.current) {
+            headerRef.current.scrollLeft = e.currentTarget.scrollLeft;
+        }
+        if (onScroll) onScroll(e);
+    };
 
     const { 
         selIds: selectedIds, 
@@ -115,7 +123,11 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
     return (
         <div className="flex flex-col h-full border-r border-slate-300" style={{ width: '40%', minWidth: 400, maxWidth: '50%' }}>
             {/* Header */}
-            <div className="flex overflow-hidden bg-slate-100 border-b border-slate-300 font-bold text-slate-700 shadow-sm z-20" style={{ height: headerHeight }}>
+            <div 
+                ref={headerRef}
+                className="flex overflow-hidden bg-slate-100 border-b border-slate-300 font-bold text-slate-700 shadow-sm z-20" 
+                style={{ height: headerHeight }}
+            >
                 {userSettings.gridSettings.showVertical && (
                     <div className="w-8 border-r border-slate-300 flex items-center justify-center bg-slate-200 text-slate-500">#</div>
                 )}
@@ -132,7 +144,7 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
             <div 
                 className="overflow-y-auto overflow-x-auto bg-white flex-grow" 
                 ref={containerRef}
-                onScroll={onScroll}
+                onScroll={handleBodyScroll}
             >
                 <div style={{ minWidth: Object.values(colWidths).reduce((a,b)=>a+b, 40), height: totalHeight, position: 'relative' }}>
                     {virtualItems.map(({ index, offsetTop }) => {

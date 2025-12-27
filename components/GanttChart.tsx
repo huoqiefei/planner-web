@@ -375,12 +375,6 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                          <line x1="0" y1={headerHeight} x2={chartWidth} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />
                          <g style={{ pointerEvents: 'none' }}>{timeHeaders}</g>
                     </svg>
-                     {/* Zoom Controls Overlay */}
-                     <div className="absolute right-4 top-2 flex bg-white border border-slate-300 rounded shadow-sm z-30">
-                        {['day','week','month','quarter','year'].map(z => (
-                            <button key={z} onClick={()=>setZoomLevel(z as any)} className={`px-2 py-0.5 text-xs uppercase ${zoomLevel===z?'bg-blue-100 text-blue-700 font-bold':'text-slate-600 hover:bg-slate-50'}`}>{t(z as any)}</button>
-                        ))}
-                     </div>
                 </div>
             </div>
 
