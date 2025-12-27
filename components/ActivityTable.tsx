@@ -63,7 +63,10 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
 
     // Calculate total required width for columns 
     const showVertical = userSettings.gridSettings.showVertical;
-    const totalContentWidth = Object.values(colWidths).reduce((a, b) => a + b, 0) + (showVertical ? 32 : 0) + 20; // +20 for buffer/padding
+    const totalContentWidth = Object.entries(colWidths)
+        .filter(([key]) => visibleCols.includes(key))
+        .reduce((sum, [_, width]) => sum + width, 0) 
+        + (showVertical ? 32 : 0) + 20; // +20 for buffer/padding
 
     const startEdit = (id: string, field: string, val: any) => {
         setEditing({id, field});
