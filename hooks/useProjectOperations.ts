@@ -6,7 +6,7 @@ import { useTranslation } from '../utils/i18n';
 import { authService } from '../services/authService';
 
 interface UseProjectOperationsProps {
-    fileInputRef?: React.RefObject<HTMLInputElement>;
+    fileInputRef?: React.RefObject<HTMLInputElement>; // Optional ref
 }
 
 export const useProjectOperations = ({ fileInputRef }: UseProjectOperationsProps = {}) => {
