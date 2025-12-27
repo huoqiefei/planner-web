@@ -409,18 +409,18 @@ export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void
                 </div>
 
                 <div className="border-t pt-2">
-                    <label className="block mb-1 font-bold">Header & Footer</label>
+                    <label className="block mb-1 font-bold">{t('HeaderFooter')}</label>
                     <div className="space-y-2">
                         <input 
                             type="text" 
-                            placeholder="Header Text (Center)" 
+                            placeholder={t('HeaderText') as string}
                             className="w-full border p-1 rounded"
                             value={settings.headerText || ''}
                             onChange={e => setSettings({...settings, headerText: e.target.value})}
                         />
                         <input 
                             type="text" 
-                            placeholder="Footer Text (Center)" 
+                            placeholder={t('FooterText') as string}
                             className="w-full border p-1 rounded"
                             value={settings.footerText || ''}
                             onChange={e => setSettings({...settings, footerText: e.target.value})}
@@ -428,24 +428,24 @@ export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void
                         <div className="flex gap-4 pt-1">
                             <label className="flex items-center gap-2">
                                 <input type="checkbox" checked={settings.showPageNumber} onChange={e => setSettings({...settings, showPageNumber: e.target.checked})} />
-                                Show Page Numbers
+                                {t('ShowPageNumbers')}
                             </label>
                             <label className="flex items-center gap-2">
                             <input type="checkbox" checked={settings.showDate} onChange={e => setSettings({...settings, showDate: e.target.checked})} />
-                            Show Date
+                            {t('ShowDate')}
                         </label>
                     </div>
                 </div>
 
                 <div className="border-t pt-2">
-                    <label className="block mb-1 font-bold">Time Range (Optional)</label>
+                    <label className="block mb-1 font-bold">{t('TimeRange')}</label>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs text-slate-500 mb-1">Start Date</label>
+                            <label className="block text-xs text-slate-500 mb-1">{t('StartDate')}</label>
                             <input type="date" className="w-full border p-1 rounded" value={settings.startDate || ''} onChange={e => setSettings({...settings, startDate: e.target.value})} />
                         </div>
                         <div>
-                            <label className="block text-xs text-slate-500 mb-1">End Date</label>
+                            <label className="block text-xs text-slate-500 mb-1">{t('EndDate')}</label>
                             <input type="date" className="w-full border p-1 rounded" value={settings.endDate || ''} onChange={e => setSettings({...settings, endDate: e.target.value})} />
                         </div>
                     </div>
@@ -453,15 +453,15 @@ export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void
             </div>
 
             <div className="border-t pt-2">
-                <label className="block mb-1 font-bold">Scaling</label>
+                <label className="block mb-1 font-bold">{t('Scaling')}</label>
                     <div className="flex items-center gap-4">
                         <label className="flex items-center gap-2">
                             <input type="radio" name="scale" checked={settings.scalingMode === 'fit'} onChange={() => setSettings({...settings, scalingMode: 'fit'})} />
-                            Fit to Width (Auto)
+                            {t('FitToWidth')}
                         </label>
                         <label className="flex items-center gap-2">
                             <input type="radio" name="scale" checked={settings.scalingMode === 'custom'} onChange={() => setSettings({...settings, scalingMode: 'custom'})} />
-                            Custom %
+                            {t('CustomPercent')}
                         </label>
                     </div>
                     {settings.scalingMode === 'custom' && (

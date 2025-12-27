@@ -180,9 +180,9 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                             className="px-3 py-1.5 bg-white border border-slate-300 rounded text-sm font-medium text-slate-700 hover:bg-slate-50 mb-1"
                                             onClick={() => fileInputRef.current?.click()}
                                         >
-                                            {t('Edit')} Avatar
+                                            {t('EditAvatar')}
                                         </button>
-                                        <p className="text-xs text-slate-500">Click to upload new image</p>
+                                        <p className="text-xs text-slate-500">{t('ClickToUpload')}</p>
                                         <input 
                                             type="file" 
                                             ref={fileInputRef} 
@@ -195,7 +195,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">{t('Name')}</label>
+                                        <label className="block text-sm font-bold text-slate-700 mb-1">{t('UserName')}</label>
                                         <input 
                                             type="text" 
                                             className="w-full border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"

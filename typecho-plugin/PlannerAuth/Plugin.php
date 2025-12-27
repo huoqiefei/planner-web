@@ -43,6 +43,7 @@ class PlannerAuth_Plugin implements Typecho_Plugin_Interface
                 file_path VARCHAR(255) NOT NULL,
                 activity_count INT DEFAULT 0,
                 resource_count INT DEFAULT 0,
+                duration INT DEFAULT 0,
                 created_at INT NOT NULL,
                 updated_at INT NOT NULL
             )";
@@ -67,6 +68,7 @@ class PlannerAuth_Plugin implements Typecho_Plugin_Interface
                 file_path TEXT NOT NULL,
                 activity_count INTEGER DEFAULT 0,
                 resource_count INTEGER DEFAULT 0,
+                duration INTEGER DEFAULT 0,
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL
             )";
@@ -92,6 +94,7 @@ class PlannerAuth_Plugin implements Typecho_Plugin_Interface
                 `file_path` varchar(255) NOT NULL,
                 `activity_count` int(10) DEFAULT 0,
                 `resource_count` int(10) DEFAULT 0,
+                `duration` int(10) DEFAULT 0,
                 `created_at` int(10) unsigned NOT NULL,
                 `updated_at` int(10) unsigned NOT NULL,
                 PRIMARY KEY (`id`),

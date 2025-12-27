@@ -129,3 +129,50 @@ input:focus, select:focus {
     align-items: center;
     justify-content: center;
 }
+
+/* System Print Support (Ctrl+P) */
+@media print {
+    /* Hide non-printable elements */
+    .menu-bar, .toolbar, .details-panel, .resources-panel, .modal-overlay, .ctx-menu, button {
+        display: none !important;
+    }
+
+    /* Reset layout constraints */
+    body, #root, .app-container {
+        height: auto !important;
+        overflow: visible !important;
+        display: block !important;
+    }
+
+    /* Combined View Layout for Print */
+    .combined-view-container {
+        border: none !important;
+        height: auto !important;
+        overflow: visible !important;
+        display: flex !important;
+        flex-direction: row !important; /* Ensure side-by-side */
+    }
+
+    /* Ensure children take proper width */
+    .combined-view-container > div {
+        overflow: visible !important;
+        height: auto !important;
+    }
+
+    /* Table Body expansion */
+    .p6-table-body {
+        overflow: visible !important;
+        height: auto !important;
+    }
+
+    /* Gantt Body expansion */
+    .gantt-body-wrapper {
+        overflow: visible !important;
+        height: auto !important;
+    }
+
+    /* Hide scrollbars */
+    ::-webkit-scrollbar {
+        display: none;
+    }
+}

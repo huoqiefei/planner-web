@@ -203,6 +203,20 @@ const App: React.FC = () => {
         reader.onload = (event) => {
             try {
                 const json = JSON.parse(event.target?.result as string);
+                
+                // Activity Limit Check for Import
+                if (json.activities && Array.isArray(json.activities)) {
+                    const role = user?.plannerRole || 'trial';
+                    const limitMap: Record<string, number> = { 'trial': 20, 'licensed': 100, 'premium': 500, 'admin': 9999 };
+                    const limit = limitMap[role] || 20;
+                    
+                    if (json.activities.length > limit) {
+                        setModalData({ msg: `Cannot import project. Activity limit exceeded for ${role} user. Limit: ${limit}, Import Size: ${json.activities.length}`, title: "Limit Reached" });
+                        setActiveModal('alert');
+                        return;
+                    }
+                }
+
                 setData(json); setIsDirty(false);
             } catch (err) { setModalData({ msg: "Failed to parse file.", title: "Error" }); setActiveModal('alert'); }
         };
@@ -408,6 +422,20 @@ const App: React.FC = () => {
                  break;
             case 'paste':
                 if(clipboard && data) {
+                    // Activity Limit Check for Paste
+                    if (clipboard.type === 'Activities') {
+                        const role = user?.plannerRole || 'trial';
+                        const limitMap: Record<string, number> = { 'trial': 20, 'licensed': 100, 'premium': 500, 'admin': 9999 };
+                        const limit = limitMap[role] || 20;
+                        const newCount = data.activities.length + clipboard.ids.length;
+                        
+                        if (newCount > limit) {
+                            setModalData({ msg: `Cannot paste activities. Limit reached for ${role} user. Limit: ${limit}, Current: ${data.activities.length}, Pasting: ${clipboard.ids.length}`, title: "Limit Reached" });
+                            setActiveModal('alert');
+                            break;
+                        }
+                    }
+
                     if (clipboard.type === 'Resources') {
                         const newResources = clipboard.ids.map(id => {
                             const original = data.resources.find(r => r.id === id);

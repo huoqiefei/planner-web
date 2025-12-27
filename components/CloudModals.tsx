@@ -107,16 +107,25 @@ export const CloudLoadModal: React.FC<CloudLoadModalProps> = ({ isOpen, onClose,
                                     onClick={() => setSelectedId(p.id)}
                                     className={`p-3 border rounded cursor-pointer flex justify-between items-center ${selectedId === p.id ? 'border-blue-500 bg-blue-50' : 'hover:bg-slate-50'}`}
                                 >
-                                    <div>
-                                        <div className="font-medium">{p.name}</div>
-                                        <div className="text-sm text-slate-500">{p.description || '-'}</div>
-                                        <div className="text-xs text-slate-400 mt-1">
-                                            {new Date(p.updated_at * 1000).toLocaleString()}
+                                    <div className="flex-grow">
+                                        <div className="font-medium flex items-center gap-2">
+                                            {p.name}
+                                            <span className="text-[10px] bg-slate-100 px-1 rounded text-slate-500 border">
+                                                {t('Duration') || 'Dur'}: {p.duration || 0}d
+                                            </span>
+                                        </div>
+                                        <div className="text-sm text-slate-500 my-0.5" title={p.description}>
+                                            {p.description ? (p.description.length > 20 ? p.description.substring(0, 20) + '...' : p.description) : '-'}
+                                        </div>
+                                        <div className="flex gap-3 text-xs text-slate-400 mt-1">
+                                            <span>{t('Activities') || 'Acts'}: {p.activity_count || 0}</span>
+                                            <span>{t('Resources') || 'Res'}: {p.resource_count || 0}</span>
+                                            <span>{new Date(p.updated_at * 1000).toLocaleString()}</span>
                                         </div>
                                     </div>
                                     <button 
                                         onClick={(e) => handleDelete(e, p.id)}
-                                        className="text-red-500 hover:text-red-700 px-2 py-1 text-sm"
+                                        className="text-red-500 hover:text-red-700 px-2 py-1 text-sm ml-2"
                                     >
                                         {t('Delete')}
                                     </button>

@@ -70,7 +70,7 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, use
         ],
         [t('Help')]: [
             { label: t('About'), action: 'about' },
-            { label: 'User Manual', action: 'help' },
+            { label: t('UserManual'), action: 'help' },
         ],
     };
 
@@ -129,8 +129,12 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, use
                         className="flex items-center gap-2 cursor-pointer hover:bg-slate-300 px-2 py-1 rounded transition-colors"
                         onClick={() => setShowUserMenu(!showUserMenu)}
                     >
-                        <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">
-                            {user.name.charAt(0).toUpperCase()}
+                        <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold overflow-hidden">
+                            {user.avatar ? (
+                                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                            ) : (
+                                user.name.charAt(0).toUpperCase()
+                            )}
                         </div>
                         <span className="text-xs font-semibold text-slate-700">{user.name}</span>
                     </div>
@@ -143,12 +147,12 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, use
                             </div>
 
                             {[
-                                { label: t('Profile' as any) || 'Profile', action: 'settings_profile' },
-                                { label: t('ChangePassword' as any) || 'Change Password', action: 'settings_security' },
-                                { label: t('SubscriptionPlan' as any) || 'Subscription Plan', action: 'settings_subscription' },
-                                { label: t('UsageStatistics' as any) || 'Usage Statistics', action: 'settings_usage' },
+                                { label: t('Profile'), action: 'settings_profile' },
+                                { label: t('ChangePassword'), action: 'settings_security' },
+                                { label: t('SubscriptionPlan'), action: 'settings_subscription' },
+                                { label: t('UsageStatistics'), action: 'settings_usage' },
                                 { type: 'separator' },
-                                { label: t('Logout' as any) || 'Logout', action: 'logout', danger: true }
+                                { label: t('Logout'), action: 'logout', danger: true }
                             ].map((item, idx) => (
                                 item.type === 'separator' ? (
                                     <div key={idx} className="h-px bg-slate-200 my-1 mx-2" />

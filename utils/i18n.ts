@@ -74,6 +74,7 @@ export const translations = {
         ProjectCode: 'Project Code',
         ProjectName: 'Project Name',
         StartDate: 'Start Date',
+        EndDate: 'End Date',
         DefaultCal: 'Default Calendar',
         AutoNumbering: 'Auto-numbering',
         Prefix: 'Prefix',
@@ -245,6 +246,22 @@ export const translations = {
         Contributor: 'Contributor',
         Editor: 'Editor',
         Administrator: 'Administrator',
+        // Print Settings
+        HeaderFooter: 'Header & Footer',
+        HeaderText: 'Header Text (Center)',
+        FooterText: 'Footer Text (Center)',
+        ShowPageNumbers: 'Show Page Numbers',
+        ShowDate: 'Show Date',
+        TimeRange: 'Time Range (Optional)',
+        Scaling: 'Scaling',
+        FitToWidth: 'Fit to Width (Auto)',
+        CustomPercent: 'Custom %',
+        // User Profile
+        EditAvatar: 'Edit Avatar',
+        ClickToUpload: 'Click to upload new image',
+        Profile: 'Profile',
+        UserName: 'Name',
+        UserManual: 'User Manual',
     },
     zh: {
         File: '文件',
@@ -488,6 +505,9 @@ export const translations = {
         Contributor: '贡献者',
         Editor: '编辑',
         Administrator: '管理员',
+        Profile: '个人资料',
+        UserName: '姓名',
+        UserManual: '用户手册',
     }
 };
 

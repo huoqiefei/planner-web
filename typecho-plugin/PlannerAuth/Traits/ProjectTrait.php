@@ -24,6 +24,9 @@ trait PlannerAuth_Traits_ProjectTrait
      */
     private function projectSave()
     {
+        // Suppress errors to avoid JSON corruption
+        ini_set('display_errors', 0);
+
         // Debug Log
         $this->log("projectSave called");
 
@@ -67,44 +70,72 @@ trait PlannerAuth_Traits_ProjectTrait
             // Calculate Stats
             $activityCount = 0;
             $resourceCount = 0;
+            $duration = 0;
             
             if (isset($content['activities']) && is_array($content['activities'])) {
                 $activityCount = count($content['activities']);
+                
+                $minStart = null;
+                $maxFinish = null;
+                
+                foreach ($content['activities'] as $act) {
+                    if (isset($act['startDate']) && $act['startDate']) {
+                        $s = strtotime($act['startDate']);
+                        if ($s && ($minStart === null || $s < $minStart)) $minStart = $s;
+                    }
+                    if (isset($act['endDate']) && $act['endDate']) {
+                        $e = strtotime($act['endDate']);
+                        if ($e && ($maxFinish === null || $e > $maxFinish)) $maxFinish = $e;
+                    }
+                }
+                
+                if ($minStart && $maxFinish && $maxFinish >= $minStart) {
+                    $duration = ceil(($maxFinish - $minStart) / 86400);
+                }
             }
             if (isset($content['resources']) && is_array($content['resources'])) {
                 $resourceCount = count($content['resources']);
             }
 
-            // Check Limits for NEW projects
+            // Determine Role and Limits
+            $meta = $this->getUserMeta($user['uid']);
+            $plannerRole = isset($meta['planner_role']) ? $meta['planner_role'] : 'trial';
+            $group = $user['group'];
+            
+            // Force/Auto-map based on Group
+            if ($group === 'administrator') {
+                $plannerRole = 'admin';
+            } else if ($group === 'editor') {
+                $plannerRole = 'premium';
+            } else if ($group === 'contributor') {
+                $plannerRole = 'licensed';
+            } else if ($group === 'subscriber') {
+                    if (!isset($meta['planner_role'])) $plannerRole = 'trial';
+            }
+
+            $projectLimit = 1; // Default Trial
+            $activityLimit = 20;
+            
+            if ($plannerRole === 'licensed') { $projectLimit = 3; $activityLimit = 100; }
+            if ($plannerRole === 'premium') { $projectLimit = 20; $activityLimit = 500; }
+            if ($plannerRole === 'admin') { $projectLimit = 9999; $activityLimit = 9999; }
+
+            // Check Activity Limit (for both new and existing projects)
+            if ($activityCount > $activityLimit) {
+                $this->log("projectSave: Activity limit reached for user {$user['uid']} ({$plannerRole}). Limit: {$activityLimit}, Current: {$activityCount}");
+                $this->sendError("Activity limit reached for your account type ({$plannerRole}). Limit: {$activityLimit} activities per project.", 403);
+                return;
+            }
+
+            // Check Project Count Limits for NEW projects
             if (!$projectId) {
-                // Determine Role
-                $meta = $this->getUserMeta($user['uid']);
-                $plannerRole = isset($meta['planner_role']) ? $meta['planner_role'] : 'trial';
-                $group = $user['group'];
-                
-                // Force/Auto-map based on Group
-                if ($group === 'administrator') {
-                    $plannerRole = 'admin';
-                } else if ($group === 'editor') {
-                    $plannerRole = 'premium';
-                } else if ($group === 'contributor') {
-                    $plannerRole = 'licensed';
-                } else if ($group === 'subscriber') {
-                     if (!isset($meta['planner_role'])) $plannerRole = 'trial';
-                }
-
-                $limit = 1; // Default Trial
-                if ($plannerRole === 'licensed') $limit = 3;
-                if ($plannerRole === 'premium') $limit = 20;
-                if ($plannerRole === 'admin') $limit = 9999;
-
                 $count = $this->db->fetchObject($this->db->select(['COUNT(id)' => 'num'])
                     ->from($this->prefix . 'planner_projects')
                     ->where('uid = ?', $user['uid']))->num;
 
-                if ($count >= $limit) {
-                    $this->log("projectSave: Limit reached for user {$user['uid']} ({$plannerRole})");
-                    $this->sendError("Project limit reached for your account type ({$plannerRole}). Limit: {$limit}", 403);
+                if ($count >= $projectLimit) {
+                    $this->log("projectSave: Project limit reached for user {$user['uid']} ({$plannerRole})");
+                    $this->sendError("Project limit reached for your account type ({$plannerRole}). Limit: {$projectLimit} projects.", 403);
                     return;
                 }
             }
@@ -142,6 +173,7 @@ trait PlannerAuth_Traits_ProjectTrait
                 'file_path' => 'usr/uploads/planner_projects/' . $fileName,
                 'activity_count' => $activityCount,
                 'resource_count' => $resourceCount,
+                'duration' => $duration,
                 'updated_at' => time()
             ];
 
@@ -260,5 +292,16 @@ trait PlannerAuth_Traits_ProjectTrait
         } else {
             $this->sendError('Project not found', 404);
         }
+    }
+
+    /**
+     * Update User Usage Stats (Placeholder)
+     */
+    private function updateUserUsage($uid)
+    {
+        // This function is called after project save/delete to update cached usage stats.
+        // Currently, userInfo() calculates stats on the fly, so this might be redundant.
+        // We implement it as empty to prevent "Call to undefined method" error.
+        return true;
     }
 }
