@@ -1,6 +1,6 @@
 
 import React, { useRef } from 'react';
-import { User } from '../types';
+import { useAppStore } from '../stores/useAppStore';
 
 interface ToolbarProps {
     onNew: () => void;
@@ -9,14 +9,6 @@ interface ToolbarProps {
     onCloudSave?: () => void;
     onPrint: () => void;
     onSettings: () => void;
-    title?: string;
-    isDirty: boolean;
-    uiFontPx?: number;
-    showRelations?: boolean;
-    onToggleRelations?: () => void;
-    showCritical?: boolean;
-    onToggleCritical?: () => void;
-    user?: User | null;
 }
 
 const Icons = {
@@ -31,9 +23,17 @@ const Icons = {
 };
 
 const Toolbar: React.FC<ToolbarProps> = ({ 
-    onNew, onOpen, onSave, onCloudSave, onPrint, onSettings, title, isDirty, uiFontPx,
-    showRelations, onToggleRelations, showCritical, onToggleCritical, user
+    onNew, onOpen, onSave, onCloudSave, onPrint, onSettings
 }) => {
+    const { 
+        data, isDirty, userSettings, 
+        showRelations, setShowRelations, 
+        showCritical, setShowCritical 
+    } = useAppStore();
+    
+    const title = data?.meta.title;
+    const uiFontPx = userSettings.uiFontPx;
+    
     const fileRef = useRef<HTMLInputElement>(null);
     const fontSize = uiFontPx || 13;
     const btnSize = Math.max(30, fontSize * 2.2); 
@@ -60,16 +60,15 @@ const Toolbar: React.FC<ToolbarProps> = ({
                     )}
                     <div className="w-px bg-slate-300 mx-1" style={{ height: btnSize }}></div>
                     
-                    {onToggleRelations && (
-                        <button onClick={onToggleRelations} style={{ width: btnSize, height: btnSize }} className={`flex flex-col items-center justify-center rounded transition-colors ${showRelations ? 'bg-blue-200 text-blue-800' : 'hover:bg-slate-200 text-slate-700'}`} title="Toggle Relationships">
-                            <div style={{ width: iconSize, height: iconSize }}>{Icons.Link}</div>
-                        </button>
-                    )}
-                    {onToggleCritical && (
-                        <button onClick={onToggleCritical} style={{ width: btnSize, height: btnSize }} className={`flex flex-col items-center justify-center rounded transition-colors ${showCritical ? 'bg-red-200 text-red-800' : 'hover:bg-slate-200 text-slate-700'}`} title="Show Critical Path">
-                            <div style={{ width: iconSize, height: iconSize }}>{Icons.Critical}</div>
-                        </button>
-                    )}
+                    {/* Relations Toggle */}
+                    <button onClick={() => setShowRelations(!showRelations)} style={{ width: btnSize, height: btnSize }} className={`flex flex-col items-center justify-center rounded transition-colors ${showRelations ? 'bg-blue-200 text-blue-800' : 'hover:bg-slate-200 text-slate-700'}`} title="Toggle Relationships">
+                        <div style={{ width: iconSize, height: iconSize }}>{Icons.Link}</div>
+                    </button>
+
+                    {/* Critical Path Toggle */}
+                    <button onClick={() => setShowCritical(!showCritical)} style={{ width: btnSize, height: btnSize }} className={`flex flex-col items-center justify-center rounded transition-colors ${showCritical ? 'bg-red-200 text-red-800' : 'hover:bg-slate-200 text-slate-700'}`} title="Show Critical Path">
+                        <div style={{ width: iconSize, height: iconSize }}>{Icons.Critical}</div>
+                    </button>
                     
                     <div className="w-px bg-slate-300 mx-1" style={{ height: btnSize }}></div>
                     

@@ -1,23 +1,22 @@
-
 import React, { useState } from 'react';
-import { Activity, Resource, Assignment, Calendar, Predecessor, UserSettings } from '../types';
+import { Predecessor } from '../types';
 import { useTranslation } from '../utils/i18n';
+import { useAppStore } from '../stores/useAppStore';
+import { useProjectOperations } from '../hooks/useProjectOperations';
 
-interface DetailsPanelProps {
-    activity?: Activity;
-    resources: Resource[];
-    assignments: Assignment[];
-    calendars: Calendar[];
-    onUpdate: (id: string, field: string, value: any) => void;
-    onAssignUpdate: (assignments: Assignment[], activityId: string) => void;
-    userSettings: UserSettings;
-    allActivities?: Activity[];
-    isVisible?: boolean;
-    onToggle?: () => void;
-}
+const DetailsPanel: React.FC = () => {
+    const { 
+        data, 
+        schedule, 
+        selIds, 
+        userSettings, 
+        showDetails, 
+        setShowDetails 
+    } = useAppStore();
 
-const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assignments, calendars, onUpdate, onAssignUpdate, userSettings, allActivities = [], isVisible = true, onToggle }) => {
+    const { handleUpdate, handleAssignmentUpdate } = useProjectOperations();
     const { t } = useTranslation(userSettings.language);
+
     const [tab, setTab] = useState('General');
     const [selRes, setSelRes] = useState('');
     const [inputUnits, setInputUnits] = useState(8);
@@ -25,10 +24,17 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
 
     const fontSizePx = userSettings.uiFontPx || 13;
     
+    // Derived State
+    const activity = selIds.length === 1 ? schedule.activities.find(a => a.id === selIds[0]) : undefined;
+    const resources = data?.resources || [];
+    const assignments = data?.assignments || [];
+    const calendars = data?.calendars || [];
+    const allActivities = schedule.activities || [];
+
     // Collapsed State View
-    if (!isVisible) {
+    if (!showDetails) {
         return (
-            <div className="details-panel h-8 border-t bg-slate-100 flex items-center justify-between px-2 flex-shrink-0 cursor-pointer hover:bg-slate-200 transition-colors border-slate-300" onClick={onToggle}>
+            <div className="details-panel h-8 border-t bg-slate-100 flex items-center justify-between px-2 flex-shrink-0 cursor-pointer hover:bg-slate-200 transition-colors border-slate-300" onClick={() => setShowDetails(true)}>
                 <span className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t('ActivityDetails')}</span>
                 <button className="text-slate-500 hover:text-blue-600">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"/></svg>
@@ -43,7 +49,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
                  <div className="flex gap-1 h-full items-end">
                     <button className="px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm bg-white text-black border-b-white -mb-px">{t('General')}</button>
                  </div>
-                 <button onClick={onToggle} className="mr-2 text-slate-500 hover:text-blue-600">
+                 <button onClick={() => setShowDetails(false)} className="mr-2 text-slate-500 hover:text-blue-600">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
                  </button>
             </div>
@@ -65,24 +71,24 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
             totalToStore = inputUnits * activity.duration;
         }
 
-        onAssignUpdate([...assignments.filter(a => !(a.activityId === activity.id && a.resourceId === selRes)), { activityId: activity.id, resourceId: selRes, units: totalToStore }], activity.id);
+        handleAssignmentUpdate([...assignments.filter(a => !(a.activityId === activity.id && a.resourceId === selRes)), { activityId: activity.id, resourceId: selRes, units: totalToStore }]);
     };
     
-    const delRes = (rid: string) => onAssignUpdate(assignments.filter(a => !(a.activityId === activity.id && a.resourceId === rid)), activity.id);
+    const delRes = (rid: string) => handleAssignmentUpdate(assignments.filter(a => !(a.activityId === activity.id && a.resourceId === rid)));
 
     const preds = activity.predecessors || [];
     const updatePred = (idx: number, field: keyof Predecessor, val: any) => {
         const newPreds = [...preds];
         newPreds[idx] = { ...newPreds[idx], [field]: val };
-        onUpdate(activity.id, 'predecessors', newPreds);
+        handleUpdate(activity.id, 'predecessors', newPreds);
     };
     const delPred = (idx: number) => {
         const newPreds = preds.filter((_, i) => i !== idx);
-        onUpdate(activity.id, 'predecessors', newPreds);
+        handleUpdate(activity.id, 'predecessors', newPreds);
     };
     const addPred = () => {
         const newP: Predecessor = { activityId: '', type: 'FS', lag: 0 };
-        onUpdate(activity.id, 'predecessors', [...preds, newP]);
+        handleUpdate(activity.id, 'predecessors', [...preds, newP]);
     };
 
     const successors = allActivities.filter(a => a.predecessors && a.predecessors.some(p => p.activityId === activity.id));
@@ -92,7 +98,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
         const targetAct = allActivities.find(a => a.id === newSuccId);
         if(targetAct) {
             const newP: Predecessor = { activityId: activity.id, type: 'FS', lag: 0 };
-            onUpdate(targetAct.id, 'predecessors', [...(targetAct.predecessors || []), newP]);
+            handleUpdate(targetAct.id, 'predecessors', [...(targetAct.predecessors || []), newP]);
             setNewSuccId('');
         }
     };
@@ -100,14 +106,14 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
         const targetAct = allActivities.find(a => a.id === succId);
         if(targetAct) {
             const newPreds = (targetAct.predecessors || []).filter(p => p.activityId !== activity.id);
-            onUpdate(targetAct.id, 'predecessors', newPreds);
+            handleUpdate(targetAct.id, 'predecessors', newPreds);
         }
     };
 
     const handleTypeChange = (newType: string) => {
-        onUpdate(activity.id, 'activityType', newType);
+        handleUpdate(activity.id, 'activityType', newType);
         if (newType.includes('Milestone')) {
-            onUpdate(activity.id, 'duration', 0);
+            handleUpdate(activity.id, 'duration', 0);
         }
     };
 
@@ -121,7 +127,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
                         <button key={key} onClick={() => setTab(key)} className={`px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm outline-none focus:outline-none ${tab === key ? 'bg-white text-black border-b-white -mb-px' : 'text-slate-500 bg-slate-100 border-b-slate-300 hover:bg-slate-50'}`}>{t(key as any)}</button>
                     ))}
                 </div>
-                <button onClick={onToggle} className="mr-2 mb-1 text-slate-500 hover:text-blue-600" title={t('Collapse')}>
+                <button onClick={() => setShowDetails(false)} className="mr-2 mb-1 text-slate-500 hover:text-blue-600" title={t('Collapse')}>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
             </div>
@@ -137,7 +143,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
                             </div>
                             <div>
                                 <label className="block text-slate-500 mb-0.5 font-semibold">{t('ActivityName')}</label>
-                                <input value={activity.name} onChange={e => onUpdate(activity.id, 'name', e.target.value)} className="w-full border border-slate-300 px-1 py-1" style={{ fontSize: `${fontSizePx}px` }} />
+                                <input value={activity.name} onChange={e => handleUpdate(activity.id, 'name', e.target.value)} className="w-full border border-slate-300 px-1 py-1" style={{ fontSize: `${fontSizePx}px` }} />
                             </div>
                         </div>
                         <div className="space-y-2">
@@ -151,7 +157,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
                             </div>
                             <div>
                                 <label className="block text-slate-500 mb-0.5 font-semibold">{t('Calendars')}</label>
-                                <select value={activity.calendarId || ''} onChange={e => onUpdate(activity.id, 'calendarId', e.target.value)} className="w-full border border-slate-300 px-1 py-1 bg-white" style={{ fontSize: `${fontSizePx}px` }}>
+                                <select value={activity.calendarId || ''} onChange={e => handleUpdate(activity.id, 'calendarId', e.target.value)} className="w-full border border-slate-300 px-1 py-1 bg-white" style={{ fontSize: `${fontSizePx}px` }}>
                                     <option value="">{t('ProjectDefault')}</option>
                                     {calendars.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
@@ -161,7 +167,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
                              <div>
                                 <label className="block text-slate-500 mb-0.5 font-semibold">{t('OriginalDuration')}</label>
                                 <div className="flex items-center">
-                                    <input type="number" value={activity.duration} disabled={activity.activityType.includes('Milestone')} onChange={e => onUpdate(activity.id, 'duration', Number(e.target.value))} className={`w-20 border border-slate-300 px-1 py-1 text-right ${activity.activityType.includes('Milestone')?'bg-slate-100':''}`} style={{ fontSize: `${fontSizePx}px` }} />
+                                    <input type="number" value={activity.duration} disabled={activity.activityType.includes('Milestone')} onChange={e => handleUpdate(activity.id, 'duration', Number(e.target.value))} className={`w-20 border border-slate-300 px-1 py-1 text-right ${activity.activityType.includes('Milestone')?'bg-slate-100':''}`} style={{ fontSize: `${fontSizePx}px` }} />
                                     <span className="ml-2 text-slate-500">{t('Days')}</span>
                                 </div>
                             </div>
@@ -300,7 +306,6 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ activity, resources, assign
                                                 <td className="p-1 text-center cursor-pointer text-red-500" onClick={()=>delSucc(s.id)}>×</td>
                                             </tr>
                                         ))}
-                                        {successors.length === 0 && <tr><td colSpan={3} className="p-2 text-center text-slate-400">No successors</td></tr>}
                                     </tbody>
                                 </table>
                              </div>

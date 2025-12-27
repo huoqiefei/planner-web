@@ -1,21 +1,13 @@
-
-import React, { useMemo, forwardRef, useState, useEffect, useRef, useImperativeHandle } from 'react';
-import { Activity, UserSettings } from '../types';
+import React, { useMemo, useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { Activity } from '../types';
+import { useAppStore } from '../stores/useAppStore';
+import { useFlatRows } from '../hooks/useFlatRows';
+import { useTranslation } from '../utils/i18n';
 
 interface GanttChartProps {
-    rows: any[];
-    activities: Activity[];
-    projectStartDate: Date;
-    totalDuration: number;
-    showRelations: boolean;
-    showCritical: boolean;
-    showGrid: boolean;
-    zoomLevel: 'day' | 'week' | 'month' | 'quarter' | 'year';
     onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
-    userSettings: UserSettings;
-    rowHeight: number;
-    fontSize: number;
     headerHeight: number;
+    rowHeight: number;
 }
 
 const ZOOM_CONFIG: Record<string, { pixelPerDay: number }> = {
@@ -27,8 +19,21 @@ const ZOOM_CONFIG: Record<string, { pixelPerDay: number }> = {
 };
 
 const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({ 
-    rows, activities, projectStartDate, totalDuration, showRelations, showCritical, showGrid, zoomLevel, onScroll, userSettings, rowHeight, fontSize, headerHeight
+    onScroll, headerHeight, rowHeight
 }, ref) => {
+    const { flatRows: rows } = useFlatRows();
+    const { 
+        data: projectData,
+        schedule,
+        ganttZoom: zoomLevel,
+        setGanttZoom: setZoomLevel,
+        showRelations,
+        showCritical,
+        userSettings
+    } = useAppStore();
+
+    const { t } = useTranslation(userSettings.language);
+
     const [zoomDrag, setZoomDrag] = useState<{start: number, val: number} | null>(null);
     const [manualPixelPerDay, setManualPixelPerDay] = useState<number | null>(null);
     
@@ -46,8 +51,13 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
 
     const pixelPerDay = manualPixelPerDay || ZOOM_CONFIG[zoomLevel].pixelPerDay;
 
-    const showVertLines = showGrid && userSettings.gridSettings.showVertical;
+    const showVertLines = userSettings.gridSettings.showVertical;
+    const showHorizontalLines = userSettings.gridSettings.showHorizontal;
     const showWBSLines = userSettings.gridSettings.showWBSLines;
+    const fontSize = userSettings.uiFontPx || 13;
+
+    const projectStartDate = projectData?.meta.projectStartDate ? new Date(projectData.meta.projectStartDate) : new Date();
+    const totalDuration = schedule.totalDuration || 100;
     
     // Position Calculation: Returns X at START of day
     const getPosition = (date: Date): number => {
@@ -127,6 +137,10 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                      tier2.push(<line key={`ql-${ts}`} x1={pos} y1="15" x2={pos} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />);
                  }
             } 
+            else if (zoomLevel === 'year') {
+                // Year logic already handled in Tier 1
+            }
+
             iterDate.setDate(iterDate.getDate() + 1);
         }
         return [...tier1, ...tier2, ...tier3];
@@ -214,6 +228,12 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                          <line x1="0" y1={headerHeight} x2={chartWidth} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />
                          <g style={{ pointerEvents: 'none' }}>{timeHeaders}</g>
                     </svg>
+                     {/* Zoom Controls Overlay */}
+                     <div className="absolute right-4 top-2 flex bg-white border border-slate-300 rounded shadow-sm z-30">
+                        {['day','week','month','quarter','year'].map(z => (
+                            <button key={z} onClick={()=>setZoomLevel(z as any)} className={`px-2 py-0.5 text-xs uppercase ${zoomLevel===z?'bg-blue-100 text-blue-700 font-bold':'text-slate-600 hover:bg-slate-50'}`}>{t(z as any)}</button>
+                        ))}
+                     </div>
                 </div>
             </div>
 
@@ -239,7 +259,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                                 const isWBS = row.type === 'WBS';
                                 return (
                                     <React.Fragment key={`grid-${row.id}`}>
-                                        {showGrid && userSettings.gridSettings.showHorizontal && (
+                                        {showHorizontalLines && (
                                              <line x1="0" y1={y + rowHeight} x2={chartWidth} y2={y + rowHeight} stroke="#f1f5f9" strokeWidth="1" />
                                         )}
                                         {isWBS && showWBSLines && (
@@ -297,65 +317,31 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                                  {rows.map((row, idx) => {
                                      if (row.type !== 'Activity') return null;
                                      const act = row.data as Activity;
+                                     if (!act.predecessors) return null;
                                      
-                                     return act.predecessors.map(pred => {
-                                         const predId = typeof pred === 'string' ? pred : pred.activityId;
-                                         const type = typeof pred === 'string' ? 'FS' : (pred.type || 'FS');
+                                     return act.predecessors.map((pred: any) => {
+                                         const predRow = rows.find(r => r.id === pred.activityId);
+                                         if (!predRow) return null;
                                          
-                                         const predRowIndex = rows.findIndex(r => r.id === predId);
-                                         if (predRowIndex === -1) return null;
+                                         const startY = (rows.findIndex(r => r.id === pred.activityId) * rowHeight) + rowHeight/2;
+                                         const endY = (idx * rowHeight) + rowHeight/2;
                                          
-                                         const predAct = activities.find(a => a.id === predId);
-                                         if (!predAct) return null;
-
                                          const globalOffset = 5 * pixelPerDay;
-                                         const barYOffset = rowHeight / 2;
+                                         const startX = getPosition(predRow.endDate) + pixelPerDay + globalOffset; // FS default
+                                         const endX = getPosition(row.startDate) + globalOffset;
                                          
-                                         // Coordinates
-                                         const predRight = getPosition(predAct.endDate) + pixelPerDay + globalOffset + (predAct.duration === 0 ? -6 : 0);
-                                         const predLeft = getPosition(predAct.startDate) + globalOffset;
-                                         const predY = (predRowIndex * rowHeight) + barYOffset;
-                                         
-                                         const succLeft = getPosition(act.startDate) + globalOffset + (act.duration === 0 ? 6 : 0);
-                                         const succRight = getPosition(act.endDate) + pixelPerDay + globalOffset;
-                                         const succY = (idx * rowHeight) + barYOffset;
-
-                                         // Line Points
-                                         let x1 = 0, x2 = 0;
-                                         if (type === 'FS') { x1 = predRight; x2 = succLeft; }
-                                         else if (type === 'FF') { x1 = predRight; x2 = succRight; }
-                                         else if (type === 'SS') { x1 = predLeft; x2 = succLeft; }
-                                         else if (type === 'SF') { x1 = predLeft; x2 = succRight; }
-                                         
-                                         const y1 = predY;
-                                         const y2 = succY;
-                                         
-                                         let path = '';
-                                         const gap = 10;
-                                         const isCriticalLink = showCritical && act.isCritical && predAct.isCritical && act.totalFloat === 0 && predAct.totalFloat === 0;
-                                         const lineColor = isCriticalLink ? '#ef4444' : '#64748b';
-
-                                         // Orthogonal Routing Logic
-                                         if (type === 'FF') {
-                                             // FF: Loop around the back
-                                             // Go right from pred, go right from succ, vertical connect
-                                             const midX = Math.max(x1, x2) + 15;
-                                             path = `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`;
-                                         }
-                                         else if (type === 'FS') {
-                                             if (x2 > x1 + 20) {
-                                                 const midX = x1 + (x2 - x1)/2;
-                                                 path = `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`;
-                                             } else {
-                                                 path = `M ${x1} ${y1} L ${x1 + gap} ${y1} L ${x1 + gap} ${y2 - (y2>y1 ? 10 : -10)} L ${x2 - gap} ${y2 - (y2>y1 ? 10 : -10)} L ${x2 - gap} ${y2} L ${x2} ${y2}`;
-                                             }
-                                         } else {
-                                             // Standard orthogonal mid-point (SS, SF)
-                                             const midX = Math.min(x1, x2) - 15;
-                                             path = `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`;
-                                         }
-
-                                         return <path key={`${predId}-${act.id}`} d={path} fill="none" stroke={lineColor} strokeWidth={isCriticalLink?1.5:1} markerEnd="url(#arrow)" opacity={showRelations ? 1 : 0} />;
+                                         // Simple Orthogonal Path
+                                         const midX = startX + (endX - startX)/2;
+                                         return (
+                                             <path 
+                                                key={`${row.id}-${pred.activityId}`}
+                                                d={`M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`}
+                                                fill="none"
+                                                stroke="#94a3b8"
+                                                strokeWidth="1"
+                                                markerEnd="url(#arrow)"
+                                             />
+                                         );
                                      });
                                  })}
                             </g>

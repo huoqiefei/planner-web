@@ -1,0 +1,25 @@
+# --- Dependencies ---
+/node_modules
+/vendor
+
+# --- Build Outputs (React/Vite/Webpack) ---
+/dist
+/build
+/out
+
+# --- Environment Variables (CRITICAL) ---
+.env
+.env.local
+.env.*.local
+
+# --- PHP/Backend ---
+/log
+*.log
+error_log
+.phpunit.result.cache
+
+# --- IDE & System Files ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

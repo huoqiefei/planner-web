@@ -1,19 +1,27 @@
 import React, { useMemo, useState } from 'react';
 import { Resource, Assignment, Activity } from '../types';
+import { useAppStore } from '../stores/useAppStore';
 
 interface ResourceHistogramProps {
-    resource: Resource;
-    assignments: Assignment[];
-    activities: Activity[];
+    resourceId: string;
 }
 
 type Period = 'Day' | 'Week' | 'Month';
 
-const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resource, assignments, activities }) => {
+const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resourceId }) => {
+    const { data: projectData, schedule } = useAppStore();
     const [period, setPeriod] = useState<Period>('Week');
 
-    const data = useMemo(() => {
-        // Daily Usage Map
+    const resource = useMemo(() => 
+        projectData?.resources.find(r => r.id === resourceId), 
+    [projectData, resourceId]);
+
+    const assignments = projectData?.assignments || [];
+    const activities = schedule.activities || [];
+
+    const histogramData = useMemo(() => {
+        if (!resource) return [];
+
         const dailyUsage: Record<string, number> = {};
 
         activities.forEach(act => {
@@ -69,10 +77,12 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resource, assignm
 
     }, [resource, assignments, activities, period]);
 
-    const maxVal = Math.max(...data.map(d => d.value), resource.maxUnits * (resource.type === 'Material' && period !== 'Day' ? 10 : 1.2)) || 10;
+    if (!resource) return <div className="p-4 text-slate-400">Resource not found</div>;
+
+    const maxVal = Math.max(...histogramData.map(d => d.value), resource.maxUnits * (resource.type === 'Material' && period !== 'Day' ? 10 : 1.2)) || 10;
     const height = 150;
-    const barWidth = Math.max(20, Math.min(50, 600 / data.length));
-    const totalWidth = Math.max(data.length * (barWidth + 5), 100); // Dynamic width
+    const barWidth = Math.max(20, Math.min(50, 600 / histogramData.length));
+    const totalWidth = Math.max(histogramData.length * (barWidth + 5), 100); // Dynamic width
 
     return (
         <div className="p-4 bg-white rounded-sm border border-slate-300 shadow-sm flex flex-col flex-grow">
@@ -98,7 +108,7 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resource, assignm
                 </div>
             </div>
             
-            {data.length === 0 ? (
+            {histogramData.length === 0 ? (
                 <div className="h-[150px] flex items-center justify-center text-slate-400 text-xs">No assignments found for this period.</div>
             ) : (
                 // Added overflow-x-auto for horizontal scrolling
@@ -112,7 +122,7 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resource, assignm
                             </>
                         )}
 
-                        {data.map((d, i) => {
+                        {histogramData.map((d, i) => {
                             const h = (d.value / maxVal) * height;
                             const x = i * (barWidth + 5);
                             const isOverLimit = resource.type !== 'Material' && d.value > resource.maxUnits;

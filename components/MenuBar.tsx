@@ -1,18 +1,19 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from '../utils/i18n';
-import { UISize, User } from '../types';
+import { useAppStore } from '../stores/useAppStore';
 
 interface MenuBarProps {
     onAction: (action: string) => void;
-    lang: 'en' | 'zh';
-    uiSize: UISize;
-    uiFontPx?: number;
-    user: User | null;
     onRefreshUser?: () => void;
 }
 
-const MenuBar: React.FC<MenuBarProps> = ({ onAction, lang, uiSize, uiFontPx, user, onRefreshUser }) => {
+const MenuBar: React.FC<MenuBarProps> = ({ onAction, onRefreshUser }) => {
+    const { user, userSettings } = useAppStore();
+    const lang = userSettings.language;
+    const uiSize = userSettings.uiSize;
+    const uiFontPx = userSettings.uiFontPx;
+
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const [showUserMenu, setShowUserMenu] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
