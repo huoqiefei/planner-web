@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useImperativeHandle } from 'react';
 import { Activity, WBSNode, Predecessor, RelationType } from '../types';
 import { useAppStore } from '../stores/useAppStore';
 import { useProjectOperations } from '../hooks/useProjectOperations';
 import { useFlatRows } from '../hooks/useFlatRows';
+import { useVirtualScroll } from '../hooks/useVirtualScroll';
 import { ResizableHeader } from './ResizableHeader';
 import { useTranslation } from '../utils/i18n';
 
@@ -23,6 +24,9 @@ const formatDate = (date: Date): string => {
 export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps>(({ 
     onScroll, headerHeight, rowHeight 
 }, ref) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    useImperativeHandle(ref, () => containerRef.current as HTMLDivElement);
+
     const { 
         selIds: selectedIds, 
         setSelIds: onSelect, 
@@ -34,6 +38,13 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
     const { handleUpdate: onUpdate } = useProjectOperations();
     const { flatRows: rows, toggleExpand: onToggleExpand } = useFlatRows();
     const { t } = useTranslation(userSettings.language);
+
+    const { virtualItems, totalHeight } = useVirtualScroll({
+        totalCount: rows.length,
+        itemHeight: rowHeight,
+        containerRef,
+        overscan: 10
+    });
 
     const [colWidths, setColWidths] = useState({ id: 180, name: 250, duration: 60, start: 90, finish: 90, float: 50, preds: 150 });
     const [editing, setEditing] = useState<{id: string, field: string} | null>(null);
@@ -120,23 +131,24 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
             {/* Body */}
             <div 
                 className="overflow-y-auto overflow-x-auto bg-white flex-grow" 
-                ref={ref}
+                ref={containerRef}
                 onScroll={onScroll}
             >
-                <div style={{ minWidth: Object.values(colWidths).reduce((a,b)=>a+b, 40) }}>
-                    {rows.map((row, idx) => {
+                <div style={{ minWidth: Object.values(colWidths).reduce((a,b)=>a+b, 40), height: totalHeight, position: 'relative' }}>
+                    {virtualItems.map(({ index, offsetTop }) => {
+                        const row = rows[index];
                         const isSel = selectedIds.includes(row.id);
                         return (
                             <div 
                                 key={row.id} 
-                                className={`flex border-b border-slate-100 hover:bg-blue-50 transition-colors cursor-pointer group ${isSel ? 'bg-blue-100' : (idx%2===0?'bg-white':'bg-slate-50')}`}
-                                style={{ height: rowHeight, fontSize: `${fontSizePx}px` }}
+                                className={`flex border-b border-slate-100 hover:bg-blue-50 transition-colors cursor-pointer group absolute left-0 w-full ${isSel ? 'bg-blue-100' : (index%2===0?'bg-white':'bg-slate-50')}`}
+                                style={{ height: rowHeight, top: offsetTop, fontSize: `${fontSizePx}px` }}
                                 onClick={(e) => handleRowClick(row.id, e)}
                                 onContextMenu={(e) => handleContextMenu(e, row.id, row.type)}
                             >
                                 {userSettings.gridSettings.showVertical && (
                                     <div className="w-8 flex-shrink-0 border-r border-slate-200 flex items-center justify-center text-xs text-slate-400 select-none bg-slate-50">
-                                        {idx + 1}
+                                        {index + 1}
                                     </div>
                                 )}
 
@@ -224,8 +236,6 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
                             </div>
                         );
                     })}
-                    {/* Empty Spacer */}
-                    <div style={{ height: 200 }}></div>
                 </div>
             </div>
         </div>

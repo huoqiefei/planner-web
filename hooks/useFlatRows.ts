@@ -39,8 +39,22 @@ export const useFlatRows = () => {
         const rows: FlatRow[] = [];
         if(!projectData) return rows;
 
-        const recurse = (parentId: string | null, depth: number) => {
-            const childrenWbs = projectData.wbs.filter(w => (parentId === null ? (!w.parentId || w.parentId === 'null') : w.parentId === parentId));
+        // Optimization: Pre-process maps for O(1) lookup
+        const wbsChildrenMap: Record<string, typeof projectData.wbs> = { root: [] };
+        projectData.wbs.forEach(w => {
+            const pid = w.parentId && w.parentId !== 'null' ? w.parentId : 'root';
+            if (!wbsChildrenMap[pid]) wbsChildrenMap[pid] = [];
+            wbsChildrenMap[pid].push(w);
+        });
+
+        const wbsActivitiesMap: Record<string, typeof schedule.activities> = {};
+        schedule.activities.forEach(a => {
+            if (!wbsActivitiesMap[a.wbsId]) wbsActivitiesMap[a.wbsId] = [];
+            wbsActivitiesMap[a.wbsId].push(a);
+        });
+
+        const recurse = (parentId: string | 'root', depth: number) => {
+            const childrenWbs = wbsChildrenMap[parentId] || [];
             
             childrenWbs.forEach(node => {
                 const isExp = expandedWbsIds[node.id] !== false; // Default true
@@ -59,7 +73,7 @@ export const useFlatRows = () => {
 
                 if (isExp) {
                     // Activities
-                    const nodeActs = schedule.activities.filter(a => a.wbsId === node.id);
+                    const nodeActs = wbsActivitiesMap[node.id] || [];
                     nodeActs.forEach(act => {
                         rows.push({
                             type: 'Activity',
@@ -75,7 +89,7 @@ export const useFlatRows = () => {
                 }
             });
         };
-        recurse(null, 0);
+        recurse('root', 0);
         return rows;
     }, [projectData, schedule, wbsMap, expandedWbsIds]);
 

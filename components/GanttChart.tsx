@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState, useEffect, forwardRef, useImperativeH
 import { Activity } from '../types';
 import { useAppStore } from '../stores/useAppStore';
 import { useFlatRows } from '../hooks/useFlatRows';
+import { useVirtualScroll } from '../hooks/useVirtualScroll';
 import { useTranslation } from '../utils/i18n';
 
 interface GanttChartProps {
@@ -41,6 +42,36 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
     const headerContainerRef = useRef<HTMLDivElement>(null);
     const bodyContainerRef = useRef<HTMLDivElement>(null);
 
+    const [viewportWidth, setViewportWidth] = useState(0);
+    const [scrollLeft, setScrollLeft] = useState(0);
+
+    // Update viewport width
+    useEffect(() => {
+        const el = bodyContainerRef.current;
+        if (!el) return;
+        const ro = new ResizeObserver(entries => {
+            for (const entry of entries) setViewportWidth(entry.contentRect.width);
+        });
+        ro.observe(el);
+        setViewportWidth(el.clientWidth);
+        return () => ro.disconnect();
+    }, []);
+
+    const { virtualItems, totalHeight, startIndex, endIndex } = useVirtualScroll({
+        totalCount: rows.length,
+        itemHeight: rowHeight,
+        containerRef: bodyContainerRef,
+        overscan: 10
+    });
+
+    // Row Index Map for O(1) lookup
+    const rowIndexMap = useMemo(() => {
+        const map = new Map<string, number>();
+        rows.forEach((r, i) => map.set(r.id, i));
+        return map;
+    }, [rows]);
+
+
     // Forward the body ref to the parent for vertical scroll sync
     useImperativeHandle(ref, () => bodyContainerRef.current as HTMLDivElement);
 
@@ -57,28 +88,66 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
     const fontSize = userSettings.uiFontPx || 13;
 
     const projectStartDate = projectData?.meta.projectStartDate ? new Date(projectData.meta.projectStartDate) : new Date();
-    const totalDuration = schedule.totalDuration || 100;
+    
+    // Calculate total duration from schedule if not available directly
+    const totalDuration = useMemo(() => {
+        if (!schedule?.activities?.length) return 100;
+        let minStart = new Date(projectStartDate).getTime();
+        let maxEnd = minStart + (100 * 24 * 3600 * 1000);
+
+        schedule.activities.forEach(a => {
+            const s = new Date(a.startDate).getTime();
+            const e = new Date(a.endDate).getTime();
+            if (s < minStart) minStart = s;
+            if (e > maxEnd) maxEnd = e;
+        });
+        
+        return Math.ceil((maxEnd - minStart) / (24 * 3600 * 1000));
+    }, [schedule, projectStartDate]);
     
     // Position Calculation: Returns X at START of day
-    const getPosition = (date: Date): number => {
+    const getPosition = (date: Date | string): number => {
         if(!date) return 0;
-        const diffTime = date.getTime() - projectStartDate.getTime();
+        const d = new Date(date);
+        const diffTime = d.getTime() - projectStartDate.getTime();
         return (diffTime / (1000 * 60 * 60 * 24)) * pixelPerDay;
     };
 
     const chartWidth = Math.max((totalDuration + 120) * pixelPerDay, 800); 
 
     const timeHeaders = useMemo(() => {
+        const visibleStart = Math.max(0, scrollLeft - 500);
+        const visibleEnd = scrollLeft + viewportWidth + 500;
+        
+        // Calculate start date based on scroll, but align to start of year to ensure we catch year headers
+        const startDays = (visibleStart / pixelPerDay);
         const startDate = new Date(projectStartDate);
-        startDate.setDate(startDate.getDate() - 10);
+        startDate.setDate(startDate.getDate() + Math.floor(startDays));
+        startDate.setMonth(0, 1); // Align to Jan 1st of the current year scope
+        if (startDate < projectStartDate) startDate.setTime(projectStartDate.getTime());
+        // Actually, we might need to go back to project start if we are close to it, or handle "project start" logic
+        // But simply, if we align to Jan 1st, we might be before projectStartDate. 
+        // Let's just ensure we don't start way before projectStartDate if not needed.
+        // But headers might be needed before projectStartDate if we show some buffer.
+        // The original code: startDate = projectStartDate - 10 days.
+        
+        // Let's use a safe start date
+        let iterDate = new Date(startDate);
+        // Ensure we are at least at projectStart - 10 days if the calculated start is earlier
+        const minStart = new Date(projectStartDate);
+        minStart.setDate(minStart.getDate() - 10);
+        
+        if (iterDate < minStart) iterDate = new Date(minStart);
+        // If we aligned to Jan 1st and it's way before visible range (e.g. huge year), it's fine (max 365 iterations extra).
+        
+        const endDays = (visibleEnd / pixelPerDay);
         const endDate = new Date(projectStartDate);
-        endDate.setDate(endDate.getDate() + totalDuration + 200);
+        endDate.setDate(endDate.getDate() + Math.ceil(endDays) + 10);
         
         const tier1 = []; // Years
         const tier2 = []; // Months/Quarters
         const tier3 = []; // Days/Weeks
 
-        let iterDate = new Date(startDate);
         const endTs = endDate.getTime();
         
         const getDaysInYear = (y: number) => (y % 4 === 0 && y % 100 > 0) || y % 400 === 0 ? 366 : 365;
@@ -86,6 +155,9 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
 
         while (iterDate.getTime() <= endTs) {
             const pos = getPosition(iterDate) + (5 * pixelPerDay);
+            // Optimization: If pos is way beyond visibleEnd, break? 
+            // The loop condition handles it.
+            
             const ts = iterDate.getTime();
             const year = iterDate.getFullYear();
             const month = iterDate.getMonth();
@@ -95,65 +167,83 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
             // Tier 1: Year
             if (day === 1 && month === 0) {
                  const yearWidth = getDaysInYear(year) * pixelPerDay;
-                 tier1.push(<text key={`y-${ts}`} x={pos + yearWidth/2} y="12" fill="#334155" fontSize="11" fontWeight="bold" textAnchor="middle">{year}</text>);
-                 tier1.push(<line key={`yl-${ts}`} x1={pos} y1="0" x2={pos} y2={headerHeight} stroke="#94a3b8" strokeWidth="1" />);
+                 // Only render if it overlaps visible range
+                 if (pos + yearWidth > visibleStart && pos < visibleEnd) {
+                     tier1.push(<text key={`y-${ts}`} x={pos + yearWidth/2} y="12" fill="#334155" fontSize="11" fontWeight="bold" textAnchor="middle">{year}</text>);
+                     tier1.push(<line key={`yl-${ts}`} x1={pos} y1="0" x2={pos} y2={headerHeight} stroke="#94a3b8" strokeWidth="1" />);
+                 }
             }
 
-            // Lower Tiers based on Zoom
-            if (zoomLevel === 'day') {
-                if (day === 1) {
-                    const monthWidth = getDaysInMonth(year, month) * pixelPerDay;
-                    tier2.push(<text key={`m-${ts}`} x={pos + monthWidth/2} y="26" fill="#475569" fontSize="10" textAnchor="middle">{iterDate.toLocaleDateString(userSettings.language==='zh'?'zh-CN':'en-US', {month:'long'})}</text>);
-                    tier2.push(<line key={`ml-${ts}`} x1={pos} y1="15" x2={pos} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />);
+            // For other tiers, check visibility
+            if (pos > visibleStart - 100 && pos < visibleEnd + 100) {
+                // Lower Tiers based on Zoom
+                if (zoomLevel === 'day') {
+                    if (day === 1) {
+                        const monthWidth = getDaysInMonth(year, month) * pixelPerDay;
+                        tier2.push(<text key={`m-${ts}`} x={pos + monthWidth/2} y="26" fill="#475569" fontSize="10" textAnchor="middle">{iterDate.toLocaleDateString(userSettings.language==='zh'?'zh-CN':'en-US', {month:'long'})}</text>);
+                        tier2.push(<line key={`ml-${ts}`} x1={pos} y1="15" x2={pos} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />);
+                    }
+                    tier3.push(<text key={`d-${ts}`} x={pos + pixelPerDay/2} y="42" fill="#64748b" fontSize="9" textAnchor="middle">{day}</text>);
+                    if (weekDay === 0 || weekDay === 6) {
+                        tier3.push(<rect key={`we-${ts}`} x={pos} y="30" width={pixelPerDay} height={headerHeight-30} fill="#f1f5f9" opacity="0.5" />);
+                    }
+                    tier3.push(<line key={`dl-${ts}`} x1={pos} y1="30" x2={pos} y2={headerHeight} stroke="#e2e8f0" strokeWidth="1" />);
+                } 
+                else if (zoomLevel === 'week') {
+                     if (day === 1) {
+                        const monthWidth = getDaysInMonth(year, month) * pixelPerDay;
+                        tier2.push(<text key={`m-${ts}`} x={pos + monthWidth/2} y="26" fill="#475569" fontSize="10" textAnchor="middle">{iterDate.toLocaleDateString(userSettings.language==='zh'?'zh-CN':'en-US', {month:'short'})}</text>);
+                        tier2.push(<line key={`ml-${ts}`} x1={pos} y1="15" x2={pos} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />);
+                    }
+                    if (weekDay === 1) {
+                        tier3.push(<text key={`w-${ts}`} x={pos + 2} y="42" fill="#64748b" fontSize="9">{day}</text>);
+                        tier3.push(<line key={`wl-${ts}`} x1={pos} y1="30" x2={pos} y2={headerHeight} stroke="#e2e8f0" strokeWidth="1" />);
+                    }
                 }
-                tier3.push(<text key={`d-${ts}`} x={pos + pixelPerDay/2} y="42" fill="#64748b" fontSize="9" textAnchor="middle">{day}</text>);
-                if (weekDay === 0 || weekDay === 6) {
-                    tier3.push(<rect key={`we-${ts}`} x={pos} y="30" width={pixelPerDay} height={headerHeight-30} fill="#f1f5f9" opacity="0.5" />);
+                else if (zoomLevel === 'month') {
+                    if (day === 1) {
+                        const monthWidth = getDaysInMonth(year, month) * pixelPerDay;
+                        tier2.push(<text key={`m-${ts}`} x={pos + monthWidth/2} y="32" fill="#475569" fontSize="11" textAnchor="middle">{iterDate.toLocaleDateString(userSettings.language==='zh'?'zh-CN':'en-US', {month:'short'})}</text>);
+                        tier2.push(<line key={`ml-${ts}`} x1={pos} y1="15" x2={pos} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />);
+                    }
                 }
-                tier3.push(<line key={`dl-${ts}`} x1={pos} y1="30" x2={pos} y2={headerHeight} stroke="#e2e8f0" strokeWidth="1" />);
-            } 
-            else if (zoomLevel === 'week') {
-                 if (day === 1) {
-                    const monthWidth = getDaysInMonth(year, month) * pixelPerDay;
-                    tier2.push(<text key={`m-${ts}`} x={pos + monthWidth/2} y="26" fill="#475569" fontSize="10" textAnchor="middle">{iterDate.toLocaleDateString(userSettings.language==='zh'?'zh-CN':'en-US', {month:'short'})}</text>);
-                    tier2.push(<line key={`ml-${ts}`} x1={pos} y1="15" x2={pos} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />);
+                else if (zoomLevel === 'quarter') {
+                     if (day === 1 && month % 3 === 0) {
+                         const qWidth = 91 * pixelPerDay;
+                         tier2.push(<text key={`q-${ts}`} x={pos + qWidth/2} y="32" fill="#475569" fontSize="11" textAnchor="middle">Q{Math.floor(month/3)+1}</text>);
+                         tier2.push(<line key={`ql-${ts}`} x1={pos} y1="15" x2={pos} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />);
+                     }
+                } 
+                else if (zoomLevel === 'year') {
+                    // Year logic already handled in Tier 1
                 }
-                if (weekDay === 1) {
-                    tier3.push(<text key={`w-${ts}`} x={pos + 2} y="42" fill="#64748b" fontSize="9">{day}</text>);
-                    tier3.push(<line key={`wl-${ts}`} x1={pos} y1="30" x2={pos} y2={headerHeight} stroke="#e2e8f0" strokeWidth="1" />);
-                }
-            }
-            else if (zoomLevel === 'month') {
-                if (day === 1) {
-                    const monthWidth = getDaysInMonth(year, month) * pixelPerDay;
-                    tier2.push(<text key={`m-${ts}`} x={pos + monthWidth/2} y="32" fill="#475569" fontSize="11" textAnchor="middle">{iterDate.toLocaleDateString(userSettings.language==='zh'?'zh-CN':'en-US', {month:'short'})}</text>);
-                    tier2.push(<line key={`ml-${ts}`} x1={pos} y1="15" x2={pos} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />);
-                }
-            }
-            else if (zoomLevel === 'quarter') {
-                 if (day === 1 && month % 3 === 0) {
-                     const qWidth = 91 * pixelPerDay;
-                     tier2.push(<text key={`q-${ts}`} x={pos + qWidth/2} y="32" fill="#475569" fontSize="11" textAnchor="middle">Q{Math.floor(month/3)+1}</text>);
-                     tier2.push(<line key={`ql-${ts}`} x1={pos} y1="15" x2={pos} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />);
-                 }
-            } 
-            else if (zoomLevel === 'year') {
-                // Year logic already handled in Tier 1
             }
 
             iterDate.setDate(iterDate.getDate() + 1);
         }
         return [...tier1, ...tier2, ...tier3];
-    }, [zoomLevel, projectStartDate, totalDuration, pixelPerDay, showVertLines, headerHeight, userSettings.language]);
+    }, [zoomLevel, projectStartDate, totalDuration, pixelPerDay, showVertLines, headerHeight, userSettings.language, scrollLeft, viewportWidth]);
 
     const gridLines = useMemo(() => {
         const lines = [];
+        
+        const visibleStart = Math.max(0, scrollLeft - 500);
+        const visibleEnd = scrollLeft + viewportWidth + 500;
+        
+        const startDays = (visibleStart / pixelPerDay);
         const startDate = new Date(projectStartDate);
-        startDate.setDate(startDate.getDate() - 10);
-        const endDate = new Date(projectStartDate);
-        endDate.setDate(endDate.getDate() + totalDuration + 200);
+        startDate.setDate(startDate.getDate() + Math.floor(startDays));
+        // For grid lines, we don't need to align to year start, just day start is fine
         
         let iterDate = new Date(startDate);
+        const minStart = new Date(projectStartDate);
+        minStart.setDate(minStart.getDate() - 10);
+        if (iterDate < minStart) iterDate = new Date(minStart);
+
+        const endDays = (visibleEnd / pixelPerDay);
+        const endDate = new Date(projectStartDate);
+        endDate.setDate(endDate.getDate() + Math.ceil(endDays) + 10);
+
         const endTs = endDate.getTime();
         const bodyH = Math.max(rows.length * rowHeight, 100);
         const interval = userSettings.gridSettings.verticalInterval || 'auto';
@@ -188,7 +278,64 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
             }
         }
         return lines;
-    }, [zoomLevel, projectStartDate, totalDuration, pixelPerDay, showVertLines, rows.length, rowHeight, userSettings.gridSettings.verticalInterval]);
+    }, [zoomLevel, projectStartDate, totalDuration, pixelPerDay, showVertLines, rows.length, rowHeight, userSettings.gridSettings.verticalInterval, scrollLeft, viewportWidth]);
+
+    const relationships = useMemo(() => {
+        if (!showRelations) return null;
+        
+        const rels: JSX.Element[] = [];
+        
+        const viewportTop = startIndex * rowHeight - 500;
+        const viewportBottom = endIndex * rowHeight + 500;
+        
+        const isVerticallyVisible = (y1: number, y2: number) => {
+                return Math.max(y1, y2) >= viewportTop && Math.min(y1, y2) <= viewportBottom;
+        };
+
+        rows.forEach((row, idx) => {
+            if (row.type !== 'Activity') return;
+            const act = row.data as Activity;
+            if (!act.predecessors || act.predecessors.length === 0) return;
+
+            act.predecessors.forEach((pred: any) => {
+                const predIdx = rowIndexMap.get(pred.activityId);
+                if (predIdx === undefined) return;
+                
+                const predRow = rows[predIdx];
+                
+                const startY = (predIdx * rowHeight) + rowHeight/2;
+                const endY = (idx * rowHeight) + rowHeight/2;
+
+                if (!isVerticallyVisible(startY, endY)) return;
+
+                const globalOffset = 5 * pixelPerDay;
+                const startX = getPosition(new Date(predRow.endDate)) + pixelPerDay + globalOffset;
+                const endX = getPosition(new Date(row.startDate)) + globalOffset;
+
+                const minX = Math.min(startX, endX);
+                const maxX = Math.max(startX, endX);
+                const viewportLeft = scrollLeft - 500;
+                const viewportRight = scrollLeft + viewportWidth + 500;
+                
+                if (maxX < viewportLeft || minX > viewportRight) return;
+
+                const midX = startX + (endX - startX)/2;
+                
+                rels.push(
+                    <path 
+                        key={`${row.id}-${pred.activityId}`}
+                        d={`M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`}
+                        fill="none"
+                        stroke="#94a3b8"
+                        strokeWidth="1"
+                        markerEnd="url(#arrow)"
+                    />
+                );
+            });
+        });
+        
+        return <g style={{ pointerEvents: 'none' }}>{rels}</g>;
+    }, [showRelations, rows, rowIndexMap, startIndex, endIndex, rowHeight, pixelPerDay, projectStartDate, scrollLeft, viewportWidth]);
 
 
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -243,8 +390,8 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                 className="flex-grow overflow-auto relative custom-scrollbar bg-white gantt-body-wrapper" 
                 onScroll={handleBodyScroll}
             >
-                <div style={{ width: chartWidth, height: Math.max(rows.length * rowHeight, 100) }} className="relative">
-                    <svg width={chartWidth} height={Math.max(rows.length * rowHeight, 100)} xmlns="http://www.w3.org/2000/svg">
+                <div style={{ width: chartWidth, height: Math.max(totalHeight, 100) }} className="relative">
+                    <svg width={chartWidth} height={Math.max(totalHeight, 100)} xmlns="http://www.w3.org/2000/svg">
                         <defs>
                             <marker id="arrow" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#64748b" /></marker>
                         </defs>
@@ -254,7 +401,8 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
 
                         <g>
                             {/* Horizontal Row Lines */}
-                            {rows.map((row, index) => {
+                            {virtualItems.map(({ index }) => {
+                                const row = rows[index];
                                 const y = index * rowHeight;
                                 const isWBS = row.type === 'WBS';
                                 return (
@@ -270,11 +418,12 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                             })}
 
                             {/* Bars */}
-                            {rows.map((row, index) => {
+                            {virtualItems.map(({ index }) => {
+                                const row = rows[index];
                                 const y = index * rowHeight;
                                 const globalOffset = 5 * pixelPerDay;
-                                const left = getPosition(row.startDate) + globalOffset;
-                                const right = getPosition(row.endDate) + pixelPerDay + globalOffset;
+                                const left = getPosition(new Date(row.startDate)) + globalOffset;
+                                const right = getPosition(new Date(row.endDate)) + pixelPerDay + globalOffset;
                                 const width = Math.max(right - left, 2);
                                 const barH = Math.max(6, rowHeight * 0.35); 
                                 const barY = y + (rowHeight - barH) / 2;
@@ -312,40 +461,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                         </g>
 
                         {/* Relationship Lines (Orthogonal) */}
-                        {showRelations && (
-                            <g style={{ pointerEvents: 'none' }}>
-                                 {rows.map((row, idx) => {
-                                     if (row.type !== 'Activity') return null;
-                                     const act = row.data as Activity;
-                                     if (!act.predecessors) return null;
-                                     
-                                     return act.predecessors.map((pred: any) => {
-                                         const predRow = rows.find(r => r.id === pred.activityId);
-                                         if (!predRow) return null;
-                                         
-                                         const startY = (rows.findIndex(r => r.id === pred.activityId) * rowHeight) + rowHeight/2;
-                                         const endY = (idx * rowHeight) + rowHeight/2;
-                                         
-                                         const globalOffset = 5 * pixelPerDay;
-                                         const startX = getPosition(predRow.endDate) + pixelPerDay + globalOffset; // FS default
-                                         const endX = getPosition(row.startDate) + globalOffset;
-                                         
-                                         // Simple Orthogonal Path
-                                         const midX = startX + (endX - startX)/2;
-                                         return (
-                                             <path 
-                                                key={`${row.id}-${pred.activityId}`}
-                                                d={`M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`}
-                                                fill="none"
-                                                stroke="#94a3b8"
-                                                strokeWidth="1"
-                                                markerEnd="url(#arrow)"
-                                             />
-                                         );
-                                     });
-                                 })}
-                            </g>
-                        )}
+                        {relationships}
                     </svg>
                 </div>
             </div>
