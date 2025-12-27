@@ -116,10 +116,10 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resourceId }) => 
 
     const maxVal = Math.max(...histogramData.map(d => d.value), resource.maxUnits * (resource.type === 'Material' && period !== 'Day' ? 10 : 1.2)) || 10;
     const height = Math.max(100, containerHeight - 80); 
-    const leftMargin = 40; // Space for Y-axis labels
-    const bottomMargin = 20; // Space for X-axis labels
-    const barWidth = Math.max(20, Math.min(50, 600 / histogramData.length));
-    const totalWidth = Math.max(histogramData.length * (barWidth + 5) + leftMargin, 100);
+    const leftMargin = 60; // Increased space for Y-axis labels
+    const bottomMargin = 60; // Increased space for X-axis labels (rotated)
+    const barWidth = Math.max(30, Math.min(60, 800 / histogramData.length)); // Slightly wider bars
+    const totalWidth = Math.max(histogramData.length * (barWidth + 10) + leftMargin, 100);
 
     return (
         <div ref={containerRef} className="p-4 bg-white rounded-sm border border-slate-300 shadow-sm flex flex-col flex-grow h-full">
@@ -156,20 +156,16 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resourceId }) => 
                 <div className="h-[200px] flex items-center justify-center text-slate-400 text-xs">No assignments found for this period.</div>
             ) : (
                 <div className="overflow-x-auto overflow-y-hidden custom-scrollbar pb-2 relative">
-                     {/* Y-Axis Labels (Fixed Position overlay could be better, but for now simple SVG) */}
-                     {/* Actually, for Y-axis to stay fixed while scrolling X, we might need a separate SVG or div for Y-axis. 
-                        But the user asked for "missing headers, horizontal and vertical coordinates". 
-                        Let's render Y-axis inside the SVG for now, or maybe separate them. 
-                        Separating them is better for scrolling. 
-                     */}
                     <div className="flex">
                         {/* Fixed Y-Axis */}
-                        <div className="flex-shrink-0 w-[40px] border-r border-slate-200 mr-1 relative" style={{ height: height + bottomMargin }}>
+                        <div className="flex-shrink-0 border-r border-slate-300 mr-1 relative" style={{ width: leftMargin, height: height + bottomMargin }}>
                             {[0, 0.25, 0.5, 0.75, 1].map(ratio => (
-                                <div key={ratio} className="absolute right-1 text-[9px] text-slate-500" style={{ bottom: ratio * height + bottomMargin - 5 }}>
+                                <div key={ratio} className="absolute right-2 text-[11px] font-medium text-slate-600" style={{ bottom: ratio * height + bottomMargin - 8 }}>
                                     {Math.round(maxVal * ratio).toLocaleString()}
                                 </div>
                             ))}
+                            {/* Y-Axis Title */}
+                            <div className="absolute -left-2 top-1/2 -rotate-90 text-[10px] text-slate-400 font-bold tracking-wider whitespace-nowrap" style={{ transformOrigin: 'center' }}>UNITS</div>
                         </div>
 
                         {/* Scrollable Chart Area */}
@@ -182,18 +178,21 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resourceId }) => 
                                 );
                             })}
 
+                            {/* X-Axis Line */}
+                            <line x1="0" y1={height} x2="100%" y2={height} stroke="#64748b" strokeWidth="2" />
+
                             {/* Limit Line (Only for Labor/Equipment) */}
                             {resource.type !== 'Material' && (
                                 <>
-                                    <line x1="0" y1={height - (resource.maxUnits / maxVal * height)} x2="100%" y2={height - (resource.maxUnits / maxVal * height)} stroke="red" strokeDasharray="4" opacity="0.5" />
+                                    <line x1="0" y1={height - (resource.maxUnits / maxVal * height)} x2="100%" y2={height - (resource.maxUnits / maxVal * height)} stroke="red" strokeDasharray="4" opacity="0.6" strokeWidth="1.5" />
                                     {/* Label for limit line moved to chart area to be visible */}
-                                    <text x="2" y={height - (resource.maxUnits / maxVal * height) - 5} fill="red" fontSize="10">Max Limit ({resource.maxUnits})</text>
+                                    <text x="5" y={height - (resource.maxUnits / maxVal * height) - 5} fill="red" fontSize="11" fontWeight="bold">Max Limit ({resource.maxUnits})</text>
                                 </>
                             )}
 
                             {histogramData.map((d, i) => {
                                 const h = (d.value / maxVal) * height;
-                                const x = i * (barWidth + 5);
+                                const x = i * (barWidth + 10) + 10; // Added spacing
                                 const isOverLimit = resource.type !== 'Material' && d.value > resource.maxUnits;
                                 
                                 return (
@@ -208,13 +207,25 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resourceId }) => 
                                         >
                                             <title>{d.date}: {d.value}</title>
                                         </rect>
-                                        <text x={x} y={height + 15} fontSize="9" fill="#64748b" transform={`rotate(0 ${x},${height+15})`}>
+                                        {/* X-Axis Labels - Rotated for clarity */}
+                                        <text 
+                                            x={x + barWidth/2} 
+                                            y={height + 15} 
+                                            fontSize="10" 
+                                            fill="#475569" 
+                                            textAnchor="end" 
+                                            fontWeight="500"
+                                            transform={`rotate(-45, ${x + barWidth/2}, ${height + 15})`}
+                                        >
                                             {period === 'Year' ? d.date.substring(0, 4) : 
                                              period === 'Quarter' ? `Q${Math.ceil(parseInt(d.date.substring(5,7))/3)} '${d.date.substring(2,4)}` : 
                                              period === 'Month' ? d.date.substring(0, 7) : 
                                              d.date.substring(5)}
                                         </text>
-                                        <text x={x + barWidth/2} y={height - h - 5} fontSize="9" fill="#334155" textAnchor="middle">{d.value.toLocaleString()}</text>
+                                        {/* Value on Bar - Only if it fits or is significant */}
+                                        {barWidth > 25 && (
+                                            <text x={x + barWidth/2} y={height - h - 5} fontSize="10" fontWeight="bold" fill="#1e293b" textAnchor="middle">{d.value.toLocaleString()}</text>
+                                        )}
                                     </g>
                                 )
                             })}

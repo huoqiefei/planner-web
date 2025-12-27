@@ -240,11 +240,24 @@ export const usePrint = ({
         headerAssembly.style.borderBottom = '1px solid #cbd5e1';
         
         tableHeader.style.width = `${tableWidth}px`;
-        tableHeader.style.flexShrink = '0';
+        tableHeader.style.minWidth = `${tableWidth}px`; // FIX: Explicitly set min-width to match width to override CSS class
+        tableHeader.style.maxWidth = `${tableWidth}px`; // FIX: Explicitly set max-width
+        tableHeader.style.flex = '0 0 auto'; // FIX: Prevent flex grow/shrink
+        tableHeader.style.padding = '0'; // FIX: Remove any padding
+        tableHeader.style.margin = '0'; // FIX: Remove any margin
+        tableHeader.style.boxSizing = 'border-box'; // FIX: Ensure border is included in width
+        tableHeader.style.overflow = 'hidden'; // FIX: Hide any potential overflow
         headerAssembly.appendChild(tableHeader);
         
         ganttHeader.style.width = `${ganttWidth}px`;
+        ganttHeader.style.minWidth = `${ganttWidth}px`; // FIX: Explicitly set min-width
+        ganttHeader.style.maxWidth = `${ganttWidth}px`; // FIX: Explicitly set max-width
         ganttHeader.style.border = 'none'; 
+        ganttHeader.style.flex = '0 0 auto';
+        ganttHeader.style.padding = '0';
+        ganttHeader.style.margin = '0';
+        ganttHeader.style.boxSizing = 'border-box';
+        ganttHeader.style.overflow = 'hidden';
         headerAssembly.appendChild(ganttHeader);
 
         // Create Body Assembly
