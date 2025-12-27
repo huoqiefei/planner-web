@@ -125,7 +125,7 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
     };
 
     return (
-        <div className="flex flex-col h-full border-r border-slate-300" style={{ width: '40%', minWidth: 400, maxWidth: '50%' }}>
+        <div className="flex flex-col h-full border-r border-slate-300 flex-shrink-0" style={{ width: totalContentWidth, minWidth: totalContentWidth }}>
             {/* Header */}
             <div 
                 ref={headerRef}

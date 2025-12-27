@@ -154,7 +154,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
         const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
 
         while (iterDate.getTime() <= endTs) {
-            const pos = getPosition(iterDate) + (5 * pixelPerDay);
+            const pos = getPosition(iterDate) + 0;
             // Optimization: If pos is way beyond visibleEnd, break? 
             // The loop condition handles it.
             
@@ -250,7 +250,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
 
         if(showVertLines) {
             while (iterDate.getTime() <= endTs) {
-                const pos = getPosition(iterDate) + (5 * pixelPerDay);
+                const pos = getPosition(iterDate) + 0;
                 const day = iterDate.getDate();
                 const weekDay = iterDate.getDay();
                 const month = iterDate.getMonth();
@@ -308,7 +308,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
 
                 if (!isVerticallyVisible(startY, endY)) return;
 
-                const globalOffset = 5 * pixelPerDay;
+                const globalOffset = 0;
                 
                 // Determine start and end points based on relationship type
                 let startX: number;
@@ -443,7 +443,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                             {virtualItems.map(({ index }) => {
                                 const row = rows[index];
                                 const y = index * rowHeight;
-                                const globalOffset = 5 * pixelPerDay;
+                                const globalOffset = 0;
                                 const left = getPosition(row.startDate) + globalOffset;
                                 const right = getPosition(row.endDate) + pixelPerDay + globalOffset;
                                 const width = Math.max(right - left, 2);
