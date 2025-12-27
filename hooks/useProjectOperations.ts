@@ -9,7 +9,7 @@ interface UseProjectOperationsProps {
     fileInputRef?: React.RefObject<HTMLInputElement>; // Optional ref
 }
 
-export const useProjectOperations = ({ fileInputRef }: UseProjectOperationsProps = {}) => {
+export const useProjectOperations = ({ fileInputRef }: UseProjectOperationsProps = { fileInputRef: undefined }) => {
     const { 
         data, setData, user, setUser, view, setView, selIds, setSelIds, 
         clipboard, setClipboard, setActiveModal, setModalData, 
@@ -257,7 +257,29 @@ export const useProjectOperations = ({ fileInputRef }: UseProjectOperationsProps
                     }
 
                     if (clipboard.type === 'Activities') {
-                        const newActs = clipboard.ids.map(id => data.activities.find(a => a.id === id)).filter(x => x).map(a => ({ ...a!, id: a!.id + t('CopySuffix'), name: a!.name + t('CopySuffix') }));
+                        const prefix = data.meta.activityIdPrefix || 'A';
+                        const increment = data.meta.activityIdIncrement || 10;
+                        
+                        // Find max ID
+                        const maxIdNum = data.activities.reduce((max, act) => {
+                            const match = act.id.match(new RegExp(`^${prefix}(\\d+)`));
+                            return match ? Math.max(max, parseInt(match[1])) : max;
+                        }, 0);
+
+                        let currentIdNum = maxIdNum;
+
+                        const newActs = clipboard.ids
+                            .map(id => data.activities.find(a => a.id === id))
+                            .filter(x => x)
+                            .map(a => {
+                                currentIdNum += increment;
+                                const newId = `${prefix}${currentIdNum}`;
+                                return { 
+                                    ...a!, 
+                                    id: newId, 
+                                    name: a!.name + t('CopySuffix') 
+                                };
+                            });
                         setData(p => p ? { ...p, activities: [...p.activities, ...newActs] } : null);
                     }
                 }

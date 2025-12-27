@@ -309,8 +309,36 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                 if (!isVerticallyVisible(startY, endY)) return;
 
                 const globalOffset = 5 * pixelPerDay;
-                const startX = getPosition(new Date(predRow.endDate)) + pixelPerDay + globalOffset;
-                const endX = getPosition(new Date(row.startDate)) + globalOffset;
+                
+                // Determine start and end points based on relationship type
+                let startX: number;
+                let endX: number;
+
+                // Predecessor is the "Source" (from), Row is the "Target" (to)
+                // FS: Pred End -> Succ Start
+                // FF: Pred End -> Succ End
+                // SS: Pred Start -> Succ Start
+                // SF: Pred Start -> Succ End
+
+                const type = pred.type || 'FS';
+                const predStart = getPosition(predRow.startDate) + globalOffset;
+                const predEnd = getPosition(predRow.endDate) + pixelPerDay + globalOffset;
+                const currStart = getPosition(row.startDate) + globalOffset;
+                const currEnd = getPosition(row.endDate) + pixelPerDay + globalOffset;
+
+                if (type === 'FF') {
+                    startX = predEnd;
+                    endX = currEnd;
+                } else if (type === 'SS') {
+                    startX = predStart;
+                    endX = currStart;
+                } else if (type === 'SF') {
+                    startX = predStart;
+                    endX = currEnd;
+                } else { // FS
+                    startX = predEnd;
+                    endX = currStart;
+                }
 
                 const minX = Math.min(startX, endX);
                 const maxX = Math.max(startX, endX);
@@ -416,8 +444,8 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                                 const row = rows[index];
                                 const y = index * rowHeight;
                                 const globalOffset = 5 * pixelPerDay;
-                                const left = getPosition(new Date(row.startDate)) + globalOffset;
-                                const right = getPosition(new Date(row.endDate)) + pixelPerDay + globalOffset;
+                                const left = getPosition(row.startDate) + globalOffset;
+                                const right = getPosition(row.endDate) + pixelPerDay + globalOffset;
                                 const width = Math.max(right - left, 2);
                                 const barH = Math.max(6, rowHeight * 0.35); 
                                 const barY = y + (rowHeight - barH) / 2;
