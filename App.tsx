@@ -149,6 +149,25 @@ const App: React.FC = () => {
         }
     }, [user, data, isLoginOpen]);
 
+    // Safety check: Restore columns if they disappear (Self-healing)
+    useEffect(() => {
+        if (!userSettings.visibleColumns || userSettings.visibleColumns.length <= 2) {
+             const defaults = ['id', 'name', 'duration', 'start', 'finish', 'float', 'preds'];
+             const current = userSettings.visibleColumns || [];
+             // If strictly only ID and Name (or fewer), restore defaults
+             // This fixes the issue where columns might disappear due to state glitches
+             const isSuspicious = current.length === 0 || 
+                                  (current.length <= 2 && current.includes('id') && current.includes('name'));
+             
+             if (isSuspicious) {
+                 setUserSettings(prev => ({
+                     ...prev,
+                     visibleColumns: defaults
+                 }));
+             }
+        }
+    }, [userSettings.visibleColumns]);
+
     const handleOpen = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
