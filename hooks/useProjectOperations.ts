@@ -222,8 +222,6 @@ export const useProjectOperations = ({ fileInputRef }: UseProjectOperationsProps
             case 'print': setActiveModal('print'); break;
             case 'new_project': handleNew(); break;
             case 'open_project': fileInputRef?.current?.click(); break;
-            case 'cloud_save': setActiveModal('cloud_save'); break;
-            case 'cloud_projects': setActiveModal('cloud_load'); break;
             case 'logout': handleLogout(); break;
             case 'copy':
                 if (selIds.length > 0 && data) {
@@ -292,7 +290,7 @@ export const useProjectOperations = ({ fileInputRef }: UseProjectOperationsProps
                 break;
             case 'account_settings': setActiveModal('account_settings'); break;
             case 'user_preferences': setActiveModal('user_preferences'); break;
-            case 'columns_setup': setActiveModal('columns_setup'); break;
+            case 'columns': setActiveModal('columns'); break;
             case 'project_info': setActiveModal('project_settings'); break;
             case 'view_activities': setView('activities'); break;
             case 'view_resources': setView('resources'); break;
@@ -305,7 +303,7 @@ export const useProjectOperations = ({ fileInputRef }: UseProjectOperationsProps
             case 'about': setActiveModal('about'); break;
             case 'admin': setActiveModal('admin'); break;
             case 'ai_settings': setActiveModal('ai_settings'); break;
-            case 'cloud_load': setActiveModal('cloud_load'); break;
+            case 'cloud_projects': setActiveModal('cloud_load'); break;
             case 'cloud_save': setActiveModal('cloud_save'); break;
             case 'license': setModalData({ msg: "License: Standard Edition\nExpires: 2025-12-31" }); setActiveModal('alert'); break;
             case 'usage': setModalData({ msg: "Usage: 5/10 Projects Used\nStorage: 120MB / 1GB" }); setActiveModal('alert'); break;
