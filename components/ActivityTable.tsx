@@ -132,23 +132,23 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
                 className="overflow-hidden bg-slate-100 border-b border-slate-300 font-bold text-slate-700 shadow-sm z-20" 
                 style={{ height: headerHeight }}
             >
-                <div className="flex h-full" style={{ minWidth: totalContentWidth }}>
+                <div className="flex h-full p6-header" style={{ minWidth: totalContentWidth }}>
                     {userSettings.gridSettings.showVertical && (
                         <div className="w-8 border-r border-slate-300 flex items-center justify-center bg-slate-200 text-slate-500 flex-shrink-0">#</div>
                     )}
-                    {visibleCols.includes('id') && <ResizableHeader width={colWidths.id} onResize={w=>setColWidths({...colWidths, id:w})}>{t('ActivityID')}</ResizableHeader>}
-                    {visibleCols.includes('name') && <ResizableHeader width={colWidths.name} onResize={w=>setColWidths({...colWidths, name:w})}>{t('ActivityName')}</ResizableHeader>}
-                    {visibleCols.includes('duration') && <ResizableHeader width={colWidths.duration} onResize={w=>setColWidths({...colWidths, duration:w})} align="right">{t('Duration')}</ResizableHeader>}
-                    {visibleCols.includes('start') && <ResizableHeader width={colWidths.start} onResize={w=>setColWidths({...colWidths, start:w})} align="center">{t('Start')}</ResizableHeader>}
-                    {visibleCols.includes('finish') && <ResizableHeader width={colWidths.finish} onResize={w=>setColWidths({...colWidths, finish:w})} align="center">{t('Finish')}</ResizableHeader>}
-                    {visibleCols.includes('float') && <ResizableHeader width={colWidths.float} onResize={w=>setColWidths({...colWidths, float:w})} align="right">{t('TotalFloat')}</ResizableHeader>}
-                    {visibleCols.includes('preds') && <ResizableHeader width={colWidths.preds} onResize={w=>setColWidths({...colWidths, preds:w})}>{t('Predecessors')}</ResizableHeader>}
+                    {visibleCols.includes('id') && <ResizableHeader width={colWidths.id} onResize={w=>setColWidths({...colWidths, id:w})} dataCol="id">{t('ActivityID')}</ResizableHeader>}
+                    {visibleCols.includes('name') && <ResizableHeader width={colWidths.name} onResize={w=>setColWidths({...colWidths, name:w})} dataCol="name">{t('ActivityName')}</ResizableHeader>}
+                    {visibleCols.includes('duration') && <ResizableHeader width={colWidths.duration} onResize={w=>setColWidths({...colWidths, duration:w})} align="right" dataCol="duration">{t('Duration')}</ResizableHeader>}
+                    {visibleCols.includes('start') && <ResizableHeader width={colWidths.start} onResize={w=>setColWidths({...colWidths, start:w})} align="center" dataCol="start">{t('Start')}</ResizableHeader>}
+                    {visibleCols.includes('finish') && <ResizableHeader width={colWidths.finish} onResize={w=>setColWidths({...colWidths, finish:w})} align="center" dataCol="finish">{t('Finish')}</ResizableHeader>}
+                    {visibleCols.includes('float') && <ResizableHeader width={colWidths.float} onResize={w=>setColWidths({...colWidths, float:w})} align="right" dataCol="float">{t('TotalFloat')}</ResizableHeader>}
+                    {visibleCols.includes('preds') && <ResizableHeader width={colWidths.preds} onResize={w=>setColWidths({...colWidths, preds:w})} dataCol="preds">{t('Predecessors')}</ResizableHeader>}
                 </div>
             </div>
 
             {/* Body */}
             <div 
-                className="overflow-scroll bg-white flex-grow relative" 
+                className="overflow-scroll bg-white flex-grow relative p6-table-body" 
                 ref={containerRef}
                 onScroll={handleBodyScroll}
             >
@@ -159,7 +159,7 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
                         return (
                             <div 
                                 key={row.id} 
-                                className={`flex border-b border-slate-100 hover:bg-blue-50 transition-colors cursor-pointer group absolute left-0 w-full ${isSel ? 'bg-blue-100' : (index%2===0?'bg-white':'bg-slate-50')}`}
+                                className={`flex border-b border-slate-100 hover:bg-blue-50 transition-colors cursor-pointer group absolute left-0 w-full p6-row ${isSel ? 'bg-blue-100' : (index%2===0?'bg-white':'bg-slate-50')}`}
                                 style={{ height: rowHeight, top: offsetTop, fontSize: `${fontSizePx}px` }}
                                 onClick={(e) => handleRowClick(row.id, e)}
                                 onContextMenu={(e) => handleContextMenu(e, row.id, row.type)}
@@ -172,7 +172,7 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
 
                                 {/* ID Column */}
                                 {visibleCols.includes('id') && (
-                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center" style={{ width: colWidths.id }}>
+                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell" data-col="id" style={{ width: colWidths.id }}>
                                         <div style={{ paddingLeft: row.depth * 16 }} className="flex items-center w-full overflow-hidden">
                                             {row.type === 'WBS' && (
                                                 <button onClick={(e) => { e.stopPropagation(); onToggleExpand(row.id); }} className="mr-1 text-slate-500 hover:text-black focus:outline-none">
@@ -191,7 +191,7 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
 
                                 {/* Name Column */}
                                 {visibleCols.includes('name') && (
-                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center" style={{ width: colWidths.name }}>
+                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell" data-col="name" style={{ width: colWidths.name }}>
                                             {editing?.id===row.id && editing?.field==='name' ? (
                                             <input autoFocus className="w-full h-full border-2 border-blue-400 px-1 rounded" value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} />
                                         ) : (
@@ -202,7 +202,7 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
 
                                 {/* Duration */}
                                 {visibleCols.includes('duration') && (
-                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-end" style={{ width: colWidths.duration }}>
+                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-end p6-cell" data-col="duration" style={{ width: colWidths.duration }}>
                                         {row.type === 'Activity' && (editing?.id===row.id && editing?.field==='duration' ? (
                                             <input autoFocus type="number" className="w-full h-full border-2 border-blue-400 px-1 rounded text-right" value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} />
                                         ) : (
@@ -214,21 +214,21 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
 
                                 {/* Start Date */}
                                 {visibleCols.includes('start') && (
-                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-center text-sm text-slate-600" style={{ width: colWidths.start }}>
+                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-center text-sm text-slate-600 p6-cell" data-col="start" style={{ width: colWidths.start }}>
                                         {formatDate(row.type==='Activity'?row.data.startDate:row.startDate)}
                                     </div>
                                 )}
 
                                 {/* Finish Date */}
                                 {visibleCols.includes('finish') && (
-                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-center text-sm text-slate-600" style={{ width: colWidths.finish }}>
+                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-center text-sm text-slate-600 p6-cell" data-col="finish" style={{ width: colWidths.finish }}>
                                         {formatDate(row.type==='Activity'?row.data.endDate:row.endDate)}
                                     </div>
                                 )}
 
                                 {/* Float */}
                                 {visibleCols.includes('float') && (
-                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-end" style={{ width: colWidths.float }}>
+                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-end p6-cell" data-col="float" style={{ width: colWidths.float }}>
                                         {row.type === 'Activity' && (
                                             <span className={`${(row.data.totalFloat||0)<=0?'text-red-600 font-bold':''}`}>{row.data.totalFloat}</span>
                                         )}
@@ -238,7 +238,7 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
                                 {/* Predecessors */}
                                 {visibleCols.includes('preds') && (
                                     <div 
-                                        className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center" 
+                                        className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell" data-col="preds" 
                                         style={{ width: colWidths.preds }}
                                         onDoubleClick={() => {
                                             if (row.type === 'Activity' && (!editing || editing.id !== row.id || editing.field !== 'predecessors')) {

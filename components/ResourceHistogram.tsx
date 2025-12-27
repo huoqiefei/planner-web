@@ -77,15 +77,31 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resourceId }) => 
 
     }, [resource, assignments, activities, period]);
 
+    const downloadCSV = () => {
+        if (histogramData.length === 0) return;
+        const headers = ['Date', 'Value'];
+        const rows = histogramData.map(d => `${d.date},${d.value}`);
+        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `${resource.name}_histogram.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     if (!resource) return <div className="p-4 text-slate-400">Resource not found</div>;
 
     const maxVal = Math.max(...histogramData.map(d => d.value), resource.maxUnits * (resource.type === 'Material' && period !== 'Day' ? 10 : 1.2)) || 10;
-    const height = 150;
+    const height = 150; // Adjusted to fit in ResourceDetails panel
+    const leftMargin = 40; // Space for Y-axis labels
+    const bottomMargin = 20; // Space for X-axis labels
     const barWidth = Math.max(20, Math.min(50, 600 / histogramData.length));
-    const totalWidth = Math.max(histogramData.length * (barWidth + 5), 100); // Dynamic width
+    const totalWidth = Math.max(histogramData.length * (barWidth + 5) + leftMargin, 100);
 
     return (
-        <div className="p-4 bg-white rounded-sm border border-slate-300 shadow-sm flex flex-col flex-grow">
+        <div className="p-4 bg-white rounded-sm border border-slate-300 shadow-sm flex flex-col flex-grow h-full">
             <div className="flex justify-between mb-4 border-b border-slate-100 pb-2">
                 <div>
                     <h4 className="text-sm font-bold text-slate-700">
@@ -95,7 +111,14 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resourceId }) => 
                         {resource.type === 'Material' ? 'Cumulative Sum' : 'Peak Daily Usage'} per {period}
                     </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                    <button 
+                        onClick={downloadCSV}
+                        className="px-2 py-1 text-xs rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 mr-2"
+                        title="Export CSV"
+                    >
+                        Export CSV
+                    </button>
                     {['Day', 'Week', 'Month'].map(p => (
                         <button 
                             key={p} 
@@ -109,39 +132,68 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resourceId }) => 
             </div>
             
             {histogramData.length === 0 ? (
-                <div className="h-[150px] flex items-center justify-center text-slate-400 text-xs">No assignments found for this period.</div>
+                <div className="h-[200px] flex items-center justify-center text-slate-400 text-xs">No assignments found for this period.</div>
             ) : (
-                // Added overflow-x-auto for horizontal scrolling
-                <div className="overflow-x-auto overflow-y-hidden custom-scrollbar pb-2">
-                    <svg height={height + 40} width={totalWidth} className="min-w-full">
-                        {/* Limit Line (Only for Labor/Equipment) */}
-                        {resource.type !== 'Material' && (
-                            <>
-                                <line x1="0" y1={height - (resource.maxUnits / maxVal * height)} x2="100%" y2={height - (resource.maxUnits / maxVal * height)} stroke="red" strokeDasharray="4" opacity="0.5" />
-                                <text x="2" y={height - (resource.maxUnits / maxVal * height) - 5} fill="red" fontSize="10">Max Limit</text>
-                            </>
-                        )}
+                <div className="overflow-x-auto overflow-y-hidden custom-scrollbar pb-2 relative">
+                     {/* Y-Axis Labels (Fixed Position overlay could be better, but for now simple SVG) */}
+                     {/* Actually, for Y-axis to stay fixed while scrolling X, we might need a separate SVG or div for Y-axis. 
+                        But the user asked for "missing headers, horizontal and vertical coordinates". 
+                        Let's render Y-axis inside the SVG for now, or maybe separate them. 
+                        Separating them is better for scrolling. 
+                     */}
+                    <div className="flex">
+                        {/* Fixed Y-Axis */}
+                        <div className="flex-shrink-0 w-[40px] border-r border-slate-200 mr-1 relative" style={{ height: height + bottomMargin }}>
+                            {[0, 0.25, 0.5, 0.75, 1].map(ratio => (
+                                <div key={ratio} className="absolute right-1 text-[9px] text-slate-500" style={{ bottom: ratio * height + bottomMargin - 5 }}>
+                                    {Math.round(maxVal * ratio).toLocaleString()}
+                                </div>
+                            ))}
+                        </div>
 
-                        {histogramData.map((d, i) => {
-                            const h = (d.value / maxVal) * height;
-                            const x = i * (barWidth + 5);
-                            const isOverLimit = resource.type !== 'Material' && d.value > resource.maxUnits;
-                            
-                            return (
-                                <g key={d.date}>
-                                    <rect 
-                                        x={x} 
-                                        y={height - h} 
-                                        width={barWidth} 
-                                        height={h} 
-                                        fill={isOverLimit ? '#ef4444' : (resource.type === 'Material' ? '#10b981' : '#3b82f6')} 
-                                    />
-                                    <text x={x} y={height + 15} fontSize="9" fill="#64748b" transform={`rotate(0 ${x},${height+15})`}>{d.date.substring(5)}</text>
-                                    <text x={x + barWidth/2} y={height - h - 5} fontSize="9" fill="#334155" textAnchor="middle">{d.value.toLocaleString()}</text>
-                                </g>
-                            )
-                        })}
-                    </svg>
+                        {/* Scrollable Chart Area */}
+                        <svg height={height + bottomMargin + 20} width={totalWidth - leftMargin} className="min-w-full">
+                            {/* Grid Lines */}
+                            {[0, 0.25, 0.5, 0.75, 1].map(ratio => {
+                                const y = height - (ratio * height);
+                                return (
+                                    <line key={ratio} x1="0" y1={y} x2="100%" y2={y} stroke="#e2e8f0" strokeWidth="1" />
+                                );
+                            })}
+
+                            {/* Limit Line (Only for Labor/Equipment) */}
+                            {resource.type !== 'Material' && (
+                                <>
+                                    <line x1="0" y1={height - (resource.maxUnits / maxVal * height)} x2="100%" y2={height - (resource.maxUnits / maxVal * height)} stroke="red" strokeDasharray="4" opacity="0.5" />
+                                    {/* Label for limit line moved to chart area to be visible */}
+                                    <text x="2" y={height - (resource.maxUnits / maxVal * height) - 5} fill="red" fontSize="10">Max Limit ({resource.maxUnits})</text>
+                                </>
+                            )}
+
+                            {histogramData.map((d, i) => {
+                                const h = (d.value / maxVal) * height;
+                                const x = i * (barWidth + 5);
+                                const isOverLimit = resource.type !== 'Material' && d.value > resource.maxUnits;
+                                
+                                return (
+                                    <g key={d.date}>
+                                        <rect 
+                                            x={x} 
+                                            y={height - h} 
+                                            width={barWidth} 
+                                            height={h} 
+                                            fill={isOverLimit ? '#ef4444' : (resource.type === 'Material' ? '#10b981' : '#3b82f6')} 
+                                            rx="2"
+                                        >
+                                            <title>{d.date}: {d.value}</title>
+                                        </rect>
+                                        <text x={x} y={height + 15} fontSize="9" fill="#64748b" transform={`rotate(0 ${x},${height+15})`}>{d.date.substring(5)}</text>
+                                        <text x={x + barWidth/2} y={height - h - 5} fontSize="9" fill="#334155" textAnchor="middle">{d.value.toLocaleString()}</text>
+                                    </g>
+                                )
+                            })}
+                        </svg>
+                    </div>
                 </div>
             )}
         </div>
