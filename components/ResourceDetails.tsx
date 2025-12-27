@@ -19,11 +19,36 @@ export const ResourceDetails: React.FC = () => {
 
     const [tab, setTab] = useState<'General' | 'Histogram'>('General');
     const [editVal, setEditVal] = useState<string>('');
+    const [height, setHeight] = useState(350);
+    const [isDragging, setIsDragging] = useState(false);
 
     const resources = data?.resources || [];
     const resource = selIds.length === 1 ? resources.find(r => r.id === selIds[0]) : undefined;
 
     const fontSizePx = userSettings.uiFontPx || 13;
+
+    // Resizing Logic
+    const startDrag = (e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+        const startY = e.clientY;
+        const startHeight = height;
+
+        const onMouseMove = (moveEvent: MouseEvent) => {
+            const deltaY = startY - moveEvent.clientY; // Drag up increases height
+            const newHeight = Math.min(Math.max(startHeight + deltaY, 200), 800);
+            setHeight(newHeight);
+        };
+
+        const onMouseUp = () => {
+            setIsDragging(false);
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    };
 
     if (!showDetails) {
         return (
@@ -59,9 +84,14 @@ export const ResourceDetails: React.FC = () => {
     };
 
     return (
-        <div className="h-64 border-t-4 border-slate-300 bg-white flex flex-col flex-shrink-0 shadow-[0_-2px_5px_rgba(0,0,0,0.05)] transition-all" style={{ fontSize: `${fontSizePx}px` }}>
+        <div className="bg-white flex flex-col flex-shrink-0 shadow-[0_-2px_5px_rgba(0,0,0,0.05)] relative" style={{ height, fontSize: `${fontSizePx}px` }}>
+             {/* Drag Handle */}
+             <div 
+                className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize bg-slate-300 hover:bg-blue-400 transition-colors z-20"
+                onMouseDown={startDrag}
+            />
             {/* Header Tabs */}
-            <div className="flex bg-slate-100 border-b border-slate-300 px-1 pt-1 gap-1 select-none h-8 items-end justify-between">
+            <div className="flex bg-slate-100 border-b border-slate-300 px-1 pt-2.5 gap-1 select-none h-10 items-end justify-between">
                 <div className="flex gap-1 h-full items-end">
                     <button onClick={() => setTab('General')} className={`px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm outline-none ${tab === 'General' ? 'bg-white text-black border-b-white -mb-px' : 'text-slate-500 bg-slate-100 border-b-slate-300 hover:bg-slate-50'}`}>{t('General')}</button>
                     <button onClick={() => setTab('Histogram')} className={`px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm outline-none ${tab === 'Histogram' ? 'bg-white text-black border-b-white -mb-px' : 'text-slate-500 bg-slate-100 border-b-slate-300 hover:bg-slate-50'}`}>{t('Histogram')}</button>

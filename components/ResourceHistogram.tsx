@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Resource, Assignment, Activity } from '../types';
 import { useAppStore } from '../stores/useAppStore';
 
@@ -6,11 +6,26 @@ interface ResourceHistogramProps {
     resourceId: string;
 }
 
-type Period = 'Day' | 'Week' | 'Month';
+type Period = 'Day' | 'Week' | 'Month' | 'Quarter' | 'Year';
 
 const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resourceId }) => {
     const { data: projectData, schedule } = useAppStore();
     const [period, setPeriod] = useState<Period>('Week');
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [containerHeight, setContainerHeight] = useState(250);
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const ro = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                if(entry.contentRect.height > 50) {
+                    setContainerHeight(entry.contentRect.height);
+                }
+            }
+        });
+        ro.observe(containerRef.current);
+        return () => ro.disconnect();
+    }, []);
 
     const resource = useMemo(() => 
         projectData?.resources.find(r => r.id === resourceId), 
@@ -56,8 +71,14 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resourceId }) => 
                 const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
                 const monday = new Date(d.setDate(diff));
                 periodKey = monday.toISOString().split('T')[0];
-            } else {
+            } else if (period === 'Month') {
                 periodKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,'0')}-01`;
+            } else if (period === 'Quarter') {
+                const q = Math.floor(date.getMonth() / 3);
+                const startMonth = q * 3;
+                periodKey = `${date.getFullYear()}-${String(startMonth + 1).padStart(2,'0')}-01`;
+            } else { // Year
+                periodKey = `${date.getFullYear()}-01-01`;
             }
 
             if (resource.type === 'Material') {
@@ -94,15 +115,15 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resourceId }) => 
     if (!resource) return <div className="p-4 text-slate-400">Resource not found</div>;
 
     const maxVal = Math.max(...histogramData.map(d => d.value), resource.maxUnits * (resource.type === 'Material' && period !== 'Day' ? 10 : 1.2)) || 10;
-    const height = 150; // Adjusted to fit in ResourceDetails panel
+    const height = Math.max(100, containerHeight - 80); 
     const leftMargin = 40; // Space for Y-axis labels
     const bottomMargin = 20; // Space for X-axis labels
     const barWidth = Math.max(20, Math.min(50, 600 / histogramData.length));
     const totalWidth = Math.max(histogramData.length * (barWidth + 5) + leftMargin, 100);
 
     return (
-        <div className="p-4 bg-white rounded-sm border border-slate-300 shadow-sm flex flex-col flex-grow h-full">
-            <div className="flex justify-between mb-4 border-b border-slate-100 pb-2">
+        <div ref={containerRef} className="p-4 bg-white rounded-sm border border-slate-300 shadow-sm flex flex-col flex-grow h-full">
+            <div className="flex justify-between mb-4 border-b border-slate-100 pb-2 flex-shrink-0">
                 <div>
                     <h4 className="text-sm font-bold text-slate-700">
                         {resource.type === 'Material' ? 'Consumption' : 'Intensity'} Analysis
@@ -119,7 +140,7 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resourceId }) => 
                     >
                         Export CSV
                     </button>
-                    {['Day', 'Week', 'Month'].map(p => (
+                    {['Day', 'Week', 'Month', 'Quarter', 'Year'].map(p => (
                         <button 
                             key={p} 
                             onClick={() => setPeriod(p as Period)}
@@ -187,7 +208,12 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resourceId }) => 
                                         >
                                             <title>{d.date}: {d.value}</title>
                                         </rect>
-                                        <text x={x} y={height + 15} fontSize="9" fill="#64748b" transform={`rotate(0 ${x},${height+15})`}>{d.date.substring(5)}</text>
+                                        <text x={x} y={height + 15} fontSize="9" fill="#64748b" transform={`rotate(0 ${x},${height+15})`}>
+                                            {period === 'Year' ? d.date.substring(0, 4) : 
+                                             period === 'Quarter' ? `Q${Math.ceil(parseInt(d.date.substring(5,7))/3)} '${d.date.substring(2,4)}` : 
+                                             period === 'Month' ? d.date.substring(0, 7) : 
+                                             d.date.substring(5)}
+                                        </text>
                                         <text x={x + barWidth/2} y={height - h - 5} fontSize="9" fill="#334155" textAnchor="middle">{d.value.toLocaleString()}</text>
                                     </g>
                                 )
