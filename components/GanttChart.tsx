@@ -409,7 +409,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
             {/* 2. Body Container */}
             <div 
                 ref={bodyContainerRef}
-                className="flex-grow overflow-auto relative custom-scrollbar bg-white gantt-body-wrapper" 
+                className="flex-grow overflow-scroll relative custom-scrollbar bg-white gantt-body-wrapper" 
                 onScroll={handleBodyScroll}
             >
                 <div style={{ width: chartWidth, height: Math.max(totalHeight, 100) }} className="relative">

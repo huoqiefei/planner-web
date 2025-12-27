@@ -61,6 +61,10 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
     const fontSizePx = userSettings.uiFontPx || 13;
     const visibleCols = userSettings.visibleColumns || ['id', 'name', 'duration', 'start', 'finish', 'float', 'preds'];
 
+    // Calculate total required width for columns 
+    const showVertical = userSettings.gridSettings.showVertical;
+    const totalContentWidth = Object.values(colWidths).reduce((a, b) => a + b, 0) + (showVertical ? 32 : 0) + 20; // +20 for buffer/padding
+
     const startEdit = (id: string, field: string, val: any) => {
         setEditing({id, field});
         if(field === 'predecessors') {
@@ -125,28 +129,30 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
             {/* Header */}
             <div 
                 ref={headerRef}
-                className="flex overflow-hidden bg-slate-100 border-b border-slate-300 font-bold text-slate-700 shadow-sm z-20" 
+                className="overflow-hidden bg-slate-100 border-b border-slate-300 font-bold text-slate-700 shadow-sm z-20" 
                 style={{ height: headerHeight }}
             >
-                {userSettings.gridSettings.showVertical && (
-                    <div className="w-8 border-r border-slate-300 flex items-center justify-center bg-slate-200 text-slate-500">#</div>
-                )}
-                {visibleCols.includes('id') && <ResizableHeader width={colWidths.id} onResize={w=>setColWidths({...colWidths, id:w})}>{t('ActivityID')}</ResizableHeader>}
-                {visibleCols.includes('name') && <ResizableHeader width={colWidths.name} onResize={w=>setColWidths({...colWidths, name:w})}>{t('ActivityName')}</ResizableHeader>}
-                {visibleCols.includes('duration') && <ResizableHeader width={colWidths.duration} onResize={w=>setColWidths({...colWidths, duration:w})} align="right">{t('Duration')}</ResizableHeader>}
-                {visibleCols.includes('start') && <ResizableHeader width={colWidths.start} onResize={w=>setColWidths({...colWidths, start:w})} align="center">{t('Start')}</ResizableHeader>}
-                {visibleCols.includes('finish') && <ResizableHeader width={colWidths.finish} onResize={w=>setColWidths({...colWidths, finish:w})} align="center">{t('Finish')}</ResizableHeader>}
-                {visibleCols.includes('float') && <ResizableHeader width={colWidths.float} onResize={w=>setColWidths({...colWidths, float:w})} align="right">{t('TotalFloat')}</ResizableHeader>}
-                {visibleCols.includes('preds') && <ResizableHeader width={colWidths.preds} onResize={w=>setColWidths({...colWidths, preds:w})}>{t('Predecessors')}</ResizableHeader>}
+                <div className="flex h-full" style={{ minWidth: totalContentWidth }}>
+                    {userSettings.gridSettings.showVertical && (
+                        <div className="w-8 border-r border-slate-300 flex items-center justify-center bg-slate-200 text-slate-500 flex-shrink-0">#</div>
+                    )}
+                    {visibleCols.includes('id') && <ResizableHeader width={colWidths.id} onResize={w=>setColWidths({...colWidths, id:w})}>{t('ActivityID')}</ResizableHeader>}
+                    {visibleCols.includes('name') && <ResizableHeader width={colWidths.name} onResize={w=>setColWidths({...colWidths, name:w})}>{t('ActivityName')}</ResizableHeader>}
+                    {visibleCols.includes('duration') && <ResizableHeader width={colWidths.duration} onResize={w=>setColWidths({...colWidths, duration:w})} align="right">{t('Duration')}</ResizableHeader>}
+                    {visibleCols.includes('start') && <ResizableHeader width={colWidths.start} onResize={w=>setColWidths({...colWidths, start:w})} align="center">{t('Start')}</ResizableHeader>}
+                    {visibleCols.includes('finish') && <ResizableHeader width={colWidths.finish} onResize={w=>setColWidths({...colWidths, finish:w})} align="center">{t('Finish')}</ResizableHeader>}
+                    {visibleCols.includes('float') && <ResizableHeader width={colWidths.float} onResize={w=>setColWidths({...colWidths, float:w})} align="right">{t('TotalFloat')}</ResizableHeader>}
+                    {visibleCols.includes('preds') && <ResizableHeader width={colWidths.preds} onResize={w=>setColWidths({...colWidths, preds:w})}>{t('Predecessors')}</ResizableHeader>}
+                </div>
             </div>
 
             {/* Body */}
             <div 
-                className="overflow-y-auto overflow-x-auto bg-white flex-grow" 
+                className="overflow-scroll bg-white flex-grow relative" 
                 ref={containerRef}
                 onScroll={handleBodyScroll}
             >
-                <div style={{ minWidth: Object.values(colWidths).reduce((a,b)=>a+b, 40), height: totalHeight, position: 'relative' }}>
+                <div style={{ minWidth: totalContentWidth, height: totalHeight, position: 'relative' }}>
                     {virtualItems.map(({ index, offsetTop }) => {
                         const row = rows[index];
                         const isSel = selectedIds.includes(row.id);
