@@ -262,6 +262,9 @@ export const translations = {
         Profile: 'Profile',
         UserName: 'Name',
         UserManual: 'User Manual',
+        FreeTrial: 'Free Trial',
+        StandardPlan: 'Standard Plan',
+        ProPlan: 'Pro Plan',
     },
     zh: {
         File: '文件',
@@ -508,6 +511,9 @@ export const translations = {
         Profile: '个人资料',
         UserName: '姓名',
         UserManual: '用户手册',
+        FreeTrial: '试用版',
+        StandardPlan: '标准版',
+        ProPlan: '专业版',
     }
 };
 
