@@ -27,15 +27,14 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
         data: projectData,
         schedule,
         ganttZoom: zoomLevel,
-        setGanttZoom: setZoomLevel,
+        userSettings,
         showRelations,
-        showCritical,
-        userSettings
+        showCritical
     } = useAppStore();
 
-    const { t } = useTranslation(userSettings.language);
+    // const { t } = useTranslation(userSettings.language);
 
-    const [zoomDrag, setZoomDrag] = useState<{start: number, val: number} | null>(null);
+    // const [zoomDrag, setZoomDrag] = useState<{start: number, val: number} | null>(null);
     const [manualPixelPerDay, setManualPixelPerDay] = useState<number | null>(null);
     
     // Internal refs for split view
@@ -45,7 +44,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
     const [viewportWidth, setViewportWidth] = useState(0);
     const [scrollLeft, setScrollLeft] = useState(0);
 
-    // Update viewport width
+    // Update viewport width and sync scroll
     useEffect(() => {
         const el = bodyContainerRef.current;
         if (!el) return;
@@ -54,7 +53,14 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
         });
         ro.observe(el);
         setViewportWidth(el.clientWidth);
-        return () => ro.disconnect();
+
+        const onScroll = () => setScrollLeft(el.scrollLeft);
+        el.addEventListener('scroll', onScroll);
+
+        return () => {
+            ro.disconnect();
+            el.removeEventListener('scroll', onScroll);
+        };
     }, []);
 
     const { virtualItems, totalHeight, startIndex, endIndex } = useVirtualScroll({
@@ -415,7 +421,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
 
 
     const handleMouseDown = (e: React.MouseEvent) => {
-        setZoomDrag({ start: e.clientX, val: pixelPerDay });
+        // setZoomDrag({ start: e.clientX, val: pixelPerDay });
         const onMove = (evt: MouseEvent) => {
             const diff = evt.clientX - e.clientX;
             const newZoom = Math.max(0.1, pixelPerDay + (diff * 0.1));
@@ -424,7 +430,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
         const onUp = () => {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
-            setZoomDrag(null);
+            // setZoomDrag(null);
         };
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
@@ -434,6 +440,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
         if (headerContainerRef.current) {
             headerContainerRef.current.scrollLeft = e.currentTarget.scrollLeft;
         }
+        setScrollLeft(e.currentTarget.scrollLeft);
         if (onScroll) onScroll(e);
     };
 
