@@ -10,20 +10,23 @@ interface ModalProps {
     onClose: () => void;
     children: React.ReactNode;
     footer?: React.ReactNode;
+    className?: string;
 }
 
-export const BaseModal: React.FC<ModalProps> = ({ isOpen, title, onClose, children, footer }) => {
+export const BaseModal: React.FC<ModalProps> = ({ isOpen, title, onClose, children, footer, className }) => {
     if (!isOpen) return null;
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="bg-white border border-slate-400 shadow-2xl w-96 max-w-[95vw] rounded-sm overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="bg-blue-900 text-white px-3 py-1 text-sm font-bold flex justify-between items-center shadow-sm select-none">
-                    <span>{title}</span>
-                    <button onClick={onClose} className="hover:text-red-300 font-bold">✕</button>
+        <div className="modal-overlay fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={onClose}>
+            <div className={`bg-white shadow-2xl rounded-lg overflow-hidden border border-slate-100 transform transition-all ${className || 'w-96 max-w-[95vw]'}`} onClick={e => e.stopPropagation()}>
+                <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center select-none bg-white">
+                    <span className="font-semibold text-slate-800 text-lg">{title}</span>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-full hover:bg-slate-100">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
                 </div>
-                <div className="p-4 text-xs text-slate-700">{children}</div>
+                <div className="p-6 text-sm text-slate-600 leading-relaxed max-h-[70vh] overflow-y-auto">{children}</div>
                 {footer && (
-                    <div className="bg-slate-100 p-2 border-t flex justify-end gap-2">
+                    <div className="bg-slate-50 px-5 py-3 border-t border-slate-100 flex justify-end gap-3">
                         {footer}
                     </div>
                 )}
@@ -172,27 +175,24 @@ export const HelpModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ 
         }
     }, [isOpen]);
 
-    if(!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-             <div className="bg-white w-[800px] h-[600px] flex flex-col rounded shadow-2xl overflow-hidden">
-                 <div className="bg-blue-900 text-white p-3 font-bold flex justify-between shrink-0">
-                     <span>Planner Web - Help & Documentation</span>
-                     <button onClick={onClose} className="hover:text-red-300">✕</button>
-                 </div>
-                 
-                 <div className="flex-grow overflow-y-auto p-8">
-                     <SimpleMarkdown content={content} />
-                 </div>
-
-                 <div className="bg-slate-100 border-t p-4 text-center shrink-0">
-                     <p className="text-xs text-slate-500 mt-1">
-                         Copyright &copy; {new Date().getFullYear()} <a href="http://www.planner.cn" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline font-bold">Planner.cn</a>. All rights reserved.
-                     </p>
-                 </div>
+        <BaseModal 
+            isOpen={isOpen} 
+            title="Planner Web - Help & Documentation" 
+            onClose={onClose}
+            className="w-[800px] h-[600px] flex flex-col"
+            footer={
+                <div className="w-full text-center">
+                    <p className="text-xs text-slate-500">
+                        Copyright &copy; {new Date().getFullYear()} <a href="http://www.planner.cn" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline font-bold">Planner.cn</a>. All rights reserved.
+                    </p>
+                </div>
+            }
+        >
+             <div className="flex-grow">
+                 <SimpleMarkdown content={content} />
              </div>
-        </div>
+        </BaseModal>
     )
 }
 

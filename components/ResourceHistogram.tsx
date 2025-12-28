@@ -45,13 +45,26 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resourceId }) => 
 
             let current = new Date(act.startDate);
             const end = new Date(act.endDate);
+            
+            // Calculate duration in days (inclusive)
+            const durationMs = end.getTime() - current.getTime();
+            const durationDays = Math.max(1, Math.round(durationMs / (1000 * 60 * 60 * 24)) + 1);
+
+            // Determine daily value based on resource type
+            // Material: Input is Total Quantity -> Spread over duration
+            // Labor/Equipment: Input is Daily Intensity (e.g. 1 person) -> Constant per day
+            let dailyValue = assign.units;
+            if (resource.type === 'Material') {
+                dailyValue = assign.units / durationDays;
+            }
+
             // Safety break
             let loop = 0;
             // Iterate day by day for the activity
             while(current <= end && loop < 3000) { 
                 loop++;
                 const key = current.toISOString().split('T')[0];
-                dailyUsage[key] = (dailyUsage[key] || 0) + assign.units;
+                dailyUsage[key] = (dailyUsage[key] || 0) + dailyValue;
                 current.setDate(current.getDate() + 1);
             }
         });
@@ -155,10 +168,10 @@ const ResourceHistogram: React.FC<ResourceHistogramProps> = ({ resourceId }) => 
             {histogramData.length === 0 ? (
                 <div className="h-[200px] flex items-center justify-center text-slate-400 text-xs">No assignments found for this period.</div>
             ) : (
-                <div className="overflow-x-auto overflow-y-hidden custom-scrollbar pb-2 relative">
+                <div className="overflow-x-auto overflow-y-hidden pb-2 relative flex-grow">
                     <div className="flex">
                         {/* Fixed Y-Axis */}
-                        <div className="flex-shrink-0 border-r border-slate-300 mr-1 relative" style={{ width: leftMargin, height: height + bottomMargin }}>
+                        <div className="flex-shrink-0 border-r border-slate-300 mr-1 relative bg-white z-10" style={{ width: leftMargin, height: height + bottomMargin }}>
                             {[0, 0.25, 0.5, 0.75, 1].map(ratio => (
                                 <div key={ratio} className="absolute right-2 text-[11px] font-medium text-slate-600" style={{ bottom: ratio * height + bottomMargin - 8 }}>
                                     {Math.round(maxVal * ratio).toLocaleString()}

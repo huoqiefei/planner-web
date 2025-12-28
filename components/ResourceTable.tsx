@@ -17,8 +17,11 @@ const ResourceTable: React.FC = () => {
     const { t } = useTranslation(userSettings.language);
 
     const resources = data?.resources || [];
+    const customFields = data?.meta?.customFieldDefinitions?.filter(f => f.scope === 'resource') || [];
 
-    const [colWidths, setColWidths] = useState({ id: 100, name: 300, type: 80, unit: 60, max: 100 });
+    const [colWidths, setColWidths] = useState<Record<string, number>>({ 
+        id: 100, name: 300, type: 80, unit: 60, max: 100, unitPrice: 80 
+    });
     const [ctx, setCtx] = useState<{x:number, y:number, id:string} | null>(null);
     const [editing, setEditing] = useState<{id:string, field:string} | null>(null);
     const [val, setVal] = useState('');
@@ -44,7 +47,13 @@ const ResourceTable: React.FC = () => {
     };
     
     const saveEdit = () => {
-        if(editing) updateRes(editing.id, editing.field as any, editing.field==='maxUnits'?Number(val):val);
+        if(editing) {
+            if (customFields.find(f => f.id === editing.field)) {
+                updateCustomField(editing.id, editing.field, val);
+            } else {
+                updateRes(editing.id, editing.field as any, (editing.field==='maxUnits' || editing.field==='unitPrice')?Number(val):val);
+            }
+        }
         setEditing(null);
     };
 
@@ -85,11 +94,15 @@ const ResourceTable: React.FC = () => {
         <div className="flex-grow flex flex-col overflow-hidden" onKeyDown={handleKeyDown} tabIndex={0} onClick={()=>setCtx(null)}>
             {/* Header */}
             <div className="flex bg-slate-100 border-b border-slate-300 font-bold text-slate-700 shadow-sm" style={{ height: 36, fontSize: `${fontSizePx}px` }}>
-                <ResizableHeader width={colWidths.id} onResize={w=>setColWidths({...colWidths, id:w})}>{t('ResourceID')}</ResizableHeader>
-                <ResizableHeader width={colWidths.name} onResize={w=>setColWidths({...colWidths, name:w})}>{t('ResourceName')}</ResizableHeader>
-                <ResizableHeader width={colWidths.type} onResize={w=>setColWidths({...colWidths, type:w})}>{t('Type')}</ResizableHeader>
-                <ResizableHeader width={colWidths.unit} onResize={w=>setColWidths({...colWidths, unit:w})}>{t('Unit')}</ResizableHeader>
-                <ResizableHeader width={colWidths.max} onResize={w=>setColWidths({...colWidths, max:w})}>{t('MaxUnits')}</ResizableHeader>
+                <ResizableHeader width={colWidths.id || 100} onResize={w=>setColWidths({...colWidths, id:w})}>{t('ResourceID')}</ResizableHeader>
+                <ResizableHeader width={colWidths.name || 300} onResize={w=>setColWidths({...colWidths, name:w})}>{t('ResourceName')}</ResizableHeader>
+                <ResizableHeader width={colWidths.type || 80} onResize={w=>setColWidths({...colWidths, type:w})}>{t('Type')}</ResizableHeader>
+                <ResizableHeader width={colWidths.unit || 60} onResize={w=>setColWidths({...colWidths, unit:w})}>{t('Unit')}</ResizableHeader>
+                <ResizableHeader width={colWidths.unitPrice || 80} onResize={w=>setColWidths({...colWidths, unitPrice:w})}>{t('UnitPrice' as any)}</ResizableHeader>
+                <ResizableHeader width={colWidths.max || 100} onResize={w=>setColWidths({...colWidths, max:w})}>{t('MaxUnits')}</ResizableHeader>
+                {customFields.map(cf => (
+                    <ResizableHeader key={cf.id} width={colWidths[cf.id] || 100} onResize={w=>setColWidths({...colWidths, [cf.id]:w})}>{cf.name}</ResizableHeader>
+                ))}
             </div>
             {/* Body */}
             <div className="flex-grow overflow-auto bg-slate-50">
@@ -123,6 +136,13 @@ const ResourceTable: React.FC = () => {
                                     <span onDoubleClick={()=>startEdit(r.id, 'unit', r.unit)} className="w-full">{r.unit}</span>
                                 )}
                             </div>
+                            <div className="border-r border-slate-200 px-2 flex items-center truncate text-right justify-end" style={{ width: colWidths.unitPrice || 80 }}>
+                                {editing?.id===r.id && editing?.field==='unitPrice' ? (
+                                    <input autoFocus type="number" className="w-full h-full px-1 border-2 border-blue-400 rounded text-right" value={val} onChange={e=>setVal(e.target.value)} onBlur={saveEdit} onKeyDown={e=>e.key==='Enter'&&saveEdit()} />
+                                ) : (
+                                    <span onDoubleClick={()=>startEdit(r.id, 'unitPrice', r.unitPrice)} className="w-full text-right">{r.unitPrice}</span>
+                                )}
+                            </div>
                             <div className="border-r border-slate-200 px-2 flex items-center truncate text-right justify-end" style={{ width: colWidths.max }}>
                                 {editing?.id===r.id && editing?.field==='maxUnits' ? (
                                     <input autoFocus type="number" className="w-full h-full px-1 border-2 border-blue-400 rounded text-right" value={val} onChange={e=>setVal(e.target.value)} onBlur={saveEdit} onKeyDown={e=>e.key==='Enter'&&saveEdit()} />
@@ -130,6 +150,39 @@ const ResourceTable: React.FC = () => {
                                     <span onDoubleClick={()=>startEdit(r.id, 'maxUnits', r.maxUnits)} className="w-full text-right">{r.maxUnits}</span>
                                 )}
                             </div>
+                            {customFields.map(cf => (
+                                <div key={cf.id} className="border-r border-slate-200 px-2 flex items-center truncate" style={{ width: colWidths[cf.id] || 100 }}>
+                                    {editing?.id===r.id && editing?.field===cf.id ? (
+                                        cf.type === 'list' && cf.options ? (
+                                            <select 
+                                                autoFocus
+                                                className="w-full h-full px-1 border-2 border-blue-400 rounded bg-white"
+                                                value={val}
+                                                onChange={e=>setVal(e.target.value)}
+                                                onBlur={saveEdit}
+                                                onKeyDown={e=>e.key==='Enter'&&saveEdit()}
+                                            >
+                                                <option value="">-</option>
+                                                {cf.options.map(opt => (
+                                                    <option key={opt} value={opt}>{opt}</option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <input 
+                                                autoFocus 
+                                                type={cf.type === 'number' ? 'number' : cf.type === 'date' ? 'date' : 'text'}
+                                                className="w-full h-full px-1 border-2 border-blue-400 rounded" 
+                                                value={val} 
+                                                onChange={e=>setVal(e.target.value)} 
+                                                onBlur={saveEdit} 
+                                                onKeyDown={e=>e.key==='Enter'&&saveEdit()} 
+                                            />
+                                        )
+                                    ) : (
+                                        <span onDoubleClick={()=>startEdit(r.id, cf.id, r.customFields?.[cf.id] || '')} className="w-full">{r.customFields?.[cf.id]}</span>
+                                    )}
+                                </div>
+                            ))}
                         </div>
                     ))}
                     {resources.length === 0 && (

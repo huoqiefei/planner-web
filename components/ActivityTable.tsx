@@ -41,8 +41,11 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
         setCtx, 
         userSettings,
         setUserSettings,
-        schedule 
+        schedule,
+        data
     } = useAppStore();
+
+    const customFields = data?.meta?.customFieldDefinitions?.filter(f => f.scope === 'activity') || [];
 
     const { handleUpdate: onUpdate } = useProjectOperations();
     const { flatRows: rows, toggleExpand: onToggleExpand } = useFlatRows();
@@ -74,10 +77,11 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
 
     // Calculate total required width for columns 
     const showVertical = userSettings.gridSettings.showVertical;
-    const totalContentWidth = Object.entries(colWidths)
+    const standardWidth = Object.entries(colWidths)
         .filter(([key]) => visibleCols.includes(key))
-        .reduce((sum, [_, width]) => sum + width, 0) 
-        + (showVertical ? 32 : 0) + 20; // +20 for buffer/padding
+        .reduce((sum, [_, width]) => sum + width, 0);
+    const customWidth = customFields.reduce((sum, cf) => sum + (colWidths[cf.id] || 100), 0);
+    const totalContentWidth = standardWidth + customWidth + (showVertical ? 32 : 0) + 20; // +20 for buffer/padding
 
     const startEdit = (id: string, field: string, val: any) => {
         setEditing({id, field});
@@ -95,7 +99,17 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
     };
 
     const saveEdit = () => {
-        if(editing) onUpdate(editing.id, editing.field, editVal);
+        if(editing) {
+            if (customFields.find(f => f.id === editing.field)) {
+                const act = rows.find(r => r.id === editing.id)?.data as Activity;
+                if (act) {
+                    const newCustom = { ...act.customFields, [editing.field]: editVal };
+                    onUpdate(editing.id, 'customFields', newCustom);
+                }
+            } else {
+                onUpdate(editing.id, editing.field, editVal);
+            }
+        }
         setEditing(null);
     };
 
@@ -281,6 +295,46 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
                                         ))}
                                     </div>
                                 )}
+
+                                {/* Custom Fields */}
+                                {customFields.map(cf => (
+                                    <div key={cf.id} className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell" style={{ width: colWidths[cf.id] || 100 }}>
+                                        {row.type === 'Activity' && (editing?.id===row.id && editing?.field===cf.id ? (
+                                            cf.type === 'list' && cf.options ? (
+                                                <select 
+                                                    autoFocus
+                                                    className="w-full h-full border-2 border-blue-400 px-1 rounded bg-white"
+                                                    value={editVal}
+                                                    onChange={e=>setEditVal(e.target.value)}
+                                                    onBlur={saveEdit}
+                                                    onKeyDown={handleKeyDown}
+                                                >
+                                                    <option value="">-</option>
+                                                    {cf.options.map(opt => (
+                                                        <option key={opt} value={opt}>{opt}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <input 
+                                                    autoFocus 
+                                                    type={cf.type === 'number' ? 'number' : cf.type === 'date' ? 'date' : 'text'}
+                                                    className="w-full h-full border-2 border-blue-400 px-1 rounded" 
+                                                    value={editVal} 
+                                                    onChange={e=>setEditVal(e.target.value)} 
+                                                    onBlur={saveEdit} 
+                                                    onKeyDown={handleKeyDown} 
+                                                />
+                                            )
+                                        ) : (
+                                            <span 
+                                                onDoubleClick={() => startEdit(row.id, cf.id, row.data.customFields?.[cf.id] || '')} 
+                                                className="truncate w-full block"
+                                            >
+                                                {row.data.customFields?.[cf.id]}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ))}
                             </div>
                         );
                     })}

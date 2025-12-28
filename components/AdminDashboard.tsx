@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { AdminConfig } from '../types';
 import { authService } from '../services/authService';
-import { AlertModal } from './Modals';
+import { AlertModal, BaseModal } from './Modals';
 
 interface AdminDashboardProps {
     isOpen: boolean;
@@ -99,14 +99,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[100] backdrop-blur-sm">
-            <div className="bg-slate-50 border border-slate-300 rounded-lg w-[600px] shadow-2xl overflow-hidden">
-                <div className="bg-slate-800 text-white px-4 py-3 font-bold flex justify-between items-center">
-                    <span>System Administration</span>
-                    <button onClick={onClose} className="hover:text-red-300 text-lg">×</button>
-                </div>
-
-                <div className="flex border-b bg-slate-100">
+        <>
+            <BaseModal
+                isOpen={isOpen}
+                onClose={onClose}
+                title="System Administration"
+                className="w-[600px] h-[80vh] flex flex-col"
+                footer={
+                    activeTab === 'config' ? (
+                        <div className="flex justify-end gap-2 w-full">
+                            <button onClick={onClose} className="px-4 py-2 text-slate-500 hover:text-slate-800 text-sm">Cancel</button>
+                            <button onClick={handleSaveConfig} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-bold">Save Configuration</button>
+                        </div>
+                    ) : undefined
+                }
+            >
+                <div className="flex border-b bg-slate-100 mb-4">
                     <button 
                         className={`flex-1 py-3 text-sm font-bold ${activeTab === 'config' ? 'bg-white border-t-2 border-t-blue-600 text-blue-700' : 'text-slate-500 hover:bg-slate-200'}`}
                         onClick={() => setActiveTab('config')}
@@ -121,14 +129,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
                     </button>
                 </div>
 
-                <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
+                <div className="space-y-4 overflow-y-auto custom-scrollbar pr-2 flex-grow">
                     {activeTab === 'config' ? (
                         <>
                             <div className="bg-blue-50 border border-blue-200 p-2 text-xs text-blue-800 rounded mb-4">
                                 System Settings are saved to the backend server.
                             </div>
 
-                    <div className="space-y-4 border-b pb-4">
+                            <div className="space-y-4 border-b pb-4">
                         <h4 className="font-bold text-slate-700">General Info</h4>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1">Software Name</label>
@@ -350,8 +358,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
                 title="Error"
                 onClose={() => setAlertMsg(null)} 
             />
-            </div>
-        </div>
+            </BaseModal>
+        </>
     );
 };
 

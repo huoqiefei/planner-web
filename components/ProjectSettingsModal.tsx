@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
-import { ProjectData, Calendar, CalendarException } from '../types';
-import { AlertModal } from './Modals';
+import { ProjectData, Calendar, CalendarException, CustomFieldDefinition } from '../types';
+import { AlertModal, BaseModal } from './Modals';
 
 interface ProjectSettingsModalProps {
     isOpen: boolean;
@@ -13,7 +12,8 @@ interface ProjectSettingsModalProps {
 const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onClose, projectData, onUpdateProject }) => {
     const [meta, setMeta] = useState(projectData.meta!);
     const [calendars, setCalendars] = useState<Calendar[]>(projectData.calendars || []);
-    const [activeTab, setActiveTab] = useState<'General' | 'Defaults' | 'Calendars'>('General');
+    const [customFieldDefinitions, setCustomFieldDefinitions] = useState<CustomFieldDefinition[]>(projectData.meta?.customFieldDefinitions || []);
+    const [activeTab, setActiveTab] = useState<'General' | 'Defaults' | 'Calendars' | 'Custom Fields'>('General');
     const [selectedCalId, setSelectedCalId] = useState<string>('');
     
     // Holiday Range State
@@ -21,8 +21,14 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
     const [holidayEnd, setHolidayEnd] = useState('');
     const [alertMsg, setAlertMsg] = useState<string | null>(null);
 
+    // Custom Field State
+    const [newField, setNewField] = useState<Partial<CustomFieldDefinition>>({ name: '', scope: 'activity', type: 'text' });
+
     useEffect(() => {
-        if(projectData.meta) setMeta(projectData.meta);
+        if(projectData.meta) {
+            setMeta(projectData.meta);
+            setCustomFieldDefinitions(projectData.meta.customFieldDefinitions || []);
+        }
         if(projectData.calendars) {
             setCalendars(projectData.calendars);
             if(projectData.calendars.length > 0 && !selectedCalId) {
@@ -32,7 +38,8 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
     }, [projectData, isOpen]);
 
     const handleSave = () => {
-        onUpdateProject(meta, calendars);
+        const updatedMeta = { ...meta, customFieldDefinitions };
+        onUpdateProject(updatedMeta, calendars);
         onClose();
     };
 
@@ -101,30 +108,55 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
         setSelectedCalId(newCal.id);
     };
 
+    const addCustomField = () => {
+        if (!newField.name) return;
+        const id = `cf_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        setCustomFieldDefinitions([...customFieldDefinitions, { ...newField, id } as CustomFieldDefinition]);
+        setNewField({ name: '', scope: 'activity', type: 'text' });
+    };
+
+    const deleteCustomField = (id: string) => {
+        setCustomFieldDefinitions(customFieldDefinitions.filter(f => f.id !== id));
+    };
+
     if (!isOpen || !meta) return null;
 
     const selectedCal = calendars.find(c => c.id === selectedCalId);
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 backdrop-blur-sm">
-            <div className="bg-white border border-slate-300 rounded-lg w-[800px] max-h-[90vh] flex flex-col shadow-2xl">
-                <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                    <h2 className="text-xl font-bold text-slate-800">Project Settings</h2>
-                    <div className="flex gap-2">
-                        <button onClick={() => setActiveTab('General')} className={`px-3 py-1 text-sm rounded ${activeTab === 'General' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-700'}`}>General</button>
-                        <button onClick={() => setActiveTab('Defaults')} className={`px-3 py-1 text-sm rounded ${activeTab === 'Defaults' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-700'}`}>Defaults</button>
-                        <button onClick={() => setActiveTab('Calendars')} className={`px-3 py-1 text-sm rounded ${activeTab === 'Calendars' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-700'}`}>Calendars</button>
-                    </div>
+        <BaseModal 
+            isOpen={isOpen} 
+            title="Project Settings" 
+            onClose={onClose}
+            className="w-[800px] max-h-[90vh] flex flex-col"
+            footer={
+                <div className="flex justify-end gap-2 w-full">
+                    <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 border border-slate-300 rounded hover:bg-slate-50">Cancel</button>
+                    <button onClick={handleSave} className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
+                </div>
+            }
+        >
+            <div className="flex flex-col h-full">
+                <div className="flex gap-2 mb-6 border-b border-slate-100 pb-2">
+                    {['General', 'Defaults', 'Calendars', 'Custom Fields'].map((tab) => (
+                        <button 
+                            key={tab}
+                            onClick={() => setActiveTab(tab as any)} 
+                            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === tab ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+                        >
+                            {tab}
+                        </button>
+                    ))}
                 </div>
 
-                <div className="p-6 overflow-y-auto flex-grow">
+                <div className="flex-grow">
                     {activeTab === 'General' && (
-                        <div className="space-y-4">
+                        <div className="space-y-4 max-w-lg">
                             <div>
                                 <label className="block text-slate-500 text-xs font-bold mb-1">Project Code (for WBS)</label>
                                 <input 
-                                    className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300"
+                                    className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                     value={meta.projectCode || ''}
                                     onChange={e => setMeta({...meta, projectCode: e.target.value})}
                                     placeholder="e.g. PROJ-01"
@@ -133,7 +165,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                             <div>
                                 <label className="block text-slate-500 text-xs font-bold mb-1">Project Name</label>
                                 <input 
-                                    className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300"
+                                    className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                     value={meta.title}
                                     onChange={e => setMeta({...meta, title: e.target.value})}
                                 />
@@ -142,7 +174,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                 <label className="block text-slate-500 text-xs font-bold mb-1">Project Start Date</label>
                                 <input 
                                     type="date"
-                                    className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300"
+                                    className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                     value={meta.projectStartDate}
                                     onChange={e => setMeta({...meta, projectStartDate: e.target.value})}
                                 />
@@ -150,7 +182,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                              <div>
                                 <label className="block text-slate-500 text-xs font-bold mb-1">Default Calendar</label>
                                 <select 
-                                    className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300"
+                                    className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                     value={meta.defaultCalendarId}
                                     onChange={e => setMeta({...meta, defaultCalendarId: e.target.value})}
                                 >
@@ -163,65 +195,69 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                     )}
 
                     {activeTab === 'Defaults' && (
-                        <div className="space-y-4">
-                            <h4 className="font-bold text-slate-700 border-b border-slate-200 pb-2">Activity ID Auto-numbering</h4>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-slate-500 text-xs font-bold mb-1">Prefix</label>
-                                    <input 
-                                        className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300"
-                                        value={meta.activityIdPrefix || 'A'}
-                                        onChange={e => setMeta({...meta, activityIdPrefix: e.target.value})}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-slate-500 text-xs font-bold mb-1">Increment Step</label>
-                                    <input 
-                                        type="number"
-                                        className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300"
-                                        value={meta.activityIdIncrement || 10}
-                                        onChange={e => setMeta({...meta, activityIdIncrement: Number(e.target.value)})}
-                                    />
+                        <div className="space-y-6 max-w-lg">
+                            <div>
+                                <h4 className="font-bold text-slate-700 border-b border-slate-200 pb-2 mb-4">Activity ID Auto-numbering</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">Prefix</label>
+                                        <input 
+                                            className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
+                                            value={meta.activityIdPrefix || 'A'}
+                                            onChange={e => setMeta({...meta, activityIdPrefix: e.target.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">Increment Step</label>
+                                        <input 
+                                            type="number"
+                                            className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
+                                            value={meta.activityIdIncrement || 10}
+                                            onChange={e => setMeta({...meta, activityIdIncrement: Number(e.target.value)})}
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
-                            <h4 className="font-bold text-slate-700 border-b border-slate-200 pb-2 pt-4">Resource ID Auto-numbering</h4>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-slate-500 text-xs font-bold mb-1">Prefix</label>
-                                    <input 
-                                        className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300"
-                                        value={meta.resourceIdPrefix || 'R'}
-                                        onChange={e => setMeta({...meta, resourceIdPrefix: e.target.value})}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-slate-500 text-xs font-bold mb-1">Increment Step</label>
-                                    <input 
-                                        type="number"
-                                        className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300"
-                                        value={meta.resourceIdIncrement || 10}
-                                        onChange={e => setMeta({...meta, resourceIdIncrement: Number(e.target.value)})}
-                                    />
+                            <div>
+                                <h4 className="font-bold text-slate-700 border-b border-slate-200 pb-2 mb-4">Resource ID Auto-numbering</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">Prefix</label>
+                                        <input 
+                                            className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
+                                            value={meta.resourceIdPrefix || 'R'}
+                                            onChange={e => setMeta({...meta, resourceIdPrefix: e.target.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">Increment Step</label>
+                                        <input 
+                                            type="number"
+                                            className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
+                                            value={meta.resourceIdIncrement || 10}
+                                            onChange={e => setMeta({...meta, resourceIdIncrement: Number(e.target.value)})}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     )}
 
                     {activeTab === 'Calendars' && (
-                        <div className="flex h-full gap-4">
+                        <div className="flex h-[400px] gap-6">
                             {/* Calendar List */}
-                            <div className="w-1/3 border-r border-slate-200 pr-4">
-                                <div className="flex justify-between items-center mb-2">
+                            <div className="w-1/3 border border-slate-200 rounded-lg p-4 bg-slate-50">
+                                <div className="flex justify-between items-center mb-4">
                                     <h4 className="font-bold text-slate-700">Calendars</h4>
-                                    <button onClick={addNewCalendar} className="text-xs bg-green-600 px-2 py-1 rounded text-white hover:bg-green-700">+</button>
+                                    <button onClick={addNewCalendar} className="text-xs bg-green-600 px-2 py-1 rounded text-white hover:bg-green-700 transition-colors shadow-sm">+ Add New</button>
                                 </div>
                                 <ul className="space-y-1">
                                     {calendars.map(cal => (
                                         <li 
                                             key={cal.id}
                                             onClick={() => setSelectedCalId(cal.id)}
-                                            className={`p-2 rounded cursor-pointer text-sm ${selectedCalId === cal.id ? 'bg-blue-100 text-blue-900 font-medium' : 'text-slate-600 hover:bg-slate-100'}`}
+                                            className={`p-2 rounded cursor-pointer text-sm transition-colors ${selectedCalId === cal.id ? 'bg-white shadow text-blue-700 font-medium border border-blue-100' : 'text-slate-600 hover:bg-slate-200'}`}
                                         >
                                             {cal.name}
                                         </li>
@@ -231,24 +267,24 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
 
                             {/* Calendar Details */}
                             {selectedCal && (
-                                <div className="w-2/3 pl-4 space-y-4">
+                                <div className="w-2/3 space-y-4 overflow-y-auto pr-2">
                                     <div>
-                                        <label className="block text-slate-500 text-xs mb-1">Name</label>
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">Calendar Name</label>
                                         <input 
-                                            className="w-full bg-white border border-slate-300 p-1 rounded text-slate-800 text-sm"
+                                            className="w-full bg-white border border-slate-300 p-2 rounded text-slate-800 text-sm focus:border-blue-500 focus:outline-none"
                                             value={selectedCal.name}
                                             onChange={e => handleUpdateCalendar(selectedCal.id, { name: e.target.value })}
                                         />
                                     </div>
                                     
                                     <div>
-                                        <label className="block text-slate-500 text-xs mb-1">Standard Work Week</label>
-                                        <div className="flex gap-1">
+                                        <label className="block text-slate-500 text-xs font-bold mb-2">Standard Work Week</label>
+                                        <div className="flex gap-2">
                                             {selectedCal.weekDays.map((isWorking, idx) => (
                                                 <button
                                                     key={idx}
                                                     onClick={() => toggleWeekDay(selectedCal.id, idx)}
-                                                    className={`w-8 h-8 rounded text-xs font-bold border ${isWorking ? 'bg-green-100 border-green-300 text-green-800' : 'bg-slate-100 border-slate-300 text-slate-400'}`}
+                                                    className={`w-9 h-9 rounded text-xs font-bold border transition-colors ${isWorking ? 'bg-green-50 border-green-400 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'}`}
                                                 >
                                                     {days[idx].charAt(0)}
                                                 </button>
@@ -257,45 +293,47 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                     </div>
 
                                     <div>
-                                        <label className="block text-slate-500 text-xs mb-1">Daily Work Hours</label>
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">Daily Work Hours</label>
                                         <input 
                                             type="number"
-                                            className="w-20 bg-white border border-slate-300 p-1 rounded text-slate-800 text-sm"
+                                            className="w-24 bg-white border border-slate-300 p-2 rounded text-slate-800 text-sm focus:border-blue-500 focus:outline-none"
                                             value={selectedCal.hoursPerDay}
                                             onChange={e => handleUpdateCalendar(selectedCal.id, { hoursPerDay: Number(e.target.value) })}
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-slate-500 text-xs mb-1">Exceptions (Holidays/Non-Work)</label>
-                                        <div className="flex gap-2 mb-2 items-end bg-slate-100 p-2 rounded border border-slate-200">
+                                        <label className="block text-slate-500 text-xs font-bold mb-2">Exceptions (Holidays/Non-Work)</label>
+                                        <div className="flex gap-2 mb-3 items-end bg-slate-50 p-3 rounded border border-slate-200">
                                             <div>
-                                                <label className="block text-[10px] text-slate-500 mb-0.5">Start Date</label>
+                                                <label className="block text-[10px] text-slate-500 mb-1">Start Date</label>
                                                 <input 
                                                     type="date" 
-                                                    className="bg-white border border-slate-300 text-slate-800 p-1 rounded text-xs w-32"
+                                                    className="bg-white border border-slate-300 text-slate-800 p-1.5 rounded text-xs w-32 focus:border-blue-500 focus:outline-none"
                                                     value={holidayStart}
                                                     onChange={e => setHolidayStart(e.target.value)}
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-[10px] text-slate-500 mb-0.5">End Date (Opt)</label>
+                                                <label className="block text-[10px] text-slate-500 mb-1">End Date (Optional)</label>
                                                 <input 
                                                     type="date" 
-                                                    className="bg-white border border-slate-300 text-slate-800 p-1 rounded text-xs w-32"
+                                                    className="bg-white border border-slate-300 text-slate-800 p-1.5 rounded text-xs w-32 focus:border-blue-500 focus:outline-none"
                                                     value={holidayEnd}
                                                     onChange={e => setHolidayEnd(e.target.value)}
                                                 />
                                             </div>
-                                            <button onClick={addHolidayRange} className="bg-slate-600 hover:bg-slate-700 px-3 py-1 rounded text-xs text-white h-7">Add Range</button>
+                                            <button onClick={addHolidayRange} className="bg-slate-600 hover:bg-slate-700 px-3 py-1.5 rounded text-xs text-white shadow-sm transition-colors">Add Range</button>
                                         </div>
                                         
-                                        <div className="max-h-32 overflow-y-auto bg-slate-50 border border-slate-200 p-2 rounded">
-                                            {selectedCal.exceptions.length === 0 && <div className="text-center text-slate-400 text-xs py-2">No exceptions added.</div>}
+                                        <div className="max-h-40 overflow-y-auto bg-white border border-slate-200 p-2 rounded shadow-inner">
+                                            {selectedCal.exceptions.length === 0 && <div className="text-center text-slate-400 text-xs py-4">No exceptions defined.</div>}
                                             {selectedCal.exceptions.sort((a,b)=>a.date.localeCompare(b.date)).map((ex, i) => (
-                                                <div key={i} className="flex justify-between text-xs text-slate-600 py-1 border-b border-slate-200 last:border-0">
-                                                    <span>{ex.date} <span className="text-red-500">({ex.isWorking ? 'Work' : 'Non-Work'})</span></span>
-                                                    <button onClick={() => deleteException(ex.date)} className="text-red-500 font-bold hover:text-red-700 px-2">×</button>
+                                                <div key={i} className="flex justify-between items-center text-xs text-slate-600 py-2 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 rounded">
+                                                    <span>{ex.date} <span className="text-red-500 font-medium ml-2">({ex.isWorking ? 'Work' : 'Non-Work'})</span></span>
+                                                    <button onClick={() => deleteException(ex.date)} className="text-slate-400 hover:text-red-500 transition-colors p-1">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                    </button>
                                                 </div>
                                             ))}
                                         </div>
@@ -304,19 +342,99 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                             )}
                         </div>
                     )}
+
+                    {activeTab === 'Custom Fields' && (
+                        <div className="space-y-6">
+                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                <h4 className="font-bold text-slate-700 mb-3 text-sm">Add New Custom Field</h4>
+                                <div className="flex gap-4 items-end">
+                                    <div className="flex-grow">
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">Field Name</label>
+                                        <input 
+                                            className="w-full bg-white border border-slate-300 p-2 rounded text-slate-800 text-sm focus:border-blue-500 focus:outline-none"
+                                            value={newField.name || ''}
+                                            onChange={e => setNewField({...newField, name: e.target.value})}
+                                            placeholder="e.g. Budget Code"
+                                        />
+                                    </div>
+                                    <div className="w-40">
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">Scope</label>
+                                        <select 
+                                            className="w-full bg-white border border-slate-300 p-2 rounded text-slate-800 text-sm focus:border-blue-500 focus:outline-none"
+                                            value={newField.scope}
+                                            onChange={e => setNewField({...newField, scope: e.target.value as any})}
+                                        >
+                                            <option value="activity">Activity</option>
+                                            <option value="resource">Resource</option>
+                                        </select>
+                                    </div>
+                                    <div className="w-40">
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">Type</label>
+                                        <select 
+                                            className="w-full bg-white border border-slate-300 p-2 rounded text-slate-800 text-sm focus:border-blue-500 focus:outline-none"
+                                            value={newField.type}
+                                            onChange={e => setNewField({...newField, type: e.target.value as any})}
+                                        >
+                                            <option value="text">Text</option>
+                                            <option value="number">Number</option>
+                                            <option value="date">Date</option>
+                                            <option value="list">List</option>
+                                        </select>
+                                    </div>
+                                    {newField.type === 'list' && (
+                                        <div className="flex-grow">
+                                            <label className="block text-slate-500 text-xs font-bold mb-1">Options (comma separated)</label>
+                                            <input 
+                                                className="w-full bg-white border border-slate-300 p-2 rounded text-slate-800 text-sm focus:border-blue-500 focus:outline-none"
+                                                value={newField.options?.join(',') || ''}
+                                                onChange={e => setNewField({...newField, options: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})}
+                                                placeholder="Option 1, Option 2"
+                                            />
+                                        </div>
+                                    )}
+                                    <button onClick={addCustomField} disabled={!newField.name} className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Add</button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="font-bold text-slate-700 mb-3 text-sm">Defined Fields</h4>
+                                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
+                                            <tr>
+                                                <th className="px-4 py-2">Name</th>
+                                                <th className="px-4 py-2">Scope</th>
+                                                <th className="px-4 py-2">Type</th>
+                                                <th className="px-4 py-2 text-right">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {customFieldDefinitions.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={4} className="px-4 py-8 text-center text-slate-400">No custom fields defined.</td>
+                                                </tr>
+                                            )}
+                                            {customFieldDefinitions.map(def => (
+                                                <tr key={def.id} className="hover:bg-slate-50">
+                                                    <td className="px-4 py-2 font-medium text-slate-700">{def.name}</td>
+                                                    <td className="px-4 py-2 text-slate-600 capitalize">{def.scope}</td>
+                                                    <td className="px-4 py-2 text-slate-600 capitalize">{def.type}</td>
+                                                    <td className="px-4 py-2 text-right">
+                                                        <button onClick={() => deleteCustomField(def.id)} className="text-red-500 hover:text-red-700 font-medium text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors">Delete</button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                <div className="p-4 border-t border-slate-200 flex justify-end gap-2 bg-slate-50 rounded-b-lg">
-                    <button onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-800">Cancel</button>
-                    <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold shadow-sm">Apply Changes</button>
-                </div>
+                <AlertModal isOpen={!!alertMsg} msg={alertMsg || ''} onClose={() => setAlertMsg(null)} />
             </div>
-            <AlertModal 
-                isOpen={!!alertMsg} 
-                msg={alertMsg || ''} 
-                onClose={() => setAlertMsg(null)} 
-            />
-        </div>
+        </BaseModal>
     );
 };
 

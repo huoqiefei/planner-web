@@ -5,6 +5,8 @@ export interface Resource {
   type: 'Labor' | 'Material' | 'Equipment';
   unit: string; // e.g., "hr", "m3", "ea"
   maxUnits: number; // Max units per time (e.g. 8/day)
+  unitPrice?: number;
+  customFields?: Record<string, any>;
 }
 
 export interface Assignment {
@@ -54,12 +56,21 @@ export interface Activity {
   lateFinish: Date;
   totalFloat: number;
   budgetedCost: number;
+  customFields?: Record<string, any>;
 }
 
 export interface WBSNode {
   id: string;
   name: string;
   parentId: string | null;
+}
+
+export interface CustomFieldDefinition {
+  id: string;
+  name: string;
+  scope: 'activity' | 'resource';
+  type: 'text' | 'number' | 'date' | 'list';
+  options?: string[];
 }
 
 export interface ProjectMeta {
@@ -71,6 +82,7 @@ export interface ProjectMeta {
   activityIdIncrement: number;
   resourceIdPrefix: string;
   resourceIdIncrement: number;
+  customFieldDefinitions?: CustomFieldDefinition[];
 }
 
 export interface ProjectData {
