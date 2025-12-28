@@ -41,6 +41,16 @@ const ResourceTable: React.FC = () => {
         handleResourceUpdate(resources.map(r => r.id === id ? { ...r, [field]: val } : r));
     };
 
+    const updateCustomField = (id: string, fieldId: string, val: any) => {
+        handleResourceUpdate(resources.map(r => {
+            if (r.id === id) {
+                const newFields = { ...(r.customFields || {}), [fieldId]: val };
+                return { ...r, customFields: newFields };
+            }
+            return r;
+        }));
+    };
+
     const startEdit = (id: string, field: string, v: any) => {
         setEditing({id, field});
         setVal(String(v));
