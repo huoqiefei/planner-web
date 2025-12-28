@@ -97,6 +97,7 @@ export interface ProjectData {
 export interface ScheduleResult {
     activities: Activity[];
     wbsMap: Record<string, { startDate: Date; endDate: Date; duration: number }>;
+    totalDuration?: number;
 }
 
 export interface GridSettings {
