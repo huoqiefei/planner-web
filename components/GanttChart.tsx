@@ -112,7 +112,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
     }, [schedule, projectStartDate]);
     
     // Position Calculation: Returns X at START of day
-    const getPosition = (date: Date | string): number => {
+    const getPosition = (date: Date | string | undefined): number => {
         if(!date) return 0;
         const d = new Date(date);
         const diffTime = d.getTime() - projectStartDate.getTime();
@@ -327,10 +327,11 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                 // SF: Pred Start -> Succ End
 
                 const type = pred.type || 'FS';
-                const predStart = getPosition(predRow.startDate) + globalOffset;
-                const predEnd = getPosition(predRow.endDate) + pixelPerDay + globalOffset;
-                const currStart = getPosition(row.startDate) + globalOffset;
-                const currEnd = getPosition(row.endDate) + pixelPerDay + globalOffset;
+                // Explicitly wrap in new Date() to satisfy potential strict type checking of Date | string vs Date
+                const predStart = getPosition(predRow.startDate ? new Date(predRow.startDate) : undefined) + globalOffset;
+                const predEnd = getPosition(predRow.endDate ? new Date(predRow.endDate) : undefined) + pixelPerDay + globalOffset;
+                const currStart = getPosition(row.startDate ? new Date(row.startDate) : undefined) + globalOffset;
+                const currEnd = getPosition(row.endDate ? new Date(row.endDate) : undefined) + pixelPerDay + globalOffset;
 
                 if (type === 'FF') {
                     startX = predEnd;

@@ -9,7 +9,7 @@ export interface UseProjectOperationsProps {
     fileInputRef?: React.RefObject<HTMLInputElement>;
 }
 
-export const useProjectOperations = ({ fileInputRef }: UseProjectOperationsProps = {}) => {
+export const useProjectOperations = ({ fileInputRef }: UseProjectOperationsProps = { fileInputRef: undefined }) => {
     const { 
         data, setData, user, setUser, view, setView, selIds, setSelIds, 
         clipboard, setClipboard, setActiveModal, setModalData, 
