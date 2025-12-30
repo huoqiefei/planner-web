@@ -65,7 +65,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
     const handleUserRoleUpdate = async (uid: number, role: string) => {
         try {
             await authService.adminUserUpdate(uid, role as any);
-            setUsers(users.map(u => u.uid === uid ? { ...u, meta: { ...u.meta, planner_role: role } } : u));
+            setUsers(users.map(u => u.uid === uid ? { 
+                ...u, 
+                plannerRole: role,
+                planner_role: role,
+                meta: { ...u.meta, planner_role: role } 
+            } : u));
         } catch (e) {
             setAlertMsg("Failed to update user role.");
         }
@@ -296,7 +301,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose, onSave
                                         </thead>
                                         <tbody className="divide-y">
                                             {users.map(u => {
-                                                const currentRole = u.meta?.planner_role || 'trial';
+                                                const currentRole = u.plannerRole || u.planner_role || u.meta?.planner_role || 'trial';
                                                 return (
                                                     <tr key={u.uid} className="hover:bg-slate-50">
                                                         <td className="p-2">{u.uid}</td>

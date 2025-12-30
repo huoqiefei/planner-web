@@ -4,8 +4,16 @@ import { useTranslation } from '../utils/i18n';
 import { useAppStore } from '../stores/useAppStore';
 import { useProjectOperations } from '../hooks/useProjectOperations';
 import { ResizableHeader } from './ResizableHeader';
+import { BaseModal } from './Modals';
 
-const ResourceTable: React.FC = () => {
+interface ResourceTableProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onAddResource?: () => void;
+    [key: string]: any;
+}
+
+const ResourceTable: React.FC<ResourceTableProps> = ({ isOpen, onClose, onAddResource }) => {
     const { 
         data, 
         selIds, 
@@ -13,14 +21,17 @@ const ResourceTable: React.FC = () => {
         userSettings 
     } = useAppStore();
 
+    const resources = data?.resources || [];
+
     const { handleResourceUpdate } = useProjectOperations();
     const { t } = useTranslation(userSettings.language);
 
-    const resources = data?.resources || [];
-    const customFields = data?.meta?.customFieldDefinitions?.filter(f => f.scope === 'resource') || [];
+    const visibleCols = userSettings.resourceVisibleColumns || ['id', 'name', 'type', 'unit', 'maxUnits', 'unitPrice'];
+    const allCustomFields = data?.meta?.customFieldDefinitions?.filter(f => f.scope === 'resource') || [];
+    const customFields = allCustomFields.filter(cf => visibleCols.includes(cf.id));
 
     const [colWidths, setColWidths] = useState<Record<string, number>>({ 
-        id: 100, name: 300, type: 80, unit: 60, max: 100, unitPrice: 80 
+        id: 100, name: 300, type: 80, unit: 60, maxUnits: 100, unitPrice: 80 
     });
     const [ctx, setCtx] = useState<{x:number, y:number, id:string} | null>(null);
     const [editing, setEditing] = useState<{id:string, field:string} | null>(null);
@@ -101,15 +112,29 @@ const ResourceTable: React.FC = () => {
     };
 
     return (
-        <div className="flex-grow flex flex-col overflow-hidden" onKeyDown={handleKeyDown} tabIndex={0} onClick={()=>setCtx(null)}>
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={t('Resources')}
+            className="w-[90vw] h-[80vh] flex flex-col"
+            footer={
+                <div className="flex justify-end gap-2 w-full">
+                     {onAddResource && (
+                        <button onClick={onAddResource} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">{t('AddResource')}</button>
+                     )}
+                     <button onClick={onClose} className="px-4 py-2 border rounded hover:bg-slate-100 text-sm">{t('Close')}</button>
+                </div>
+            }
+        >
+            <div className="flex-grow flex flex-col overflow-hidden" onKeyDown={handleKeyDown} tabIndex={0} onClick={()=>setCtx(null)}>
             {/* Header */}
             <div className="flex bg-slate-100 border-b border-slate-300 font-bold text-slate-700 shadow-sm" style={{ height: 36, fontSize: `${fontSizePx}px` }}>
-                <ResizableHeader width={colWidths.id || 100} onResize={w=>setColWidths({...colWidths, id:w})}>{t('ResourceID')}</ResizableHeader>
-                <ResizableHeader width={colWidths.name || 300} onResize={w=>setColWidths({...colWidths, name:w})}>{t('ResourceName')}</ResizableHeader>
-                <ResizableHeader width={colWidths.type || 80} onResize={w=>setColWidths({...colWidths, type:w})}>{t('Type')}</ResizableHeader>
-                <ResizableHeader width={colWidths.unit || 60} onResize={w=>setColWidths({...colWidths, unit:w})}>{t('Unit')}</ResizableHeader>
-                <ResizableHeader width={colWidths.unitPrice || 80} onResize={w=>setColWidths({...colWidths, unitPrice:w})}>{t('UnitPrice' as any)}</ResizableHeader>
-                <ResizableHeader width={colWidths.max || 100} onResize={w=>setColWidths({...colWidths, max:w})}>{t('MaxUnits')}</ResizableHeader>
+                {visibleCols.includes('id') && <ResizableHeader width={colWidths.id || 100} onResize={w=>setColWidths({...colWidths, id:w})}>{t('ResourceID')}</ResizableHeader>}
+                {visibleCols.includes('name') && <ResizableHeader width={colWidths.name || 300} onResize={w=>setColWidths({...colWidths, name:w})}>{t('ResourceName')}</ResizableHeader>}
+                {visibleCols.includes('type') && <ResizableHeader width={colWidths.type || 80} onResize={w=>setColWidths({...colWidths, type:w})}>{t('Type')}</ResizableHeader>}
+                {visibleCols.includes('unit') && <ResizableHeader width={colWidths.unit || 60} onResize={w=>setColWidths({...colWidths, unit:w})}>{t('Unit')}</ResizableHeader>}
+                {visibleCols.includes('unitPrice') && <ResizableHeader width={colWidths.unitPrice || 80} onResize={w=>setColWidths({...colWidths, unitPrice:w})}>{t('UnitPrice')}</ResizableHeader>}
+                {visibleCols.includes('maxUnits') && <ResizableHeader width={colWidths.maxUnits || 100} onResize={w=>setColWidths({...colWidths, maxUnits:w})}>{t('MaxUnits')}</ResizableHeader>}
                 {customFields.map(cf => (
                     <ResizableHeader key={cf.id} width={colWidths[cf.id] || 100} onResize={w=>setColWidths({...colWidths, [cf.id]:w})}>{cf.name}</ResizableHeader>
                 ))}
@@ -124,42 +149,55 @@ const ResourceTable: React.FC = () => {
                         onClick={(e) => handleRowClick(r.id, idx, e)}
                         onContextMenu={(e) => handleContextMenu(e, r.id)}
                         >
-                            <div className="border-r border-slate-200 px-2 flex items-center truncate text-slate-500" style={{ width: colWidths.id }}>{r.id}</div>
-                            <div className="border-r border-slate-200 px-2 flex items-center truncate font-medium text-slate-700" style={{ width: colWidths.name }}>
+                            {visibleCols.includes('id') && <div className="border-r border-slate-200 px-2 flex items-center truncate text-slate-500" style={{ width: colWidths.id }}>{r.id}</div>}
+                            {visibleCols.includes('name') && <div className="border-r border-slate-200 px-2 flex items-center truncate font-medium text-slate-700" style={{ width: colWidths.name }}>
                                 {editing?.id===r.id && editing?.field==='name' ? (
                                     <input autoFocus className="w-full h-full px-1 border-2 border-blue-400 rounded" value={val} onChange={e=>setVal(e.target.value)} onBlur={saveEdit} onKeyDown={e=>e.key==='Enter'&&saveEdit()} />
                                 ) : (
                                     <span onDoubleClick={()=>startEdit(r.id, 'name', r.name)} className="w-full">{r.name}</span>
                                 )}
-                            </div>
-                            <div className="border-r border-slate-200 px-2 flex items-center truncate" style={{ width: colWidths.type }}>
+                            </div>}
+                            {visibleCols.includes('type') && <div className="border-r border-slate-200 px-2 flex items-center truncate" style={{ width: colWidths.type }}>
                                 <select className="w-full bg-transparent border-none outline-none cursor-pointer" value={r.type} onChange={e=>updateRes(r.id, 'type', e.target.value)}>
                                     <option value="Labor">{t('Labor')}</option>
                                     <option value="Material">{t('Material')}</option>
                                     <option value="Equipment">{t('Equipment')}</option>
                                 </select>
-                            </div>
-                            <div className="border-r border-slate-200 px-2 flex items-center truncate" style={{ width: colWidths.unit }}>
+                            </div>}
+                            {visibleCols.includes('unit') && <div className="border-r border-slate-200 px-2 flex items-center truncate" style={{ width: colWidths.unit }}>
                                 {editing?.id===r.id && editing?.field==='unit' ? (
                                     <input autoFocus className="w-full h-full px-1 border-2 border-blue-400 rounded" value={val} onChange={e=>setVal(e.target.value)} onBlur={saveEdit} onKeyDown={e=>e.key==='Enter'&&saveEdit()} />
                                 ) : (
                                     <span onDoubleClick={()=>startEdit(r.id, 'unit', r.unit)} className="w-full">{r.unit}</span>
                                 )}
-                            </div>
-                            <div className="border-r border-slate-200 px-2 flex items-center truncate text-right justify-end" style={{ width: colWidths.unitPrice || 80 }}>
+                            </div>}
+                            {visibleCols.includes('unitPrice') && <div 
+                                className="border-r border-slate-200 px-2 flex items-center truncate text-right justify-end" 
+                                style={{ width: colWidths.unitPrice || 80 }}
+                                onDoubleClick={()=>startEdit(r.id, 'unitPrice', r.unitPrice)}
+                            >
                                 {editing?.id===r.id && editing?.field==='unitPrice' ? (
-                                    <input autoFocus type="number" className="w-full h-full px-1 border-2 border-blue-400 rounded text-right" value={val} onChange={e=>setVal(e.target.value)} onBlur={saveEdit} onKeyDown={e=>e.key==='Enter'&&saveEdit()} />
+                                    <input 
+                                        autoFocus 
+                                        type="number" 
+                                        className="w-full h-full px-1 border-2 border-blue-400 rounded text-right" 
+                                        value={val} 
+                                        onChange={e=>setVal(e.target.value)} 
+                                        onBlur={saveEdit} 
+                                        onKeyDown={e=>e.key==='Enter'&&saveEdit()}
+                                        onClick={e=>e.stopPropagation()} 
+                                    />
                                 ) : (
-                                    <span onDoubleClick={()=>startEdit(r.id, 'unitPrice', r.unitPrice)} className="w-full text-right">{r.unitPrice}</span>
+                                    <span className="w-full text-right block">{r.unitPrice}</span>
                                 )}
-                            </div>
-                            <div className="border-r border-slate-200 px-2 flex items-center truncate text-right justify-end" style={{ width: colWidths.max }}>
+                            </div>}
+                            {visibleCols.includes('maxUnits') && <div className="border-r border-slate-200 px-2 flex items-center truncate text-right justify-end" style={{ width: colWidths.maxUnits || 100 }}>
                                 {editing?.id===r.id && editing?.field==='maxUnits' ? (
                                     <input autoFocus type="number" className="w-full h-full px-1 border-2 border-blue-400 rounded text-right" value={val} onChange={e=>setVal(e.target.value)} onBlur={saveEdit} onKeyDown={e=>e.key==='Enter'&&saveEdit()} />
                                 ) : (
                                     <span onDoubleClick={()=>startEdit(r.id, 'maxUnits', r.maxUnits)} className="w-full text-right">{r.maxUnits}</span>
                                 )}
-                            </div>
+                            </div>}
                             {customFields.map(cf => (
                                 <div key={cf.id} className="border-r border-slate-200 px-2 flex items-center truncate" style={{ width: colWidths[cf.id] || 100 }}>
                                     {editing?.id===r.id && editing?.field===cf.id ? (
@@ -217,6 +255,7 @@ const ResourceTable: React.FC = () => {
                 </div>
             )}
         </div>
+        </BaseModal>
     );
 };
 

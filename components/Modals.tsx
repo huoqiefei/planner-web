@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserSettings, PrintSettings, Resource, AdminConfig } from '../types';
+import { UserSettings, PrintSettings, Resource, AdminConfig, CustomFieldDefinition } from '../types';
 import { useTranslation } from '../utils/i18n';
 import AdminDashboard from './AdminDashboard';
 
@@ -11,9 +11,10 @@ interface ModalProps {
     children: React.ReactNode;
     footer?: React.ReactNode;
     className?: string;
+    bodyClassName?: string;
 }
 
-export const BaseModal: React.FC<ModalProps> = ({ isOpen, title, onClose, children, footer, className }) => {
+export const BaseModal: React.FC<ModalProps> = ({ isOpen, title, onClose, children, footer, className, bodyClassName }) => {
     if (!isOpen) return null;
     return (
         <div className="modal-overlay fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={onClose}>
@@ -24,7 +25,7 @@ export const BaseModal: React.FC<ModalProps> = ({ isOpen, title, onClose, childr
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
-                <div className="p-6 text-sm text-slate-600 leading-relaxed max-h-[70vh] overflow-y-auto">{children}</div>
+                <div className={bodyClassName || "p-6 text-sm text-slate-600 leading-relaxed max-h-[70vh] overflow-y-auto"}>{children}</div>
                 {footer && (
                     <div className="bg-slate-50 px-5 py-3 border-t border-slate-100 flex justify-end gap-3">
                         {footer}
@@ -196,7 +197,15 @@ export const HelpModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ 
     )
 }
 
-export const ColumnSetupModal: React.FC<{ isOpen: boolean, onClose: () => void, visibleColumns: string[], onSave: (cols: string[]) => void, lang?: 'en'|'zh' }> = ({ isOpen, onClose, visibleColumns, onSave, lang='en' }) => {
+export const ColumnSetupModal: React.FC<{ 
+    isOpen: boolean, 
+    onClose: () => void, 
+    visibleColumns: string[], 
+    onSave: (cols: string[]) => void, 
+    lang?: 'en'|'zh',
+    scope?: 'activity' | 'resource',
+    customFields?: CustomFieldDefinition[]
+}> = ({ isOpen, onClose, visibleColumns, onSave, lang='en', scope='activity', customFields=[] }) => {
     const [selected, setSelected] = useState<string[]>([]);
     const { t } = useTranslation(lang as 'en' | 'zh');
 
@@ -204,15 +213,32 @@ export const ColumnSetupModal: React.FC<{ isOpen: boolean, onClose: () => void, 
         if(isOpen) setSelected(visibleColumns);
     }, [isOpen, visibleColumns]);
 
-    const allCols = [
-        { id: 'id', label: 'Activity ID' },
-        { id: 'name', label: 'Activity Name' },
-        { id: 'duration', label: 'Duration' },
-        { id: 'start', label: 'Start Date' },
-        { id: 'finish', label: 'Finish Date' },
-        { id: 'float', label: 'Total Float' },
-        { id: 'preds', label: 'Predecessors' },
+    const activityCols = [
+        { id: 'id', label: t('ActivityID') },
+        { id: 'name', label: t('ActivityName') },
+        { id: 'duration', label: t('Duration') },
+        { id: 'start', label: t('Start') },
+        { id: 'finish', label: t('Finish') },
+        { id: 'float', label: t('TotalFloat') },
+        { id: 'preds', label: t('Predecessors') },
         { id: 'budget', label: 'Budget Cost' }
+    ];
+
+    const resourceCols = [
+        { id: 'id', label: 'Resource ID' },
+        { id: 'name', label: 'Resource Name' },
+        { id: 'type', label: 'Type' },
+        { id: 'unit', label: 'Unit' },
+        { id: 'maxUnits', label: 'Max Units' },
+        { id: 'unitPrice', label: 'Unit Price' }
+    ];
+
+    const standardCols = scope === 'resource' ? resourceCols : activityCols;
+    const scopedCustomFields = customFields.filter(f => f.scope === scope);
+    
+    const allCols = [
+        ...standardCols,
+        ...scopedCustomFields.map(f => ({ id: f.id, label: f.name }))
     ];
 
     const available = allCols.filter(c => !selected.includes(c.id));

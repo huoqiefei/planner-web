@@ -198,6 +198,7 @@ export const translations = {
         // Cloud & System
         CloudProjects: 'Cloud Projects',
         SystemSettings: 'System Settings',
+        Settings: 'Settings',
         ProjectList: 'Project List',
         Load: 'Load',
         Delete: 'Delete',
@@ -271,6 +272,20 @@ export const translations = {
         FreeTrial: 'Free Trial',
         StandardPlan: 'Standard Plan',
         ProPlan: 'Pro Plan',
+        // Resource
+        UnitPrice: 'Unit Price',
+        // Custom Fields
+        CustomFields: 'Custom Fields',
+        AddCustomField: 'Add Custom Field',
+        FieldName: 'Field Name',
+        FieldType: 'Field Type',
+        FieldScope: 'Field Scope',
+        ScopeActivity: 'Activity',
+        ScopeResource: 'Resource',
+        TypeString: 'Text',
+        TypeNumber: 'Number',
+        TypeDate: 'Date',
+        TypeBoolean: 'Yes/No',
     },
     zh: {
         File: '文件',
@@ -356,6 +371,20 @@ export const translations = {
         VisibleCols: '显示列',
         MoveRight: '添加 >',
         MoveLeft: '< 移除',
+        // Resource
+        UnitPrice: '单价',
+        // Custom Fields
+        CustomFields: '自定义字段',
+        AddCustomField: '添加自定义字段',
+        FieldName: '字段名称',
+        FieldType: '字段类型',
+        FieldScope: '字段范围',
+        ScopeActivity: '作业',
+        ScopeResource: '资源',
+        TypeString: '文本',
+        TypeNumber: '数字',
+        TypeDate: '日期',
+        TypeBoolean: '是/否',
         // Login
         Login: '登录',
         Register: '注册',
@@ -466,6 +495,7 @@ export const translations = {
         // Cloud & System
         CloudProjects: '云端项目',
         SystemSettings: '系统设置',
+        Settings: '设置',
         ProjectList: '项目列表',
         Load: '打开',
         Delete: '删除',

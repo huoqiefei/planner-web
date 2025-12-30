@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../utils/i18n';
 import { authService } from '../services/authService';
-import { AlertModal, ConfirmModal } from './Modals';
+import { AlertModal, ConfirmModal, BaseModal } from './Modals';
 
 interface CloudLoadModalProps {
     isOpen: boolean;
@@ -84,17 +84,29 @@ export const CloudLoadModal: React.FC<CloudLoadModalProps> = ({ isOpen, onClose,
         });
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded shadow-lg w-[600px] max-h-[80vh] flex flex-col">
-                <div className="p-4 border-b flex justify-between items-center bg-slate-100">
-                    <h2 className="font-bold text-lg">{t('CloudProjects')}</h2>
-                    <button onClick={onClose} className="text-slate-500 hover:text-slate-700">✕</button>
-                </div>
-                
-                <div className="p-4 flex-1 overflow-y-auto min-h-[300px]">
+        <>
+            <BaseModal 
+                isOpen={isOpen} 
+                title={t('CloudProjects')} 
+                onClose={onClose}
+                className="w-[600px] h-[600px] flex flex-col"
+                footer={
+                    <>
+                        <button onClick={onClose} className="px-4 py-2 border rounded hover:bg-slate-100 text-sm">
+                            {t('Cancel')}
+                        </button>
+                        <button 
+                            onClick={handleLoad} 
+                            disabled={!selectedId || loading}
+                            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
+                        >
+                            {loading ? t('Loading') : t('Load')}
+                        </button>
+                    </>
+                }
+            >
+                <div className="flex-1 min-h-[400px]">
                     {loading && projects.length === 0 ? (
                         <div className="flex justify-center items-center h-full text-slate-500">{t('Loading')}</div>
                     ) : projects.length === 0 ? (
@@ -105,49 +117,27 @@ export const CloudLoadModal: React.FC<CloudLoadModalProps> = ({ isOpen, onClose,
                                 <div 
                                     key={p.id}
                                     onClick={() => setSelectedId(p.id)}
-                                    className={`p-3 border rounded cursor-pointer flex justify-between items-center ${selectedId === p.id ? 'border-blue-500 bg-blue-50' : 'hover:bg-slate-50'}`}
+                                    className={`p-3 border rounded cursor-pointer flex justify-between items-center transition-colors ${selectedId === p.id ? 'border-blue-500 bg-blue-50' : 'hover:bg-slate-50'}`}
                                 >
-                                    <div className="flex-grow">
-                                        <div className="font-medium flex items-center gap-2">
-                                            {p.name}
-                                            <span className="text-[10px] bg-slate-100 px-1 rounded text-slate-500 border">
-                                                {t('Duration') || 'Dur'}: {p.duration || 0}d
-                                            </span>
-                                        </div>
-                                        <div className="text-sm text-slate-500 my-0.5" title={p.description}>
-                                            {p.description ? (p.description.length > 20 ? p.description.substring(0, 20) + '...' : p.description) : '-'}
-                                        </div>
-                                        <div className="flex gap-3 text-xs text-slate-400 mt-1">
-                                            <span>{t('Activities') || 'Acts'}: {p.activity_count || 0}</span>
-                                            <span>{t('Resources') || 'Res'}: {p.resource_count || 0}</span>
-                                            <span>{new Date(p.updated_at * 1000).toLocaleString()}</span>
-                                        </div>
+                                    <div>
+                                        <div className="font-medium text-slate-800">{p.name || 'Untitled'}</div>
+                                        <div className="text-xs text-slate-500">{new Date(p.created * 1000).toLocaleString()}</div>
+                                        {p.description && <div className="text-xs text-slate-500 mt-1">{p.description}</div>}
                                     </div>
                                     <button 
                                         onClick={(e) => handleDelete(e, p.id)}
-                                        className="text-red-500 hover:text-red-700 px-2 py-1 text-sm ml-2"
+                                        className="text-red-500 hover:text-red-700 px-2 py-1 text-sm ml-2 transition-colors"
+                                        title={t('Delete')}
                                     >
-                                        {t('Delete')}
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                     </button>
                                 </div>
                             ))}
                         </div>
                     )}
                 </div>
+            </BaseModal>
 
-                <div className="p-4 border-t flex justify-end gap-2 bg-slate-50">
-                    <button onClick={onClose} className="px-4 py-2 border rounded hover:bg-slate-100">
-                        {t('Cancel')}
-                    </button>
-                    <button 
-                        onClick={handleLoad} 
-                        disabled={!selectedId || loading}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                    >
-                        {loading ? t('Loading') : t('Load')}
-                    </button>
-                </div>
-            </div>
             <AlertModal isOpen={!!alertMsg} msg={alertMsg || ''} title={alertTitle} onClose={() => setAlertMsg(null)} />
             <ConfirmModal 
                 isOpen={!!confirmMsg} 
@@ -156,7 +146,7 @@ export const CloudLoadModal: React.FC<CloudLoadModalProps> = ({ isOpen, onClose,
                 onCancel={() => setConfirmMsg(null)} 
                 lang={lang} 
             />
-        </div>
+        </>
     );
 };
 
@@ -165,9 +155,10 @@ interface CloudSaveModalProps {
     onClose: () => void;
     projectData: any;
     lang: 'en' | 'zh';
+    onSaveSuccess?: (cloudId: number, name: string) => void;
 }
 
-export const CloudSaveModal: React.FC<CloudSaveModalProps> = ({ isOpen, onClose, projectData, lang }) => {
+export const CloudSaveModal: React.FC<CloudSaveModalProps> = ({ isOpen, onClose, projectData, lang, onSaveSuccess }) => {
     const { t } = useTranslation(lang);
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
@@ -187,15 +178,23 @@ export const CloudSaveModal: React.FC<CloudSaveModalProps> = ({ isOpen, onClose,
         if (!name.trim()) return;
         setLoading(true);
         try {
-            await authService.saveProject({
+            const result = await authService.saveProject({
                 id: projectData.meta?.cloudId, // Pass ID if exists to update
                 name, 
                 description, 
                 content: projectData
             });
+            
             setAlertMsg(t('SaveSuccess'));
             setAlertTitle('Success');
-            setAlertOnClose(() => onClose);
+            setAlertOnClose(() => () => {
+                // If the server returns the saved project info (id), we should update local state
+                // Typically result might contain { id: 123, status: 'success' }
+                if (result && result.id && onSaveSuccess) {
+                    onSaveSuccess(result.id, name);
+                }
+                onClose();
+            });
         } catch (error) {
             console.error(error);
             setAlertMsg('Failed to save project');
@@ -206,50 +205,45 @@ export const CloudSaveModal: React.FC<CloudSaveModalProps> = ({ isOpen, onClose,
         }
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded shadow-lg w-[500px]">
-                <div className="p-4 border-b flex justify-between items-center bg-slate-100">
-                    <h2 className="font-bold text-lg">{t('SaveProjectToCloud')}</h2>
-                    <button onClick={onClose} className="text-slate-500 hover:text-slate-700">✕</button>
-                </div>
-                
-                <div className="p-6 space-y-4">
+        <>
+            <BaseModal
+                isOpen={isOpen}
+                title={t('SaveProjectToCloud')}
+                onClose={onClose}
+                className="w-[500px]"
+                footer={
+                    <button 
+                        onClick={handleSave} 
+                        disabled={loading || !name.trim()}
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
+                    >
+                        {loading ? t('Saving') : t('Save')}
+                    </button>
+                }
+            >
+                <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium mb-1">{t('ProjectName')}</label>
+                        <label className="block text-sm font-medium mb-1 text-slate-700">{t('ProjectName')}</label>
                         <input 
                             type="text" 
                             value={name} 
                             onChange={e => setName(e.target.value)}
-                            className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                             autoFocus
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1">{t('ProjectDescription')}</label>
+                        <label className="block text-sm font-medium mb-1 text-slate-700">{t('ProjectDescription')}</label>
                         <textarea 
                             value={description} 
                             onChange={e => setDescription(e.target.value)}
-                            className="w-full p-2 border rounded h-24 focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full p-2 border border-slate-300 rounded h-24 focus:ring-2 focus:ring-blue-500 outline-none resize-none text-sm"
                         />
                     </div>
                 </div>
-
-                <div className="p-4 border-t flex justify-end gap-2 bg-slate-50">
-                    <button onClick={onClose} className="px-4 py-2 border rounded hover:bg-slate-100">
-                        {t('Cancel')}
-                    </button>
-                    <button 
-                        onClick={handleSave} 
-                        disabled={loading || !name.trim()}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                    >
-                        {loading ? t('Saving') : t('Save')}
-                    </button>
-                </div>
-            </div>
+            </BaseModal>
+            
             <AlertModal 
                 isOpen={!!alertMsg} 
                 msg={alertMsg || ''} 
@@ -259,6 +253,6 @@ export const CloudSaveModal: React.FC<CloudSaveModalProps> = ({ isOpen, onClose,
                     if (alertOnClose) alertOnClose(); 
                 }} 
             />
-        </div>
+        </>
     );
 };

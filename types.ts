@@ -116,6 +116,7 @@ export interface UserSettings {
     uiFontPx?: number;
     gridSettings: GridSettings;
     visibleColumns: string[]; // Added
+    resourceVisibleColumns?: string[]; // Added for resource table
     columnWidths?: Record<string, number>;
     ganttZoom?: 'day' | 'week' | 'month' | 'quarter' | 'year';
 }

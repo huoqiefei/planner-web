@@ -291,7 +291,8 @@ export const authService = {
         }
 
         const data = await response.json();
-        return data.projects || [];
+        // Support both { projects: [] } and { data: [] } formats
+        return data.projects || data.data || [];
     },
 
     async saveProject(project: { id?: number, name: string, description?: string, content: any }): Promise<any> {

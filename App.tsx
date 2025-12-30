@@ -274,6 +274,20 @@ const App: React.FC = () => {
         );
     }
 
+    const handleCloudSaveSuccess = (cloudId: number, name: string) => {
+        if (!data) return;
+        const newData = {
+            ...data,
+            meta: {
+                ...data.meta,
+                cloudId,
+                title: name
+            }
+        };
+        setData(newData);
+        setIsDirty(false);
+    };
+
     return (
         <div className="flex flex-col h-full" onClick={() => setCtx(null)}>
             <style>{`
@@ -413,7 +427,21 @@ const App: React.FC = () => {
                 onSystemPrint={() => window.print()}
                 lang={userSettings.language} 
             />
-            <ColumnSetupModal isOpen={activeModal === 'columns'} onClose={() => setActiveModal(null)} visibleColumns={userSettings.visibleColumns} onSave={(cols) => setUserSettings({...userSettings, visibleColumns: cols})} lang={userSettings.language} />
+            <ColumnSetupModal 
+                isOpen={activeModal === 'columns'} 
+                onClose={() => setActiveModal(null)} 
+                visibleColumns={view === 'resources' ? (userSettings.resourceVisibleColumns || ['id', 'name', 'type', 'unit', 'maxUnits', 'unitPrice']) : userSettings.visibleColumns} 
+                onSave={(cols) => {
+                    if(view === 'resources') {
+                        setUserSettings({...userSettings, resourceVisibleColumns: cols});
+                    } else {
+                        setUserSettings({...userSettings, visibleColumns: cols});
+                    }
+                }} 
+                lang={userSettings.language} 
+                scope={view === 'resources' ? 'resource' : 'activity'}
+                customFields={data?.meta?.customFieldDefinitions || []}
+            />
             <ProjectSettingsModal isOpen={activeModal === 'project_settings'} onClose={() => setActiveModal(null)} projectData={data} onUpdateProject={handleProjectUpdate} />
             <BatchAssignModal isOpen={activeModal === 'batchRes'} onClose={() => setActiveModal(null)} resources={data.resources} onAssign={handleBatchAssign} lang={userSettings.language} />
             <CloudLoadModal 
@@ -435,6 +463,7 @@ const App: React.FC = () => {
                  onClose={() => setActiveModal(null)} 
                  projectData={data} 
                  lang={userSettings.language} 
+                 onSaveSuccess={handleCloudSaveSuccess}
              />
         </div>
     );

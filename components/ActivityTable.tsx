@@ -45,8 +45,6 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
         data
     } = useAppStore();
 
-    const customFields = data?.meta?.customFieldDefinitions?.filter(f => f.scope === 'activity') || [];
-
     const { handleUpdate: onUpdate } = useProjectOperations();
     const { flatRows: rows, toggleExpand: onToggleExpand } = useFlatRows();
     const { t } = useTranslation(userSettings.language);
@@ -74,6 +72,9 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
 
     const fontSizePx = userSettings.uiFontPx || 13;
     const visibleCols = userSettings.visibleColumns || ['id', 'name', 'duration', 'start', 'finish', 'float', 'preds'];
+
+    const allCustomFields = data?.meta?.customFieldDefinitions?.filter(f => f.scope === 'activity') || [];
+    const customFields = allCustomFields.filter(cf => visibleCols.includes(cf.id));
 
     // Calculate total required width for columns 
     const showVertical = userSettings.gridSettings.showVertical;
@@ -157,7 +158,7 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
             {/* Header */}
             <div 
                 ref={headerRef}
-                className="overflow-hidden bg-slate-100 border-b border-slate-300 font-bold text-slate-700 shadow-sm z-20" 
+                className="overflow-hidden bg-slate-100 border-b border-slate-300 font-bold text-slate-700 shadow-sm z-20 flex-shrink-0" 
                 style={{ height: headerHeight }}
             >
                 <div className="flex h-full p6-header" style={{ minWidth: totalContentWidth }}>

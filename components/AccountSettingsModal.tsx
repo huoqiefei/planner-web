@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, UserSettings } from '../types';
 import { useTranslation } from '../utils/i18n';
-import { AlertModal } from './Modals';
+import { BaseModal, AlertModal } from './Modals';
 import { authService } from '../services/authService';
 
 interface AccountSettingsModalProps {
@@ -148,17 +148,47 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
         }
     };
 
+    const tabs = [
+        { id: 'profile', label: t('AccountSettings'), icon: '👤' },
+        { id: 'preferences', label: t('UserPreferences'), icon: '⚙️' },
+        { id: 'subscription', label: t('SubscriptionPlan'), icon: '💎' },
+        { id: 'usage', label: t('UsageStatistics'), icon: '📊' },
+        { id: 'security', label: t('ChangePassword'), icon: '🔒' },
+    ] as const;
+
     return (
-        <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] backdrop-blur-sm ${!isOpen ? 'hidden' : ''}`} onClick={onClose}>
-            <div className="bg-white rounded-lg shadow-2xl w-[800px] max-w-[95vw] overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-                {/* Header */}
-                <div className="bg-slate-800 text-white px-6 py-4 font-bold flex justify-between items-center shrink-0">
-                    <span className="text-lg">{getTitle()}</span>
-                    <button onClick={onClose} className="hover:text-red-300 text-2xl leading-none">&times;</button>
+        <>
+            <BaseModal
+                isOpen={isOpen}
+                onClose={onClose}
+                title={t('Settings')}
+                className="w-[900px] h-[600px] flex flex-col"
+                bodyClassName="flex flex-1 flex-row overflow-hidden"
+            >
+                {/* Sidebar */}
+                <div className="w-64 bg-slate-50 border-r border-slate-200 flex-shrink-0 flex flex-col py-4">
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            className={`w-full text-left px-6 py-3 flex items-center gap-3 transition-colors ${
+                                activeTab === tab.id 
+                                ? 'bg-white text-blue-600 border-r-2 border-blue-600 font-medium' 
+                                : 'text-slate-600 hover:bg-slate-100'
+                            }`}
+                            onClick={() => setActiveTab(tab.id)}
+                        >
+                            <span className="text-lg">{tab.icon}</span>
+                            <span>{tab.label}</span>
+                        </button>
+                    ))}
                 </div>
 
-                <div className="flex flex-1 overflow-hidden">
-                    {/* Content Area - Full Width (No Sidebar) */}
+                {/* Content Area */}
+                <div className="flex-1 flex flex-col h-full overflow-hidden">
+                    <div className="p-6 border-b border-slate-100 flex-shrink-0">
+                        <h2 className="text-xl font-bold text-slate-800">{getTitle()}</h2>
+                    </div>
+                    
                     <div className="flex-1 p-8 overflow-y-auto bg-white">
                         {activeTab === 'profile' && (
                             <div className="space-y-6 max-w-lg">
@@ -468,14 +498,14 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                         )}
                     </div>
                 </div>
+            </BaseModal>
 
-                <AlertModal 
-                    isOpen={!!alertMsg} 
-                    msg={alertMsg || ''} 
-                    title={alertTitle}
-                    onClose={() => setAlertMsg(null)} 
-                />
-            </div>
-        </div>
+            <AlertModal 
+                isOpen={!!alertMsg} 
+                msg={alertMsg || ''} 
+                title={alertTitle}
+                onClose={() => setAlertMsg(null)} 
+            />
+        </>
     );
 };

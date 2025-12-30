@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { ProjectData, Calendar, CalendarException, CustomFieldDefinition } from '../types';
 import { AlertModal, BaseModal } from './Modals';
+import { useTranslation } from '../utils/i18n';
 
 interface ProjectSettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
     projectData: ProjectData;
     onUpdateProject: (meta: ProjectData['meta'], calendars: Calendar[]) => void;
+    lang?: 'en' | 'zh';
 }
 
-const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onClose, projectData, onUpdateProject }) => {
+const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onClose, projectData, onUpdateProject, lang='en' }) => {
+    const { t } = useTranslation(lang);
     const [meta, setMeta] = useState(projectData.meta!);
     const [calendars, setCalendars] = useState<Calendar[]>(projectData.calendars || []);
     const [customFieldDefinitions, setCustomFieldDefinitions] = useState<CustomFieldDefinition[]>(projectData.meta?.customFieldDefinitions || []);
@@ -127,13 +130,13 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
     return (
         <BaseModal 
             isOpen={isOpen} 
-            title="Project Settings" 
+            title={t('ProjectSettings')} 
             onClose={onClose}
             className="w-[800px] max-h-[90vh] flex flex-col"
             footer={
                 <div className="flex justify-end gap-2 w-full">
-                    <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 border border-slate-300 rounded hover:bg-slate-50">Cancel</button>
-                    <button onClick={handleSave} className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
+                    <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 border border-slate-300 rounded hover:bg-slate-50">{t('Cancel')}</button>
+                    <button onClick={handleSave} className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">{t('Save')}</button>
                 </div>
             }
         >
@@ -145,7 +148,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                             onClick={() => setActiveTab(tab as any)} 
                             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === tab ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
                         >
-                            {tab}
+                            {tab === 'Custom Fields' ? t('CustomFields') : t(tab as any)}
                         </button>
                     ))}
                 </div>
@@ -154,7 +157,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                     {activeTab === 'General' && (
                         <div className="space-y-4 max-w-lg">
                             <div>
-                                <label className="block text-slate-500 text-xs font-bold mb-1">Project Code (for WBS)</label>
+                                <label className="block text-slate-500 text-xs font-bold mb-1">{t('ProjectCode')}</label>
                                 <input 
                                     className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                     value={meta.projectCode || ''}
@@ -163,7 +166,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                 />
                             </div>
                             <div>
-                                <label className="block text-slate-500 text-xs font-bold mb-1">Project Name</label>
+                                <label className="block text-slate-500 text-xs font-bold mb-1">{t('ProjectName')}</label>
                                 <input 
                                     className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                     value={meta.title}
@@ -171,7 +174,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                 />
                             </div>
                             <div>
-                                <label className="block text-slate-500 text-xs font-bold mb-1">Project Start Date</label>
+                                <label className="block text-slate-500 text-xs font-bold mb-1">{t('StartDate')}</label>
                                 <input 
                                     type="date"
                                     className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
@@ -180,7 +183,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                 />
                             </div>
                              <div>
-                                <label className="block text-slate-500 text-xs font-bold mb-1">Default Calendar</label>
+                                <label className="block text-slate-500 text-xs font-bold mb-1">{t('DefaultCal')}</label>
                                 <select 
                                     className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                     value={meta.defaultCalendarId}
@@ -197,10 +200,10 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                     {activeTab === 'Defaults' && (
                         <div className="space-y-6 max-w-lg">
                             <div>
-                                <h4 className="font-bold text-slate-700 border-b border-slate-200 pb-2 mb-4">Activity ID Auto-numbering</h4>
+                                <h4 className="font-bold text-slate-700 border-b border-slate-200 pb-2 mb-4">{t('AutoNumbering')} ({t('Activities')})</h4>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-slate-500 text-xs font-bold mb-1">Prefix</label>
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">{t('Prefix')}</label>
                                         <input 
                                             className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                             value={meta.activityIdPrefix || 'A'}
@@ -208,7 +211,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-slate-500 text-xs font-bold mb-1">Increment Step</label>
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">{t('Increment')}</label>
                                         <input 
                                             type="number"
                                             className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
@@ -220,10 +223,10 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                             </div>
 
                             <div>
-                                <h4 className="font-bold text-slate-700 border-b border-slate-200 pb-2 mb-4">Resource ID Auto-numbering</h4>
+                                <h4 className="font-bold text-slate-700 border-b border-slate-200 pb-2 mb-4">{t('AutoNumbering')} ({t('Resources')})</h4>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-slate-500 text-xs font-bold mb-1">Prefix</label>
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">{t('Prefix')}</label>
                                         <input 
                                             className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                             value={meta.resourceIdPrefix || 'R'}
@@ -231,7 +234,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-slate-500 text-xs font-bold mb-1">Increment Step</label>
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">{t('Increment')}</label>
                                         <input 
                                             type="number"
                                             className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
@@ -249,8 +252,8 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                             {/* Calendar List */}
                             <div className="w-1/3 border border-slate-200 rounded-lg p-4 bg-slate-50">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h4 className="font-bold text-slate-700">Calendars</h4>
-                                    <button onClick={addNewCalendar} className="text-xs bg-green-600 px-2 py-1 rounded text-white hover:bg-green-700 transition-colors shadow-sm">+ Add New</button>
+                                    <h4 className="font-bold text-slate-700">{t('Calendars')}</h4>
+                                    <button onClick={addNewCalendar} className="text-xs bg-green-600 px-2 py-1 rounded text-white hover:bg-green-700 transition-colors shadow-sm">+ {t('Add')}</button>
                                 </div>
                                 <ul className="space-y-1">
                                     {calendars.map(cal => (
@@ -346,10 +349,10 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                     {activeTab === 'Custom Fields' && (
                         <div className="space-y-6">
                             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                                <h4 className="font-bold text-slate-700 mb-3 text-sm">Add New Custom Field</h4>
+                                <h4 className="font-bold text-slate-700 mb-3 text-sm">{t('AddCustomField')}</h4>
                                 <div className="flex gap-4 items-end">
                                     <div className="flex-grow">
-                                        <label className="block text-slate-500 text-xs font-bold mb-1">Field Name</label>
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">{t('FieldName')}</label>
                                         <input 
                                             className="w-full bg-white border border-slate-300 p-2 rounded text-slate-800 text-sm focus:border-blue-500 focus:outline-none"
                                             value={newField.name || ''}
@@ -358,26 +361,26 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                         />
                                     </div>
                                     <div className="w-40">
-                                        <label className="block text-slate-500 text-xs font-bold mb-1">Scope</label>
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">{t('FieldScope')}</label>
                                         <select 
                                             className="w-full bg-white border border-slate-300 p-2 rounded text-slate-800 text-sm focus:border-blue-500 focus:outline-none"
                                             value={newField.scope}
                                             onChange={e => setNewField({...newField, scope: e.target.value as any})}
                                         >
-                                            <option value="activity">Activity</option>
-                                            <option value="resource">Resource</option>
+                                            <option value="activity">{t('ScopeActivity')}</option>
+                                            <option value="resource">{t('ScopeResource')}</option>
                                         </select>
                                     </div>
                                     <div className="w-40">
-                                        <label className="block text-slate-500 text-xs font-bold mb-1">Type</label>
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">{t('FieldType')}</label>
                                         <select 
                                             className="w-full bg-white border border-slate-300 p-2 rounded text-slate-800 text-sm focus:border-blue-500 focus:outline-none"
                                             value={newField.type}
                                             onChange={e => setNewField({...newField, type: e.target.value as any})}
                                         >
-                                            <option value="text">Text</option>
-                                            <option value="number">Number</option>
-                                            <option value="date">Date</option>
+                                            <option value="text">{t('TypeString')}</option>
+                                            <option value="number">{t('TypeNumber')}</option>
+                                            <option value="date">{t('TypeDate')}</option>
                                             <option value="list">List</option>
                                         </select>
                                     </div>
@@ -392,35 +395,35 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                             />
                                         </div>
                                     )}
-                                    <button onClick={addCustomField} disabled={!newField.name} className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Add</button>
+                                    <button onClick={addCustomField} disabled={!newField.name} className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">{t('Add')}</button>
                                 </div>
                             </div>
 
                             <div>
-                                <h4 className="font-bold text-slate-700 mb-3 text-sm">Defined Fields</h4>
+                                <h4 className="font-bold text-slate-700 mb-3 text-sm">{t('CustomFields')}</h4>
                                 <div className="border border-slate-200 rounded-lg overflow-hidden">
                                     <table className="w-full text-sm text-left">
                                         <thead className="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
                                             <tr>
-                                                <th className="px-4 py-2">Name</th>
-                                                <th className="px-4 py-2">Scope</th>
-                                                <th className="px-4 py-2">Type</th>
-                                                <th className="px-4 py-2 text-right">Action</th>
+                                                <th className="px-4 py-2">{t('FieldName')}</th>
+                                                <th className="px-4 py-2">{t('FieldScope')}</th>
+                                                <th className="px-4 py-2">{t('FieldType')}</th>
+                                                <th className="px-4 py-2 text-right">{t('Actions')}</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {customFieldDefinitions.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={4} className="px-4 py-8 text-center text-slate-400">No custom fields defined.</td>
+                                                    <td colSpan={4} className="px-4 py-8 text-center text-slate-400">{t('NoData')}</td>
                                                 </tr>
                                             )}
                                             {customFieldDefinitions.map(def => (
                                                 <tr key={def.id} className="hover:bg-slate-50">
                                                     <td className="px-4 py-2 font-medium text-slate-700">{def.name}</td>
-                                                    <td className="px-4 py-2 text-slate-600 capitalize">{def.scope}</td>
+                                                    <td className="px-4 py-2 text-slate-600 capitalize">{def.scope === 'activity' ? t('ScopeActivity') : t('ScopeResource')}</td>
                                                     <td className="px-4 py-2 text-slate-600 capitalize">{def.type}</td>
                                                     <td className="px-4 py-2 text-right">
-                                                        <button onClick={() => deleteCustomField(def.id)} className="text-red-500 hover:text-red-700 font-medium text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors">Delete</button>
+                                                        <button onClick={() => deleteCustomField(def.id)} className="text-red-500 hover:text-red-700 font-medium text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors">{t('Delete')}</button>
                                                     </td>
                                                 </tr>
                                             ))}
