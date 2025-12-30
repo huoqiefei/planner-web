@@ -503,46 +503,4 @@ export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void
     );
 };
 
-export const BatchAssignModal: React.FC<{ isOpen: boolean, onClose: () => void, onAssign: (resIds: string[], units: number) => void, resources: Resource[], lang?: 'en'|'zh' }> = ({ isOpen, onClose, onAssign, resources, lang='en' }) => {
-    const [selectedResIds, setSelectedResIds] = useState<string[]>([]);
-    const [units, setUnits] = useState(8);
-    const { t } = useTranslation(lang as 'en' | 'zh');
 
-    if (!isOpen) return null;
-
-    const toggleRes = (id: string) => {
-        if(selectedResIds.includes(id)) setSelectedResIds(selectedResIds.filter(x => x !== id));
-        else setSelectedResIds([...selectedResIds, id]);
-    };
-
-    const handleAssign = () => {
-        onAssign(selectedResIds, units);
-        onClose();
-        setSelectedResIds([]);
-    };
-
-    return (
-        <BaseModal isOpen={isOpen} title={t('BatchAssign')} onClose={onClose} footer={
-            <>
-                <button onClick={onClose} className="px-3 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50">{t('Cancel')}</button>
-                <button onClick={handleAssign} disabled={selectedResIds.length === 0} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">{t('Assign')}</button>
-            </>
-        }>
-            <div className="flex flex-col h-64">
-                <div className="mb-2">
-                    <label className="block font-bold mb-1">{t('UnitsPerDay')}</label>
-                    <input type="number" className="border w-full p-1" value={units} onChange={e => setUnits(Number(e.target.value))} />
-                </div>
-                <div className="font-bold mb-1 border-b">{t('SelectRes')}:</div>
-                <div className="flex-grow overflow-y-auto border bg-slate-50 p-1">
-                    {resources.map(r => (
-                        <div key={r.id} className="flex items-center gap-2 p-1 hover:bg-white cursor-pointer" onClick={() => toggleRes(r.id)}>
-                            <input type="checkbox" checked={selectedResIds.includes(r.id)} onChange={() => {}} />
-                            <span className="flex-grow">{r.name} ({r.type})</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </BaseModal>
-    );
-};

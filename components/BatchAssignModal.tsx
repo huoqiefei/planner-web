@@ -1,72 +1,81 @@
-
 import React, { useState } from 'react';
-import { Resource, Activity } from '../types';
+import { Resource } from '../types';
 import { BaseModal } from './Modals';
+import { useTranslation } from '../utils/i18n';
 
 interface BatchAssignModalProps {
     isOpen: boolean;
     onClose: () => void;
-    selectedActivityIds: string[];
+    onAssign: (resIds: string[], units: number) => void;
     resources: Resource[];
-    onAssign: (resourceId: string, units: number) => void;
+    lang?: 'en' | 'zh';
+    selectedCount?: number;
 }
 
-const BatchAssignModal: React.FC<BatchAssignModalProps> = ({ isOpen, onClose, selectedActivityIds, resources, onAssign }) => {
-    const [selectedResId, setSelectedResId] = useState('');
+export const BatchAssignModal: React.FC<BatchAssignModalProps> = ({ 
+    isOpen, 
+    onClose, 
+    onAssign, 
+    resources, 
+    lang = 'en',
+    selectedCount 
+}) => {
+    const [selectedResIds, setSelectedResIds] = useState<string[]>([]);
     const [units, setUnits] = useState(8);
+    const { t } = useTranslation(lang);
 
     if (!isOpen) return null;
 
-    const handleSubmit = () => {
-        if (selectedResId) {
-            onAssign(selectedResId, units);
-            onClose();
-        }
+    const toggleRes = (id: string) => {
+        if (selectedResIds.includes(id)) setSelectedResIds(selectedResIds.filter(x => x !== id));
+        else setSelectedResIds([...selectedResIds, id]);
+    };
+
+    const handleAssign = () => {
+        onAssign(selectedResIds, units);
+        onClose();
+        setSelectedResIds([]);
     };
 
     return (
-        <BaseModal
-            isOpen={isOpen}
-            title="Batch Assign Resource"
-            onClose={onClose}
-            className="w-96"
+        <BaseModal 
+            isOpen={isOpen} 
+            title={t('BatchAssign')} 
+            onClose={onClose} 
             footer={
                 <>
-                    <button onClick={onClose} className="px-3 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50 text-slate-700">Cancel</button>
-                    <button 
-                        onClick={handleSubmit} 
-                        disabled={!selectedResId}
-                        className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white px-3 py-1 rounded"
-                    >
-                        Assign
-                    </button>
+                    <button onClick={onClose} className="px-3 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50">{t('Cancel')}</button>
+                    <button onClick={handleAssign} disabled={selectedResIds.length === 0} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">{t('Assign')}</button>
                 </>
             }
         >
-            <div className="space-y-4">
-                <p className="text-sm text-slate-500 mb-4">Assigning to {selectedActivityIds.length} selected activities.</p>
+            <div className="flex flex-col h-64 space-y-4">
+                {selectedCount !== undefined && selectedCount > 0 && (
+                    <p className="text-sm text-slate-500">
+                        {lang === 'zh' ? `正在为 ${selectedCount} 个作业分配资源` : `Assigning to ${selectedCount} selected activities`}
+                    </p>
+                )}
                 
                 <div>
-                    <label className="block text-slate-700 text-sm font-medium mb-1">Resource</label>
-                    <select 
-                        className="w-full bg-white text-slate-700 p-2 rounded border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                        value={selectedResId}
-                        onChange={(e) => setSelectedResId(e.target.value)}
-                    >
-                        <option value="">Select Resource...</option>
-                        {resources.map(r => (
-                            <option key={r.id} value={r.id}>{r.name} ({r.type})</option>
-                        ))}
-                    </select>
-                </div>
-                <div>
-                        <label className="block text-slate-700 text-sm font-medium mb-1">Units per Day</label>
-                        <input 
+                    <label className="block font-bold mb-1 text-slate-700">{t('UnitsPerDay')}</label>
+                    <input 
                         type="number" 
                         className="w-full bg-white text-slate-700 p-2 rounded border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                        value={units}
-                        onChange={(e) => setUnits(Number(e.target.value))}
-                        />
+                        value={units} 
+                        onChange={e => setUnits(Number(e.target.value))} 
+                    />
+                </div>
+                
+                <div className="flex-grow flex flex-col min-h-0">
+                    <div className="font-bold mb-1 border-b text-slate-700">{t('SelectRes')}:</div>
+                    <div className="flex-grow overflow-y-auto border bg-slate-50 p-1 rounded">
+                        {resources.map(r => (
+                            <div key={r.id} className="flex items-center gap-2 p-1 hover:bg-white cursor-pointer rounded" onClick={() => toggleRes(r.id)}>
+                                <input type="checkbox" checked={selectedResIds.includes(r.id)} onChange={() => {}} />
+                                <span className="flex-grow text-slate-700">{r.name} ({r.type})</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         </BaseModal>
