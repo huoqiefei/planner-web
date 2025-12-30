@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { authService } from '../services/authService';
 import { User, AdminConfig } from '../types';
 import { useTranslation } from '../utils/i18n';
+import { BaseModal } from './Modals';
 
 interface LoginModalProps {
     isOpen: boolean;
@@ -53,75 +54,77 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, 
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
-            <div className="bg-white rounded-lg shadow-xl w-96 overflow-hidden">
-                <div className="bg-slate-800 text-white p-6 text-center">
-                    {adminConfig?.appLogo ? (
-                        <div className="flex justify-center mb-3">
-                            <img src={adminConfig.appLogo} alt="Logo" className="h-12 w-auto object-contain" />
-                        </div>
-                    ) : (
-                        <h2 className="text-2xl font-bold mb-1">{adminConfig?.appName || 'Planner Web'}</h2>
-                    )}
-                    <h3 className="text-lg font-medium opacity-90">{isLoginMode ? t('LoginTitle') : t('RegisterTitle')}</h3>
-                </div>
-                
-                <div className="p-6">
-                    {error && (
-                        <div className={`mb-4 p-2 text-sm rounded ${error.includes('Success') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                            {error}
-                        </div>
-                    )}
+        <BaseModal
+            isOpen={isOpen}
+            title={isLoginMode ? t('LoginTitle') : t('RegisterTitle')}
+            onClose={onClose}
+            className="w-96"
+        >
+            <div className="space-y-4">
+                {adminConfig?.appLogo ? (
+                    <div className="flex justify-center mb-4">
+                        <img src={adminConfig.appLogo} alt="Logo" className="h-12 w-auto object-contain" />
+                    </div>
+                ) : (
+                    <h2 className="text-xl font-bold text-center text-slate-700 mb-4">{adminConfig?.appName || 'Planner Web'}</h2>
+                )}
 
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                    <div className={`p-2 text-sm rounded ${error.includes('Success') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {error}
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700">{t('Username')}</label>
+                        <input 
+                            type="text" 
+                            required
+                            className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
+                            value={username}
+                            onChange={e => setUsername(e.target.value)}
+                        />
+                    </div>
+
+                    {!isLoginMode && (
                         <div>
-                            <label className="block text-sm font-medium text-slate-700">{t('Username')}</label>
+                            <label className="block text-sm font-medium text-slate-700">{t('Email')}</label>
                             <input 
-                                type="text" 
+                                type="email" 
                                 required
                                 className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
-                                value={username}
-                                onChange={e => setUsername(e.target.value)}
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
                             />
                         </div>
+                    )}
 
-                        {!isLoginMode && (
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700">{t('Email')}</label>
-                                <input 
-                                    type="email" 
-                                    required
-                                    className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
-                                    value={email}
-                                    onChange={e => setEmail(e.target.value)}
-                                />
-                            </div>
-                        )}
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700">{t('Password')}</label>
+                        <input 
+                            type="password" 
+                            required
+                            className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
+                            value={password}
+                            onChange={e => setPassword(e.target.value)}
+                        />
+                    </div>
 
+                    {!isLoginMode && (
                         <div>
-                            <label className="block text-sm font-medium text-slate-700">{t('Password')}</label>
+                            <label className="block text-sm font-medium text-slate-700">{t('ConfirmPassword')}</label>
                             <input 
                                 type="password" 
                                 required
                                 className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
-                                value={password}
-                                onChange={e => setPassword(e.target.value)}
+                                value={confirmPassword}
+                                onChange={e => setConfirmPassword(e.target.value)}
                             />
                         </div>
+                    )}
 
-                        {!isLoginMode && (
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700">{t('ConfirmPassword')}</label>
-                                <input 
-                                    type="password" 
-                                    required
-                                    className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
-                                    value={confirmPassword}
-                                    onChange={e => setConfirmPassword(e.target.value)}
-                                />
-                            </div>
-                        )}
-
+                    <div className="pt-2">
                         <button 
                             type="submit" 
                             disabled={loading}
@@ -129,9 +132,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, 
                         >
                             {loading ? t('Processing') : (isLoginMode ? t('SignIn') : t('SignUp'))}
                         </button>
-                    </form>
+                    </div>
 
-                    <div className="mt-4 text-center">
+                    <div className="text-center mt-4">
                         <button 
                             type="button"
                             className="text-sm text-blue-600 hover:text-blue-500"
@@ -147,8 +150,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLoginSuccess, 
                             {isLoginMode ? t('NoAccount') : t('HaveAccount')}
                         </button>
                     </div>
-                </div>
+                </form>
             </div>
-        </div>
+        </BaseModal>
     );
 };
