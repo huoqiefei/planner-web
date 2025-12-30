@@ -4,16 +4,12 @@ import { useTranslation } from '../utils/i18n';
 import { useAppStore } from '../stores/useAppStore';
 import { useProjectOperations } from '../hooks/useProjectOperations';
 import { ResizableHeader } from './ResizableHeader';
-import { BaseModal } from './Modals';
 
 interface ResourceTableProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onAddResource?: () => void;
     [key: string]: any;
 }
 
-const ResourceTable: React.FC<ResourceTableProps> = ({ isOpen, onClose, onAddResource }) => {
+const ResourceTable: React.FC<ResourceTableProps> = () => {
     const { 
         data, 
         selIds, 
@@ -112,21 +108,7 @@ const ResourceTable: React.FC<ResourceTableProps> = ({ isOpen, onClose, onAddRes
     };
 
     return (
-        <BaseModal
-            isOpen={isOpen}
-            onClose={onClose}
-            title={t('Resources')}
-            className="w-[90vw] h-[80vh] flex flex-col"
-            footer={
-                <div className="flex justify-end gap-2 w-full">
-                     {onAddResource && (
-                        <button onClick={onAddResource} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">{t('AddResource')}</button>
-                     )}
-                     <button onClick={onClose} className="px-4 py-2 border rounded hover:bg-slate-100 text-sm">{t('Close')}</button>
-                </div>
-            }
-        >
-            <div className="flex-grow flex flex-col overflow-hidden" onKeyDown={handleKeyDown} tabIndex={0} onClick={()=>setCtx(null)}>
+        <div className="flex-grow flex flex-col overflow-hidden" onKeyDown={handleKeyDown} tabIndex={0} onClick={()=>setCtx(null)}>
             {/* Header */}
             <div className="flex bg-slate-100 border-b border-slate-300 font-bold text-slate-700 shadow-sm" style={{ height: 36, fontSize: `${fontSizePx}px` }}>
                 {visibleCols.includes('id') && <ResizableHeader width={colWidths.id || 100} onResize={w=>setColWidths({...colWidths, id:w})}>{t('ResourceID')}</ResizableHeader>}
@@ -255,7 +237,6 @@ const ResourceTable: React.FC<ResourceTableProps> = ({ isOpen, onClose, onAddRes
                 </div>
             )}
         </div>
-        </BaseModal>
     );
 };
 
