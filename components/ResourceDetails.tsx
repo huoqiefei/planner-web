@@ -6,12 +6,12 @@ import ResourceHistogram from './ResourceHistogram';
 import { Resource } from '../types';
 
 export const ResourceDetails: React.FC = () => {
-    const { 
-        data, 
-        selIds, 
-        userSettings, 
-        showDetails, 
-        setShowDetails 
+    const {
+        data,
+        selIds,
+        userSettings,
+        showDetails,
+        setShowDetails
     } = useAppStore();
 
     const { handleResourceUpdate } = useProjectOperations();
@@ -55,7 +55,7 @@ export const ResourceDetails: React.FC = () => {
             <div className="h-8 border-t bg-slate-100 flex items-center justify-between px-2 flex-shrink-0 cursor-pointer hover:bg-slate-200 transition-colors border-slate-300" onClick={() => setShowDetails(true)}>
                 <span className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t('ResourceDetails')}</span>
                 <button className="text-slate-500 hover:text-blue-600">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"/></svg>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" /></svg>
                 </button>
             </div>
         );
@@ -69,7 +69,7 @@ export const ResourceDetails: React.FC = () => {
                         <button className="px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm bg-white text-black border-b-white -mb-px">{t('General')}</button>
                     </div>
                     <button onClick={() => setShowDetails(false)} className="mr-2 text-slate-500 hover:text-blue-600">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                     </button>
                 </div>
                 <div className="flex-grow flex items-center justify-center text-slate-400">
@@ -85,8 +85,8 @@ export const ResourceDetails: React.FC = () => {
 
     return (
         <div className="bg-white flex flex-col flex-shrink-0 shadow-[0_-2px_5px_rgba(0,0,0,0.05)] relative" style={{ height, fontSize: `${fontSizePx}px` }}>
-             {/* Drag Handle */}
-             <div 
+            {/* Drag Handle */}
+            <div
                 className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize bg-slate-300 hover:bg-blue-400 transition-colors z-20"
                 onMouseDown={startDrag}
             />
@@ -97,7 +97,7 @@ export const ResourceDetails: React.FC = () => {
                     <button onClick={() => setTab('Histogram')} className={`px-4 py-1 uppercase font-bold border-t border-l border-r rounded-t-sm outline-none ${tab === 'Histogram' ? 'bg-white text-black border-b-white -mb-px' : 'text-slate-500 bg-slate-100 border-b-slate-300 hover:bg-slate-50'}`}>{t('Histogram')}</button>
                 </div>
                 <button onClick={() => setShowDetails(false)} className="mr-2 mb-1 text-slate-500 hover:text-blue-600" title={t('Collapse')}>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                 </button>
             </div>
 
@@ -116,7 +116,7 @@ export const ResourceDetails: React.FC = () => {
                             </div>
                         </div>
                         <div className="space-y-2">
-                             <div>
+                            <div>
                                 <label className="block text-slate-500 mb-0.5 font-semibold">{t('Type')}</label>
                                 <select value={resource.type} onChange={e => updateRes('type', e.target.value)} className="w-full border border-slate-300 px-1 py-1 bg-white">
                                     <option value="Labor">{t('Labor')}</option>
@@ -129,19 +129,23 @@ export const ResourceDetails: React.FC = () => {
                                 <input value={resource.unit} onChange={e => updateRes('unit', e.target.value)} className="w-full border border-slate-300 px-1 py-1" />
                             </div>
                         </div>
-                         <div className="space-y-2">
-                             <div>
+                        <div className="space-y-2">
+                            <div>
                                 <label className="block text-slate-500 mb-0.5 font-semibold">{t('MaxUnits')}</label>
                                 <input type="number" value={resource.maxUnits} onChange={e => updateRes('maxUnits', Number(e.target.value))} className="w-full border border-slate-300 px-1 py-1 text-right" />
+                            </div>
+                            <div>
+                                <label className="block text-slate-500 mb-0.5 font-semibold">{t('UnitPrice')}</label>
+                                <input type="number" value={resource.unitPrice} onChange={e => updateRes('unitPrice', Number(e.target.value))} className="w-full border border-slate-300 px-1 py-1 text-right" />
                             </div>
                         </div>
                     </div>
                 )}
 
                 {tab === 'Histogram' && (
-                     <div className="h-full w-full bg-slate-50 border border-slate-200 p-2">
-                         <ResourceHistogram resourceId={resource.id} />
-                     </div>
+                    <div className="h-full w-full bg-slate-50 border border-slate-200 p-2">
+                        <ResourceHistogram resourceId={resource.id} />
+                    </div>
                 )}
             </div>
         </div>

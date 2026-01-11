@@ -18,12 +18,12 @@ interface TypechoLoginResponse {
 const STORAGE_KEY = 'planner_user_session';
 
 export const authService = {
-    // API Base URL (Update this to your Typecho URL)
-    baseUrl: (import.meta as any).env.DEV ? '/api' : 'https://board.centrekit.com/index.php/planner/api',
+    // API Base URL (Configurable via .env)
+    baseUrl: import.meta.env.VITE_API_BASE_URL || ((import.meta as any).env.DEV ? '/api' : 'https://board.centrekit.com/index.php/planner/api'),
 
     async login(username: string, password: string): Promise<User> {
         // // Real API Call Implementation
-      
+
         try {
             const response = await fetch(`${this.baseUrl}/login`, {
                 method: 'POST',
@@ -34,12 +34,12 @@ export const authService = {
                 },
                 body: JSON.stringify({ username, password })
             });
-            
+
             if (!response.ok) {
                 const text = await response.text().catch(() => '');
                 throw new Error(`Login failed (${response.status}): ${text}`);
             }
-            
+
             const data = await response.json();
             console.log('Login API Response:', data);
 
@@ -50,7 +50,7 @@ export const authService = {
             // Handle potential response structure variations
             // Structure 1: { token: '...', user: { ... } } (Matched by Action.php)
             // Structure 2: { data: { ...user_fields, token: '...' } } (Matched by interface)
-            
+
             let userData = data.user;
             let token = data.token;
 
@@ -60,14 +60,14 @@ export const authService = {
             }
 
             if (!userData) {
-                 throw new Error('Invalid server response: missing user data');
+                throw new Error('Invalid server response: missing user data');
             }
 
             const typechoGroup = userData.group;
-            
+
             // Check for custom authorization category in meta
             const authCategory = userData.meta?.planner_auth_group || typechoGroup;
-            
+
             const user: User = {
                 uid: (userData.uid || '').toString(),
                 name: userData.name || userData.screenName || userData.username || 'User',
@@ -78,7 +78,7 @@ export const authService = {
                 plannerRole: userData.plannerRole || userData.planner_role || 'trial',
                 usage: userData.usage
             };
-            
+
             this.saveUser(user);
             return user;
         } catch (error) {
@@ -94,22 +94,22 @@ export const authService = {
         try {
             const response = await fetch(`${this.baseUrl}/user?token=${user.token}`, {
                 method: 'GET',
-                headers: { 
+                headers: {
                     'Accept': 'application/json',
                     'Authorization': `Bearer ${user.token}`
                 }
             });
-            
+
             if (!response.ok) {
-                 if (response.status === 401 || response.status === 403) {
-                     this.logout();
-                     throw new Error('Session expired');
-                 }
-                 throw new Error('Failed to refresh user data');
+                if (response.status === 401 || response.status === 403) {
+                    this.logout();
+                    throw new Error('Session expired');
+                }
+                throw new Error('Failed to refresh user data');
             }
 
             const data = await response.json();
-            
+
             // Merge with existing user to preserve token if not returned
             const updatedUser: User = {
                 ...user,
@@ -141,7 +141,7 @@ export const authService = {
             });
 
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || 'Registration failed');
             }
@@ -176,7 +176,7 @@ export const authService = {
 
             const result = await response.json();
             if (result.error) throw new Error(result.error);
-            
+
             // Update local user data if successful
             const currentUser = this.getCurrentUser();
             if (currentUser) {
@@ -198,11 +198,11 @@ export const authService = {
 
         const response = await fetch(`${this.baseUrl}/admin_user_list?page=${page}&pageSize=${pageSize}&token=${user.token}`, {
             method: 'GET',
-            headers: { 
+            headers: {
                 'Authorization': `Bearer ${user.token}`
             }
         });
-        
+
         if (!response.ok) throw new Error(`Failed to load users: ${response.statusText}`);
         return await response.json();
     },
@@ -213,13 +213,13 @@ export const authService = {
 
         const response = await fetch(`${this.baseUrl}/admin_user_update?token=${user.token}`, {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${user.token}`
             },
             body: JSON.stringify({ uid, role })
         });
-        
+
         if (!response.ok) throw new Error(`Failed to update user: ${response.statusText}`);
     },
 
@@ -229,7 +229,7 @@ export const authService = {
 
         const response = await fetch(`${this.baseUrl}/change_password?token=${user.token}`, {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${user.token}`
             },
@@ -284,7 +284,7 @@ export const authService = {
         const response = await fetch(`${this.baseUrl}/project_list?token=${user.token}`, {
             headers: { 'Authorization': `Bearer ${user.token}` }
         });
-        
+
         if (!response.ok) {
             const text = await response.text();
             throw new Error(`Failed to load projects (${response.status}): ${text}`);
@@ -301,18 +301,18 @@ export const authService = {
 
         const response = await fetch(`${this.baseUrl}/project_save?token=${user.token}`, {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${user.token}`
             },
             body: JSON.stringify(project)
         });
-        
+
         if (!response.ok) {
             const text = await response.text();
             throw new Error(`Failed to save project (${response.status}): ${text}`);
         }
-        
+
         return await response.json();
     },
 
@@ -323,11 +323,11 @@ export const authService = {
         const response = await fetch(`${this.baseUrl}/project_get?id=${id}&token=${user.token}`, {
             headers: { 'Authorization': `Bearer ${user.token}` }
         });
-        
+
         if (!response.ok) {
-             throw new Error(`Failed to load project (${response.status})`);
+            throw new Error(`Failed to load project (${response.status})`);
         }
-        
+
         return await response.json();
     },
 
@@ -337,15 +337,15 @@ export const authService = {
 
         const response = await fetch(`${this.baseUrl}/project_delete?token=${user.token}`, {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${user.token}`
             },
             body: JSON.stringify({ id })
         });
-        
+
         if (!response.ok) {
-             throw new Error(`Failed to delete project (${response.status})`);
+            throw new Error(`Failed to delete project (${response.status})`);
         }
     },
 
@@ -356,9 +356,9 @@ export const authService = {
         const response = await fetch(`${this.baseUrl}/sys_config_get?token=${user.token}`, {
             headers: { 'Authorization': `Bearer ${user.token}` }
         });
-        
+
         if (!response.ok) throw new Error(`Failed to load config`);
-        
+
         return await response.json();
     },
 
@@ -368,7 +368,7 @@ export const authService = {
 
         await fetch(`${this.baseUrl}/sys_config_save?token=${user.token}`, {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${user.token}`
             },

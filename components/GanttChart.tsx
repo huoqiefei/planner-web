@@ -3,7 +3,17 @@ import { Activity } from '../types';
 import { useAppStore } from '../stores/useAppStore';
 import { useFlatRows } from '../hooks/useFlatRows';
 import { useVirtualScroll } from '../hooks/useVirtualScroll';
-import { useTranslation } from '../utils/i18n';
+import { useProjectOperations } from '../hooks/useProjectOperations';
+import { usePermissions } from '../hooks/usePermissions'; // Assuming this exists or we use checkPermission directly? 
+
+interface LinkDragState {
+    sourceId: string;
+    sourceType: 'start' | 'end';
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+}
 
 interface GanttChartProps {
     onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
@@ -19,11 +29,11 @@ const ZOOM_CONFIG: Record<string, { pixelPerDay: number }> = {
     year: { pixelPerDay: 0.5 },
 };
 
-const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({ 
+const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
     onScroll, headerHeight, rowHeight
 }, ref) => {
     const { flatRows: rows } = useFlatRows();
-    const { 
+    const {
         data: projectData,
         schedule,
         ganttZoom: zoomLevel,
@@ -35,8 +45,14 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
     // const { t } = useTranslation(userSettings.language);
 
     // const [zoomDrag, setZoomDrag] = useState<{start: number, val: number} | null>(null);
+    const { handleUpdate } = useProjectOperations();
+    const { user } = useAppStore(); // Need user for permissions if checking manually, or usePermissions hook
+    // Actually usePermissions needs lang etc.
+    // Let's assume write access for now if licensed/trial. 
+
+    const [linkDrag, setLinkDrag] = useState<LinkDragState | null>(null);
     const [manualPixelPerDay, setManualPixelPerDay] = useState<number | null>(null);
-    
+
     // Internal refs for split view
     const headerContainerRef = useRef<HTMLDivElement>(null);
     const bodyContainerRef = useRef<HTMLDivElement>(null);
@@ -94,7 +110,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
     const fontSize = userSettings.uiFontPx || 13;
 
     const projectStartDate = projectData?.meta.projectStartDate ? new Date(projectData.meta.projectStartDate) : new Date();
-    
+
     // Calculate total duration from schedule if not available directly
     const totalDuration = useMemo(() => {
         if (!schedule?.activities?.length) return 100;
@@ -107,24 +123,24 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
             if (s < minStart) minStart = s;
             if (e > maxEnd) maxEnd = e;
         });
-        
+
         return Math.ceil((maxEnd - minStart) / (24 * 3600 * 1000));
     }, [schedule, projectStartDate]);
-    
+
     // Position Calculation: Returns X at START of day
     const getPosition = (date: Date | string | undefined): number => {
-        if(!date) return 0;
+        if (!date) return 0;
         const d = new Date(date);
         const diffTime = d.getTime() - projectStartDate.getTime();
         return (diffTime / (1000 * 60 * 60 * 24)) * pixelPerDay;
     };
 
-    const chartWidth = Math.max((totalDuration + 120) * pixelPerDay, 800); 
+    const chartWidth = Math.max((totalDuration + 120) * pixelPerDay, 800);
 
     const timeHeaders = useMemo(() => {
         const visibleStart = Math.max(0, scrollLeft - 500);
         const visibleEnd = scrollLeft + viewportWidth + 500;
-        
+
         // Calculate start date based on scroll, but align to start of year to ensure we catch year headers
         const startDays = (visibleStart / pixelPerDay);
         const startDate = new Date(projectStartDate);
@@ -136,26 +152,26 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
         // Let's just ensure we don't start way before projectStartDate if not needed.
         // But headers might be needed before projectStartDate if we show some buffer.
         // The original code: startDate = projectStartDate - 10 days.
-        
+
         // Let's use a safe start date
         let iterDate = new Date(startDate);
         // Ensure we are at least at projectStart - 10 days if the calculated start is earlier
         const minStart = new Date(projectStartDate);
         minStart.setDate(minStart.getDate() - 10);
-        
+
         if (iterDate < minStart) iterDate = new Date(minStart);
         // If we aligned to Jan 1st and it's way before visible range (e.g. huge year), it's fine (max 365 iterations extra).
-        
+
         const endDays = (visibleEnd / pixelPerDay);
         const endDate = new Date(projectStartDate);
         endDate.setDate(endDate.getDate() + Math.ceil(endDays) + 10);
-        
+
         const tier1 = []; // Years
         const tier2 = []; // Months/Quarters
         const tier3 = []; // Days/Weeks
 
         const endTs = endDate.getTime();
-        
+
         const getDaysInYear = (y: number) => (y % 4 === 0 && y % 100 > 0) || y % 400 === 0 ? 366 : 365;
         const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
 
@@ -163,7 +179,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
             const pos = getPosition(iterDate) + 0;
             // Optimization: If pos is way beyond visibleEnd, break? 
             // The loop condition handles it.
-            
+
             const ts = iterDate.getTime();
             const year = iterDate.getFullYear();
             const month = iterDate.getMonth();
@@ -172,12 +188,12 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
 
             // Tier 1: Year
             if (day === 1 && month === 0) {
-                 const yearWidth = getDaysInYear(year) * pixelPerDay;
-                 // Only render if it overlaps visible range
-                 if (pos + yearWidth > visibleStart && pos < visibleEnd) {
-                     tier1.push(<text key={`y-${ts}`} x={pos + yearWidth/2} y="12" fill="#334155" fontSize="11" fontWeight="bold" textAnchor="middle">{year}</text>);
-                     tier1.push(<line key={`yl-${ts}`} x1={pos} y1="0" x2={pos} y2={headerHeight} stroke="#94a3b8" strokeWidth="1" />);
-                 }
+                const yearWidth = getDaysInYear(year) * pixelPerDay;
+                // Only render if it overlaps visible range
+                if (pos + yearWidth > visibleStart && pos < visibleEnd) {
+                    tier1.push(<text key={`y-${ts}`} x={pos + yearWidth / 2} y="12" fill="#334155" fontSize="11" fontWeight="bold" textAnchor="middle">{year}</text>);
+                    tier1.push(<line key={`yl-${ts}`} x1={pos} y1="0" x2={pos} y2={headerHeight} stroke="#94a3b8" strokeWidth="1" />);
+                }
             }
 
             // For other tiers, check visibility
@@ -186,19 +202,19 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                 if (zoomLevel === 'day') {
                     if (day === 1) {
                         const monthWidth = getDaysInMonth(year, month) * pixelPerDay;
-                        tier2.push(<text key={`m-${ts}`} x={pos + monthWidth/2} y="26" fill="#475569" fontSize="10" textAnchor="middle">{iterDate.toLocaleDateString(userSettings.language==='zh'?'zh-CN':'en-US', {month:'long'})}</text>);
+                        tier2.push(<text key={`m-${ts}`} x={pos + monthWidth / 2} y="26" fill="#475569" fontSize="10" textAnchor="middle">{iterDate.toLocaleDateString(userSettings.language === 'zh' ? 'zh-CN' : 'en-US', { month: 'long' })}</text>);
                         tier2.push(<line key={`ml-${ts}`} x1={pos} y1="15" x2={pos} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />);
                     }
-                    tier3.push(<text key={`d-${ts}`} x={pos + pixelPerDay/2} y="42" fill="#64748b" fontSize="9" textAnchor="middle">{day}</text>);
+                    tier3.push(<text key={`d-${ts}`} x={pos + pixelPerDay / 2} y="42" fill="#64748b" fontSize="9" textAnchor="middle">{day}</text>);
                     if (weekDay === 0 || weekDay === 6) {
-                        tier3.push(<rect key={`we-${ts}`} x={pos} y="30" width={pixelPerDay} height={headerHeight-30} fill="#f1f5f9" opacity="0.5" />);
+                        tier3.push(<rect key={`we-${ts}`} x={pos} y="30" width={pixelPerDay} height={headerHeight - 30} fill="#f1f5f9" opacity="0.5" />);
                     }
                     tier3.push(<line key={`dl-${ts}`} x1={pos} y1="30" x2={pos} y2={headerHeight} stroke="#e2e8f0" strokeWidth="1" />);
-                } 
+                }
                 else if (zoomLevel === 'week') {
-                     if (day === 1) {
+                    if (day === 1) {
                         const monthWidth = getDaysInMonth(year, month) * pixelPerDay;
-                        tier2.push(<text key={`m-${ts}`} x={pos + monthWidth/2} y="26" fill="#475569" fontSize="10" textAnchor="middle">{iterDate.toLocaleDateString(userSettings.language==='zh'?'zh-CN':'en-US', {month:'short'})}</text>);
+                        tier2.push(<text key={`m-${ts}`} x={pos + monthWidth / 2} y="26" fill="#475569" fontSize="10" textAnchor="middle">{iterDate.toLocaleDateString(userSettings.language === 'zh' ? 'zh-CN' : 'en-US', { month: 'short' })}</text>);
                         tier2.push(<line key={`ml-${ts}`} x1={pos} y1="15" x2={pos} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />);
                     }
                     if (weekDay === 1) {
@@ -209,17 +225,17 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                 else if (zoomLevel === 'month') {
                     if (day === 1) {
                         const monthWidth = getDaysInMonth(year, month) * pixelPerDay;
-                        tier2.push(<text key={`m-${ts}`} x={pos + monthWidth/2} y="32" fill="#475569" fontSize="11" textAnchor="middle">{iterDate.toLocaleDateString(userSettings.language==='zh'?'zh-CN':'en-US', {month:'short'})}</text>);
+                        tier2.push(<text key={`m-${ts}`} x={pos + monthWidth / 2} y="32" fill="#475569" fontSize="11" textAnchor="middle">{iterDate.toLocaleDateString(userSettings.language === 'zh' ? 'zh-CN' : 'en-US', { month: 'short' })}</text>);
                         tier2.push(<line key={`ml-${ts}`} x1={pos} y1="15" x2={pos} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />);
                     }
                 }
                 else if (zoomLevel === 'quarter') {
-                     if (day === 1 && month % 3 === 0) {
-                         const qWidth = 91 * pixelPerDay;
-                         tier2.push(<text key={`q-${ts}`} x={pos + qWidth/2} y="32" fill="#475569" fontSize="11" textAnchor="middle">Q{Math.floor(month/3)+1}</text>);
-                         tier2.push(<line key={`ql-${ts}`} x1={pos} y1="15" x2={pos} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />);
-                     }
-                } 
+                    if (day === 1 && month % 3 === 0) {
+                        const qWidth = 91 * pixelPerDay;
+                        tier2.push(<text key={`q-${ts}`} x={pos + qWidth / 2} y="32" fill="#475569" fontSize="11" textAnchor="middle">Q{Math.floor(month / 3) + 1}</text>);
+                        tier2.push(<line key={`ql-${ts}`} x1={pos} y1="15" x2={pos} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />);
+                    }
+                }
                 else if (zoomLevel === 'year') {
                     // Year logic already handled in Tier 1
                 }
@@ -232,15 +248,15 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
 
     const gridLines = useMemo(() => {
         const lines = [];
-        
+
         const visibleStart = Math.max(0, scrollLeft - 500);
         const visibleEnd = scrollLeft + viewportWidth + 500;
-        
+
         const startDays = (visibleStart / pixelPerDay);
         const startDate = new Date(projectStartDate);
         startDate.setDate(startDate.getDate() + Math.floor(startDays));
         // For grid lines, we don't need to align to year start, just day start is fine
-        
+
         let iterDate = new Date(startDate);
         const minStart = new Date(projectStartDate);
         minStart.setDate(minStart.getDate() - 10);
@@ -254,15 +270,15 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
         const bodyH = Math.max(rows.length * rowHeight, 100);
         const interval = userSettings.gridSettings.verticalInterval || 'auto';
 
-        if(showVertLines) {
+        if (showVertLines) {
             while (iterDate.getTime() <= endTs) {
                 const pos = getPosition(iterDate) + 0;
                 const day = iterDate.getDate();
                 const weekDay = iterDate.getDay();
                 const month = iterDate.getMonth();
-                
+
                 let draw = false;
-                
+
                 if (interval === 'auto') {
                     if (zoomLevel === 'day') draw = true;
                     if (zoomLevel === 'week' && weekDay === 1) draw = true;
@@ -288,14 +304,14 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
 
     const relationships = useMemo(() => {
         if (!showRelations) return null;
-        
+
         const rels: JSX.Element[] = [];
-        
+
         const viewportTop = startIndex * rowHeight - 500;
         const viewportBottom = endIndex * rowHeight + 500;
-        
+
         const isVerticallyVisible = (y1: number, y2: number) => {
-                return Math.max(y1, y2) >= viewportTop && Math.min(y1, y2) <= viewportBottom;
+            return Math.max(y1, y2) >= viewportTop && Math.min(y1, y2) <= viewportBottom;
         };
 
         rows.forEach((row, idx) => {
@@ -306,16 +322,16 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
             act.predecessors.forEach((pred: any) => {
                 const predIdx = rowIndexMap.get(pred.activityId);
                 if (predIdx === undefined) return;
-                
+
                 const predRow = rows[predIdx];
-                
-                const startY = (predIdx * rowHeight) + rowHeight/2;
-                const endY = (idx * rowHeight) + rowHeight/2;
+
+                const startY = (predIdx * rowHeight) + rowHeight / 2;
+                const endY = (idx * rowHeight) + rowHeight / 2;
 
                 if (!isVerticallyVisible(startY, endY)) return;
 
                 const globalOffset = 0;
-                
+
                 // Determine start and end points based on relationship type
                 let startX: number;
                 let endX: number;
@@ -351,21 +367,32 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                 const maxX = Math.max(startX, endX);
                 const viewportLeft = scrollLeft - 500;
                 const viewportRight = scrollLeft + viewportWidth + 500;
-                
+
                 if (maxX < viewportLeft || minX > viewportRight) return;
 
-                const midX = startX + (endX - startX)/2;
-                
+                const bendOffset = 12;
+                const midX = endX >= startX + bendOffset * 2 ? startX + bendOffset : startX + (endX - startX) / 2;
+
                 let path = '';
                 const gap = 15;
                 const r = 5; // Corner radius
 
                 // Logic for Orthogonal Routing with Rounded Corners
-                if (endX >= startX + gap) {
-                    // Standard Forward
+                if (type === 'FF' || type === 'SF') {
+                    // Target is Finish - Approach from the right
+                    const targetX = currEnd;
+                    const rightOuter = Math.max(startX, targetX) + gap;
+
+                    path = `M ${startX} ${startY} L ${rightOuter - r} ${startY}
+                            Q ${rightOuter} ${startY} ${rightOuter} ${startY + (endY > startY ? 1 : -1) * r}
+                            L ${rightOuter} ${endY - (endY > startY ? 1 : -1) * r}
+                            Q ${rightOuter} ${endY} ${rightOuter - r} ${endY}
+                            L ${targetX} ${endY}`;
+                } else if (endX >= startX + gap) {
+                    // Standard Forward (FS, SS)
                     const dy = endY - startY;
                     const signY = dy >= 0 ? 1 : -1;
-                    
+
                     if (Math.abs(dy) < 2 * r) {
                         path = `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`;
                     } else {
@@ -376,18 +403,18 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                                 L ${endX} ${endY}`;
                     }
                 } else {
-                    // Backward / Overlap
+                    // Backward / Overlap (FS, SS)
                     const p1x = startX + gap;
                     const p2x = endX - gap;
-                    const midY = startY + (endY - startY)/2;
-                    
+                    const midY = startY + (endY - startY) / 2;
+
                     const dy1 = midY - startY;
                     const signY1 = dy1 >= 0 ? 1 : -1;
                     const dy2 = endY - midY;
                     const signY2 = dy2 >= 0 ? 1 : -1;
-                    
+
                     if (Math.abs(dy1) < 2 * r || Math.abs(dy2) < 2 * r || Math.abs(p1x - p2x) < 2 * r) {
-                         path = `M ${startX} ${startY} L ${p1x} ${startY} L ${p1x} ${midY} L ${p2x} ${midY} L ${p2x} ${endY} L ${endX} ${endY}`;
+                        path = `M ${startX} ${startY} L ${p1x} ${startY} L ${p1x} ${midY} L ${p2x} ${midY} L ${p2x} ${endY} L ${endX} ${endY}`;
                     } else {
                         path = `M ${startX} ${startY} L ${p1x - r} ${startY}
                                 Q ${p1x} ${startY} ${p1x} ${startY + signY1 * r}
@@ -402,11 +429,11 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                 }
 
                 rels.push(
-                    <path 
+                    <path
                         key={`${row.id}-${pred.activityId}`}
                         d={path}
                         fill="none"
-                        stroke="#94a3b8" 
+                        stroke="#94a3b8"
                         strokeWidth="1.2"
                         strokeLinejoin="round"
                         markerEnd="url(#arrow)"
@@ -416,22 +443,104 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                 );
             });
         });
-        
-        return <g style={{ pointerEvents: 'none' }}>{rels}</g>;
-    }, [showRelations, rows, rowIndexMap, startIndex, endIndex, rowHeight, pixelPerDay, projectStartDate, scrollLeft, viewportWidth]);
 
+        // Temp Link Line
+        if (linkDrag) {
+            rels.push(
+                <line
+                    key="temp-link"
+                    x1={linkDrag.startX} y1={linkDrag.startY}
+                    x2={linkDrag.currentX} y2={linkDrag.currentY}
+                    stroke="#2563eb" strokeWidth="2" strokeDasharray="5,5"
+                />
+            );
+        }
+
+        return <g style={{ pointerEvents: 'none' }}>{rels}</g>;
+    }, [showRelations, rows, rowIndexMap, startIndex, endIndex, rowHeight, pixelPerDay, projectStartDate, scrollLeft, viewportWidth, linkDrag]);
+
+
+    useEffect(() => {
+        if (!linkDrag) return;
+
+        const onMove = (e: MouseEvent) => {
+            if (!bodyContainerRef.current) return;
+            const rect = bodyContainerRef.current.getBoundingClientRect();
+            setLinkDrag(prev => prev ? {
+                ...prev,
+                currentX: e.clientX - rect.left + bodyContainerRef.current!.scrollLeft,
+                currentY: e.clientY - rect.top + bodyContainerRef.current!.scrollTop
+            } : null);
+        };
+
+        const onUp = () => {
+            setLinkDrag(null);
+        };
+
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+        };
+    }, [linkDrag]);
+
+    const handleLinkStart = (e: React.MouseEvent, activity: Activity, type: 'start' | 'end', y: number, x: number) => {
+        e.stopPropagation();
+        e.preventDefault();
+        // Calculate exact start pos
+        setLinkDrag({
+            sourceId: activity.id,
+            sourceType: type,
+            startX: x,
+            startY: y,
+            currentX: x,
+            currentY: y
+        });
+    };
+
+    const handleLinkDrop = (e: React.MouseEvent, targetActivity: Activity, targetType: 'start' | 'end') => {
+        e.stopPropagation();
+        if (!linkDrag) return;
+        if (linkDrag.sourceId === targetActivity.id) {
+            setLinkDrag(null);
+            return;
+        }
+
+        // Determine Type
+        // Src End -> Tgt Start = FS
+        // Src Start -> Tgt Start = SS
+        // Src End -> Tgt End = FF
+        // Src Start -> Tgt End = SF
+        let relType = 'FS';
+        if (linkDrag.sourceType === 'end' && targetType === 'start') relType = 'FS';
+        else if (linkDrag.sourceType === 'start' && targetType === 'start') relType = 'SS';
+        else if (linkDrag.sourceType === 'end' && targetType === 'end') relType = 'FF';
+        else if (linkDrag.sourceType === 'start' && targetType === 'end') relType = 'SF';
+
+        // Add Predecessor
+        // Check if exists
+        const exists = targetActivity.predecessors?.some((p: any) => p.activityId === linkDrag.sourceId && p.type === relType);
+        if (!exists) {
+            const newPreds = [...(targetActivity.predecessors || []), { activityId: linkDrag.sourceId, type: relType, lag: 0 }];
+            handleUpdate(targetActivity.id, 'predecessors', newPreds);
+        }
+
+        setLinkDrag(null);
+    };
 
     const handleMouseDown = (e: React.MouseEvent) => {
-        // setZoomDrag({ start: e.clientX, val: pixelPerDay });
+        const startX = e.clientX;
+        const currentPPD = pixelPerDay;
+
         const onMove = (evt: MouseEvent) => {
-            const diff = evt.clientX - e.clientX;
-            const newZoom = Math.max(0.1, pixelPerDay + (diff * 0.1));
+            const diff = evt.clientX - startX;
+            const newZoom = Math.max(0.1, currentPPD + (diff * 0.1));
             setManualPixelPerDay(newZoom);
         };
         const onUp = () => {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
-            // setZoomDrag(null);
         };
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
@@ -446,47 +555,49 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
     };
 
     return (
-        <div className="flex-grow bg-white flex flex-col h-full overflow-hidden border-l border-slate-300 select-none gantt-component">
+        <div className="flex-grow bg-white flex flex-col h-full overflow-hidden select-none gantt-component">
             {/* 1. Header Container */}
-            <div 
+            <div
                 ref={headerContainerRef}
-                className="bg-slate-50 border-b border-slate-300 overflow-hidden shrink-0 relative gantt-header-wrapper" 
+                className="bg-slate-50 border-b border-slate-300 overflow-hidden shrink-0 relative gantt-header-wrapper"
                 style={{ height: headerHeight, width: '100%' }}
             >
                 <div style={{ width: chartWidth, height: headerHeight }} className="relative">
                     <svg width={chartWidth} height={headerHeight} xmlns="http://www.w3.org/2000/svg">
-                         <rect x="0" y="0" width={chartWidth} height={headerHeight} fill="#f8fafc" className="cursor-ew-resize" onMouseDown={handleMouseDown} />
-                         <line x1="0" y1={headerHeight} x2={chartWidth} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />
-                         <g style={{ pointerEvents: 'none' }}>{timeHeaders}</g>
+                        <rect x="0" y="0" width={chartWidth} height={headerHeight} fill="#f8fafc" className="cursor-ew-resize" onMouseDown={handleMouseDown} />
+                        <line x1="0" y1={headerHeight} x2={chartWidth} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />
+                        <g style={{ pointerEvents: 'none' }}>{timeHeaders}</g>
                     </svg>
                 </div>
             </div>
 
             {/* 2. Body Container */}
-            <div 
+            <div
                 ref={bodyContainerRef}
-                className="flex-grow overflow-scroll relative custom-scrollbar bg-white gantt-body-wrapper" 
+                className="flex-grow overflow-scroll relative custom-scrollbar bg-white gantt-body-wrapper"
                 onScroll={handleBodyScroll}
             >
                 <div style={{ width: chartWidth, height: Math.max(totalHeight, 100) }} className="relative">
                     <svg width={chartWidth} height={Math.max(totalHeight, 100)} xmlns="http://www.w3.org/2000/svg">
                         <defs>
-                            <marker id="arrow" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#64748b" /></marker>
+                            <marker id="arrow" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto">
+                                <path d="M0,0 L0,6 L6,3 z" fill="#64748b" />
+                            </marker>
                         </defs>
-                        
-                        {/* Background Grid */}
+
+                        {/* 1. Background Grid (Bottom layer) */}
                         {gridLines}
 
+                        {/* 1.1 Horizontal Row Lines (Also bottom layer, but above background grid) */}
                         <g>
-                            {/* Horizontal Row Lines */}
                             {virtualItems.map(({ index }) => {
                                 const row = rows[index];
                                 const y = index * rowHeight;
                                 const isWBS = row.type === 'WBS';
                                 return (
-                                    <React.Fragment key={`grid-${row.id}`}>
+                                    <React.Fragment key={`grid-h-${row.id}`}>
                                         {showHorizontalLines && (
-                                             <line x1="0" y1={y + rowHeight} x2={chartWidth} y2={y + rowHeight} stroke="#f1f5f9" strokeWidth="1" />
+                                            <line x1="0" y1={y + rowHeight} x2={chartWidth} y2={y + rowHeight} stroke="#f1f5f9" strokeWidth="1" />
                                         )}
                                         {isWBS && showWBSLines && (
                                             <line x1="0" y1={y + rowHeight} x2={chartWidth} y2={y + rowHeight} stroke="#cbd5e1" strokeWidth="2" />
@@ -494,8 +605,14 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                                     </React.Fragment>
                                 );
                             })}
+                        </g>
 
-                            {/* Bars */}
+                        {/* 2. Relationship Lines (Middle layer, below bars) */}
+                        {relationships}
+
+                        {/* 3. Bars and Text (Top layer) */}
+                        <g>
+                            {/* Activity/WBS Rendering */}
                             {virtualItems.map(({ index }) => {
                                 const row = rows[index];
                                 const y = index * rowHeight;
@@ -503,19 +620,22 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                                 const left = getPosition(row.startDate) + globalOffset;
                                 const right = getPosition(row.endDate) + pixelPerDay + globalOffset;
                                 const width = Math.max(right - left, 2);
-                                const barH = Math.max(6, rowHeight * 0.35); 
+                                const barH = Math.max(6, rowHeight * 0.35);
                                 const barY = y + (rowHeight - barH) / 2;
 
+                                const displayLeft = left;
+                                const displayRight = right;
+
                                 if (row.type === 'WBS') {
-                                    if(!row.startDate) return null;
+                                    if (!row.startDate) return null;
                                     const wbsBarH = 5;
-                                    const wbsY = y + (rowHeight - wbsBarH)/2;
+                                    const wbsY = y + (rowHeight - wbsBarH) / 2;
                                     return (
                                         <g key={row.id}>
                                             <rect x="0" y={y} width={chartWidth} height={rowHeight} fill="#f1f5f9" opacity="0.4" />
                                             <rect x={left} y={wbsY + 1} width={width} height={2} fill="#64748b" />
-                                            <path d={`M ${left} ${wbsY} L ${left+5} ${wbsY} L ${left} ${wbsY+5} Z`} fill="#334155" />
-                                            <path d={`M ${right} ${wbsY} L ${right-5} ${wbsY} L ${right} ${wbsY+5} Z`} fill="#334155" />
+                                            <path d={`M ${left} ${wbsY} L ${left + 5} ${wbsY} L ${left} ${wbsY + 5} Z`} fill="#334155" />
+                                            <path d={`M ${right} ${wbsY} L ${right - 5} ${wbsY} L ${right} ${wbsY + 5} Z`} fill="#334155" />
                                         </g>
                                     );
                                 } else {
@@ -524,22 +644,45 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                                     const barColor = showCritical && activity.isCritical ? '#ef4444' : '#10b981';
                                     const strokeColor = showCritical && activity.isCritical ? '#b91c1c' : '#047857';
 
+                                    const isTarget = linkDrag && linkDrag.sourceId !== activity.id;
+                                    const barCenterY = y + rowHeight / 2;
+
                                     return (
-                                        <g key={activity.id}>
+                                        <g key={activity.id} className="group">
                                             {isMilestone ? (
-                                                 <path d={`M ${left} ${y + rowHeight/2} l 6 -6 l 6 6 l -6 6 z`} fill="#1e293b" stroke={strokeColor} strokeWidth="1" />
+                                                <path d={`M ${displayLeft} ${barCenterY} l 6 -6 l 6 6 l -6 6 z`} fill="#1e293b" stroke={strokeColor} strokeWidth="1" />
                                             ) : (
-                                                <rect x={left} y={barY} width={width} height={barH} rx="1" fill={barColor} stroke={strokeColor} strokeWidth="1" className="cursor-pointer hover:brightness-110 transition-all" />
+                                                <rect
+                                                    x={displayLeft} y={barY} width={width} height={barH} rx="1"
+                                                    fill={barColor} stroke={strokeColor} strokeWidth="1"
+                                                    className="transition-opacity"
+                                                />
                                             )}
-                                            <text x={Math.max(right, left + 12) + 5} y={y + rowHeight/2 + 4} fontSize={fontSize - 1} fill="#475569" fontWeight="500">{activity.name}</text>
+
+                                            {/* Link Handles */}
+                                            <circle
+                                                cx={displayLeft - 5} cy={barCenterY} r={4}
+                                                fill="white" stroke="#2563eb" strokeWidth="2"
+                                                className={`opacity-0 group-hover:opacity-100 cursor-cell transition-opacity z-10 ${isTarget ? 'opacity-100' : ''}`}
+                                                onMouseDown={(e) => handleLinkStart(e, activity, 'start', barCenterY, displayLeft - 5)}
+                                                onMouseUp={(e) => handleLinkDrop(e, activity, 'start')}
+                                            />
+                                            <circle
+                                                cx={isMilestone ? displayLeft + 12 + 5 : displayRight + 5} cy={barCenterY} r={4}
+                                                fill="white" stroke="#2563eb" strokeWidth="2"
+                                                className={`opacity-0 group-hover:opacity-100 cursor-cell transition-opacity z-10 ${isTarget ? 'opacity-100' : ''}`}
+                                                onMouseDown={(e) => handleLinkStart(e, activity, 'end', barCenterY, isMilestone ? displayLeft + 17 : displayRight + 5)}
+                                                onMouseUp={(e) => handleLinkDrop(e, activity, 'end')}
+                                            />
+
+                                            <text x={Math.max(displayRight, displayLeft + 12) + 12} y={y + rowHeight / 2 + 4} fontSize={fontSize - 1} fill="#475569" fontWeight="500">
+                                                {activity.name}
+                                            </text>
                                         </g>
                                     );
                                 }
                             })}
                         </g>
-
-                        {/* Relationship Lines (Orthogonal) */}
-                        {relationships}
                     </svg>
                 </div>
             </div>

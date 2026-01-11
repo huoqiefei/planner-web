@@ -9,12 +9,12 @@ function normalize(date: Date): Date {
 }
 
 export function getCalendar(calendarId: string | undefined, data: ProjectData): Calendar {
-    const calendars = data.calendars || []; 
+    const calendars = data.calendars || [];
     const def = calendars.find(c => c.id === data.meta?.defaultCalendarId) || calendars.find(c => c.isDefault);
-    return calendars.find(c => c.id === calendarId) || def || { 
-        id: 'default', name: 'Standard', isDefault: true, 
-        weekDays: [false, true, true, true, true, true, false], 
-        hoursPerDay: 8, exceptions: [] 
+    return calendars.find(c => c.id === calendarId) || def || {
+        id: 'default', name: 'Standard', isDefault: true,
+        weekDays: [false, true, true, true, true, true, false],
+        hoursPerDay: 8, exceptions: []
     };
 }
 
@@ -37,7 +37,7 @@ export function findNextWorkingDay(date: Date, calendar: Calendar, direction: 'f
 
 export function addWorkingDays(start: Date, days: number, calendar: Calendar): Date {
     let curr = normalize(start);
-    
+
     // If start itself is non-working, shift to the next valid working day first
     if (!isWorkingDay(curr, calendar)) {
         curr = findNextWorkingDay(curr, calendar, days >= 0 ? 'forward' : 'backward');
@@ -60,7 +60,7 @@ export function addWorkingDays(start: Date, days: number, calendar: Calendar): D
 }
 
 export function calculateFinish(start: Date, duration: number, calendar: Calendar): Date {
-    if (duration <= 0) return normalize(start); 
+    if (duration <= 0) return normalize(start);
     // If duration is 1 day, start and finish are the same day
     return addWorkingDays(start, duration - 1, calendar);
 }
@@ -73,10 +73,10 @@ export function calculateStart(finish: Date, duration: number, calendar: Calenda
 export function calculateSchedule(projectData: ProjectData): ScheduleResult {
     const { activities, meta } = projectData;
     if (!activities || activities.length === 0) return { activities: [], wbsMap: {} };
-    
+
     const projectStartDate = normalize(meta?.projectStartDate ? new Date(meta.projectStartDate) : new Date());
     const activityMap: Record<string, Activity> = {};
-    
+
     // Initialize
     const scheduledActivities: Activity[] = activities.map(a => ({
         ...a,
@@ -88,11 +88,11 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
         activityType: a.activityType || (a.duration === 0 ? 'Finish Milestone' : 'Task'),
         duration: (a.activityType === 'Start Milestone' || a.activityType === 'Finish Milestone') ? 0 : a.duration
     }));
-    
+
     scheduledActivities.forEach(act => activityMap[act.id] = act);
 
     // --- 1. Forward Pass ---
-    for (let pass = 0; pass < activities.length + 2; pass++) {
+    for (let pass = 0; pass < activities.length * 2 + 10; pass++) {
         let changed = false;
         scheduledActivities.forEach(act => {
             const calendar = getCalendar(act.calendarId, projectData);
@@ -100,11 +100,11 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
 
             // Predecessor Logic
             if (act.predecessors.length > 0) {
-                let maxStart = new Date(-8640000000000000); 
+                let maxStart = new Date(-8640000000000000);
                 act.predecessors.forEach(pred => {
                     const pAct = activityMap[pred.activityId];
                     if (!pAct) return;
-                    
+
                     const pFinish = normalize(pAct.earlyFinish);
                     const pStart = normalize(pAct.earlyStart);
                     const lag = pred.lag || 0;
@@ -112,8 +112,8 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
 
                     if (pred.type === 'FS') {
                         // Finish to Start: Pred Finish + Lag + 1 Day (next day)
-                        let d = addWorkingDays(pFinish, lag, calendar); 
-                        d.setDate(d.getDate() + 1); 
+                        let d = addWorkingDays(pFinish, lag, calendar);
+                        d.setDate(d.getDate() + 1);
                         d = findNextWorkingDay(d, calendar, 'forward');
                         constraintDate = d;
                     } else if (pred.type === 'SS') {
@@ -128,13 +128,34 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
                     if (constraintDate > maxStart) maxStart = constraintDate;
                 });
                 calculatedEarlyStart = maxStart;
-                
+
                 if (calculatedEarlyStart < projectStartDate) calculatedEarlyStart = normalize(projectStartDate);
                 calculatedEarlyStart = findNextWorkingDay(calculatedEarlyStart, calendar, 'forward');
             } else {
                 // If no predecessors, default to Project Start
                 calculatedEarlyStart = findNextWorkingDay(projectStartDate, calendar, 'forward');
             }
+
+            // --- Constraint Logic ---
+            if (act.constraintType === 'SNET' && act.constraintDate) {
+                const cDate = normalize(new Date(act.constraintDate));
+                // Start No Earlier Than: If calc start is before constraint, push to constraint
+                if (calculatedEarlyStart < cDate) {
+                    calculatedEarlyStart = cDate;
+                    calculatedEarlyStart = findNextWorkingDay(calculatedEarlyStart, calendar, 'forward');
+                }
+            } else if (act.constraintType === 'MSO' && act.constraintDate) {
+                const cDate = normalize(new Date(act.constraintDate));
+                // Must Start On: Hard overwrite (requires careful working day handling, but standard CPM sets it)
+                calculatedEarlyStart = cDate;
+                // Ideally verify if valid working day, but MSO overrides logic usually. 
+                // We will align to working day to be safe for this implementation.
+                if (!isWorkingDay(calculatedEarlyStart, calendar)) {
+                    calculatedEarlyStart = findNextWorkingDay(calculatedEarlyStart, calendar, 'forward');
+                }
+            }
+            // Note: FNLT (Finish No Later Than) affects Backward pass or Late dates, not Early Start usually, 
+            // unless it creates negative float. For now we focus on SNET for Drag & Drop.
 
             if (Math.abs(calculatedEarlyStart.getTime() - act.earlyStart.getTime()) > 1000) {
                 act.earlyStart = calculatedEarlyStart;
@@ -146,10 +167,10 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
     }
 
     // --- 2. Backward Pass ---
-    
+
     // Find Project Finish Date (Max Early Finish)
     let maxProjectFinish = new Date(-8640000000000000);
-    scheduledActivities.forEach(a => { if(a.earlyFinish > maxProjectFinish) maxProjectFinish = a.earlyFinish; });
+    scheduledActivities.forEach(a => { if (a.earlyFinish > maxProjectFinish) maxProjectFinish = a.earlyFinish; });
     maxProjectFinish = normalize(maxProjectFinish);
 
     // Initialize Late dates to Project Finish (Default assumption: everything floats to end)
@@ -169,19 +190,19 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
     });
 
     // Backward Loop
-    for (let pass = 0; pass < activities.length + 2; pass++) {
+    for (let pass = 0; pass < activities.length * 2 + 10; pass++) {
         let changed = false;
         // Reverse order
         for (let i = scheduledActivities.length - 1; i >= 0; i--) {
             const act = scheduledActivities[i];
             const successors = successorMap[act.id] || [];
-            
+
             const calendar = getCalendar(act.calendarId, projectData);
             let calculatedLateFinish = new Date(maxProjectFinish);
 
             if (successors.length > 0) {
                 let minLateFinish = new Date(8640000000000000);
-                
+
                 successors.forEach(succ => {
                     const sAct = activityMap[succ.id];
                     if (!sAct) return;
@@ -189,17 +210,21 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
                     const sStart = normalize(sAct.lateStart);
                     const sFinish = normalize(sAct.lateFinish);
                     const lag = succ.lag || 0;
-                    
-                    let constraintDate = new Date(maxProjectFinish); 
+
+                    let constraintDate = new Date(maxProjectFinish);
 
                     // Backward Constraint Logic
                     if (succ.type === 'FS') {
                         // S.Start = P.Finish + Lag + 1
                         // P.Finish = S.Start - 1 - Lag
                         let d = new Date(sStart);
-                        d.setDate(d.getDate() - 1); 
-                        d = addWorkingDays(d, -lag, calendar);
+                        d.setDate(d.getDate() - 1);
+                        // IMPORTANT: Snap to previous working day explicitly.
+                        // addWorkingDays defaults to 'forward' snap if days=0, which causes Sunday->Monday snap
+                        // instead of Sunday->Friday snap, creating 1 day false float.
                         d = findNextWorkingDay(d, calendar, 'backward');
+                        d = addWorkingDays(d, -lag, calendar);
+                        // d = findNextWorkingDay(d, calendar, 'backward'); // Redundant if addWorkingDays preserves working-ness or checked above
                         constraintDate = d;
                     } else if (succ.type === 'SS') {
                         // S.Start = P.Start + Lag
@@ -210,9 +235,9 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
                         // S.Finish = P.Finish + Lag
                         constraintDate = addWorkingDays(sFinish, -lag, calendar);
                     } else if (succ.type === 'SF') {
-                         // S.Finish = P.Start + Lag
-                         let pStartConstraint = addWorkingDays(sFinish, -lag, calendar);
-                         constraintDate = calculateFinish(pStartConstraint, act.duration, calendar);
+                        // S.Finish = P.Start + Lag
+                        let pStartConstraint = addWorkingDays(sFinish, -lag, calendar);
+                        constraintDate = calculateFinish(pStartConstraint, act.duration, calendar);
                     }
 
                     if (constraintDate < minLateFinish) minLateFinish = constraintDate;
@@ -220,7 +245,7 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
 
                 calculatedLateFinish = minLateFinish;
             }
-            
+
             // CRITICAL PATH FIX:
             // If the calculated Late Finish is LATER than Project Finish (which can happen with open-ended tasks or SS/SF logic),
             // clamp it to Project Finish. This ensures tasks that "could" end later but don't drive the project
@@ -230,20 +255,57 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
             }
 
             if (Math.abs(calculatedLateFinish.getTime() - act.lateFinish.getTime()) > 1000) {
-                 act.lateFinish = calculatedLateFinish;
-                 act.lateStart = calculateStart(act.lateFinish, act.duration, calendar);
-                 changed = true;
+                act.lateFinish = calculatedLateFinish;
+                act.lateStart = calculateStart(act.lateFinish, act.duration, calendar);
+                changed = true;
             }
         }
         if (!changed) break;
     }
 
+    // Helper to get working days between two dates
+    function getWorkingDayDiff(start: Date, end: Date, calendar: Calendar): number {
+        let curr = normalize(start);
+        const target = normalize(end);
+        if (curr.getTime() === target.getTime()) return 0;
+
+        // Ensure start <= end for simplicity, return negative if swapped
+        if (curr > target) {
+            return -getWorkingDayDiff(target, curr, calendar);
+        }
+
+        let days = 0;
+        let loops = 0;
+        // We count how many working day steps it takes to go from start to end.
+        // However, typical definition of float: amount of time that a schedule activity can be delayed
+        // from its early start without delaying the project finish date.
+        // If ES=Friday, LS=Monday (next), and Sat/Sun are off. Valid working days: Monday.
+        // Slippage allowed = 0 working days? 
+        // Actually if I finish Friday, and I MUST finish by Monday. 
+        // If duration is 0, start=finish.
+        // Let's iterate.
+
+        while (curr < target && loops < 5000) {
+            curr.setDate(curr.getDate() + 1);
+            if (isWorkingDay(curr, calendar)) {
+                days++;
+            }
+            loops++;
+        }
+        return days;
+    }
+
     // --- 3. Finalize ---
     scheduledActivities.forEach(act => {
-        const floatMs = act.lateFinish.getTime() - act.earlyFinish.getTime();
-        act.totalFloat = Math.round(floatMs / (1000 * 60 * 60 * 24));
-        if(Math.abs(act.totalFloat) < 0.1) act.totalFloat = 0;
+        // Use working days for float calculation to correctly identify critical path
+        // especially when EarlyFinish is Friday and LateFinish is Monday (across weekend)
+        const calendar = getCalendar(act.calendarId, projectData);
+        act.totalFloat = getWorkingDayDiff(act.earlyFinish, act.lateFinish, calendar);
+
+        // Safety for floating point issues not needed for integer day steps, 
+        // but keeping existing check structure if needed (though removed here for clean logic)
         act.isCritical = act.totalFloat <= 0;
+
         act.startDate = act.earlyStart;
         act.endDate = act.earlyFinish;
     });
@@ -253,31 +315,31 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
     const processWBS = (nodeId: string): { start: number | null, end: number | null } => {
         const childWBS = projectData.wbs.filter(w => w.parentId === nodeId);
         const childActs = scheduledActivities.filter(a => a.wbsId === nodeId);
-        
+
         let startDates = childActs.map(a => a.startDate.getTime());
         let endDates = childActs.map(a => a.endDate.getTime());
 
         childWBS.forEach(child => {
             const childDates = processWBS(child.id);
-            if(childDates.start) startDates.push(childDates.start);
-            if(childDates.end) endDates.push(childDates.end);
+            if (childDates.start) startDates.push(childDates.start);
+            if (childDates.end) endDates.push(childDates.end);
         });
 
         const minStart = startDates.length ? new Date(Math.min(...startDates)) : null;
         const maxEnd = endDates.length ? new Date(Math.max(...endDates)) : null;
-        
+
         let duration = 0;
-        if(minStart && maxEnd) {
-             const diffMs = maxEnd.getTime() - minStart.getTime();
-             duration = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
-             wbsMap[nodeId] = { startDate: minStart, endDate: maxEnd, duration };
+        if (minStart && maxEnd) {
+            const diffMs = maxEnd.getTime() - minStart.getTime();
+            duration = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
+            wbsMap[nodeId] = { startDate: minStart, endDate: maxEnd, duration };
         } else {
-             wbsMap[nodeId] = { startDate: new Date(), endDate: new Date(), duration: 0 };
+            wbsMap[nodeId] = { startDate: new Date(), endDate: new Date(), duration: 0 };
         }
-        
+
         return { start: minStart?.getTime() || null, end: maxEnd?.getTime() || null };
     }
-    
+
     projectData.wbs.filter(w => !w.parentId || w.parentId === 'null').forEach(r => processWBS(r.id));
 
     return { activities: activities.map(a => activityMap[a.id]), wbsMap };

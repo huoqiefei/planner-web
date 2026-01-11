@@ -3,6 +3,8 @@ import { User, UserSettings } from '../types';
 import { useTranslation } from '../utils/i18n';
 import { BaseModal, AlertModal } from './Modals';
 import { authService } from '../services/authService';
+import { useAppStore } from '../stores/useAppStore';
+import { getSubscriptionLimits, formatLimit, isOverLimit } from '../utils/subscriptionLimits';
 
 interface AccountSettingsModalProps {
     isOpen: boolean;
@@ -14,18 +16,18 @@ interface AccountSettingsModalProps {
     initialTab?: 'profile' | 'preferences' | 'subscription' | 'security' | 'usage';
 }
 
-export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ 
+export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
     isOpen, onClose, user, settings, onSaveSettings, onUpdateUser, initialTab = 'profile'
 }) => {
     const { t } = useTranslation(settings.language);
     const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'subscription' | 'security' | 'usage'>(initialTab);
-    
+
     useEffect(() => {
         if (isOpen) {
             setActiveTab(initialTab);
         }
     }, [isOpen, initialTab]);
-    
+
     // Profile State
     const [nickname, setNickname] = useState('');
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -74,11 +76,11 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 nickname: nickname !== user?.name ? nickname : undefined,
                 avatar: avatarFile || undefined
             });
-            
+
             // Update local user object
             if (user) {
-                const updatedUser = { 
-                    ...user, 
+                const updatedUser = {
+                    ...user,
                     name: nickname,
                     avatar: result.avatarUrl || user.avatar
                 };
@@ -110,7 +112,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             setPasswordError(t('PasswordsDoNotMatch'));
             return;
         }
-        
+
         setLoading(true);
         try {
             await authService.changePassword(oldPassword, newPassword);
@@ -127,7 +129,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
     };
 
     const getPlanName = (role?: string) => {
-        switch(role) {
+        switch (role) {
             case 'trial': return t('Trial');
             case 'licensed': return t('Licensed');
             case 'premium': return t('Premium');
@@ -138,7 +140,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
     // Get Title based on active tab
     const getTitle = () => {
-        switch(activeTab) {
+        switch (activeTab) {
             case 'profile': return t('AccountSettings');
             case 'preferences': return t('UserPreferences');
             case 'subscription': return t('SubscriptionPlan');
@@ -149,11 +151,26 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
     };
 
     const tabs = [
-        { id: 'profile', label: t('AccountSettings'), icon: '👤' },
-        { id: 'preferences', label: t('UserPreferences'), icon: '⚙️' },
-        { id: 'subscription', label: t('SubscriptionPlan'), icon: '💎' },
-        { id: 'usage', label: t('UsageStatistics'), icon: '📊' },
-        { id: 'security', label: t('ChangePassword'), icon: '🔒' },
+        {
+            id: 'profile',
+            label: t('AccountSettings'),
+            icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="5" r="2.5" /><path d="M3 14c0-2.5 2-4 5-4s5 1.5 5 4" /></svg>
+        },
+        {
+            id: 'subscription',
+            label: t('SubscriptionPlan'),
+            icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 2l1.5 3 3.5.5-2.5 2.5.5 3.5L8 10l-3 1.5.5-3.5L3 5.5l3.5-.5L8 2z" /></svg>
+        },
+        {
+            id: 'usage',
+            label: t('UsageStatistics'),
+            icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 13V9m4 4V6m4 7V3" /></svg>
+        },
+        {
+            id: 'security',
+            label: t('ChangePassword'),
+            icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="4" y="7" width="8" height="6" rx="1" /><path d="M6 7V5c0-1.1.9-2 2-2s2 .9 2 2v2" /></svg>
+        },
     ] as const;
 
     return (
@@ -161,7 +178,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             <BaseModal
                 isOpen={isOpen}
                 onClose={onClose}
-                title={t('Settings')}
+                title=" "
                 className="w-[900px] h-[600px] flex flex-col"
                 bodyClassName="flex flex-1 flex-row overflow-hidden"
             >
@@ -170,11 +187,10 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
-                            className={`w-full text-left px-6 py-3 flex items-center gap-3 transition-colors ${
-                                activeTab === tab.id 
-                                ? 'bg-white text-blue-600 border-r-2 border-blue-600 font-medium' 
+                            className={`w-full text-left px-6 py-3 flex items-center gap-3 transition-colors ${activeTab === tab.id
+                                ? 'bg-white text-blue-600 border-r-2 border-blue-600 font-medium'
                                 : 'text-slate-600 hover:bg-slate-100'
-                            }`}
+                                }`}
                             onClick={() => setActiveTab(tab.id)}
                         >
                             <span className="text-lg">{tab.icon}</span>
@@ -186,14 +202,14 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 {/* Content Area */}
                 <div className="flex-1 flex flex-col h-full overflow-hidden">
                     <div className="p-6 border-b border-slate-100 flex-shrink-0">
-                        <h2 className="text-xl font-bold text-slate-800">{getTitle()}</h2>
+                        {/* <h2 className="text-xl font-bold text-slate-800">{getTitle()}</h2> */}
                     </div>
-                    
+
                     <div className="flex-1 p-8 overflow-y-auto bg-white">
                         {activeTab === 'profile' && (
                             <div className="space-y-6 max-w-lg">
                                 <div className="flex items-center gap-6">
-                                    <div 
+                                    <div
                                         className="w-24 h-24 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden cursor-pointer border-2 border-slate-100 hover:border-blue-500 transition-colors shadow-sm"
                                         onClick={() => fileInputRef.current?.click()}
                                     >
@@ -206,17 +222,17 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                         )}
                                     </div>
                                     <div>
-                                        <button 
+                                        <button
                                             className="px-3 py-1.5 bg-white border border-slate-300 rounded text-sm font-medium text-slate-700 hover:bg-slate-50 mb-1"
                                             onClick={() => fileInputRef.current?.click()}
                                         >
                                             {t('EditAvatar')}
                                         </button>
                                         <p className="text-xs text-slate-500">{t('ClickToUpload')}</p>
-                                        <input 
-                                            type="file" 
-                                            ref={fileInputRef} 
-                                            className="hidden" 
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            className="hidden"
                                             accept="image/*"
                                             onChange={handleFileChange}
                                         />
@@ -226,8 +242,8 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                 <div className="space-y-4">
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1">{t('UserName')}</label>
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             className="w-full border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                                             value={nickname}
                                             onChange={e => setNickname(e.target.value)}
@@ -236,18 +252,18 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1">{t('Email')}</label>
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             className="w-full border border-slate-300 rounded p-2 bg-slate-50 text-slate-500"
                                             value={user?.mail || ''}
                                             disabled
                                         />
                                     </div>
-                                    
+
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1">{t('UserID')}</label>
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             className="w-full border border-slate-300 rounded p-2 bg-slate-50 text-slate-500"
                                             value={user?.uid || ''}
                                             disabled
@@ -256,7 +272,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                 </div>
 
                                 <div className="pt-4 border-t">
-                                    <button 
+                                    <button
                                         className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 font-bold shadow-sm"
                                         onClick={handleSaveProfile}
                                         disabled={loading}
@@ -274,7 +290,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                     <div className="space-y-4">
                                         <div>
                                             <label className="block mb-1 text-sm font-medium text-slate-700">{t('DateFormat')}</label>
-                                            <select className="w-full border border-slate-300 rounded p-2" value={localSettings.dateFormat} onChange={e => setLocalSettings({...localSettings, dateFormat: e.target.value as any})}>
+                                            <select className="w-full border border-slate-300 rounded p-2" value={localSettings.dateFormat} onChange={e => setLocalSettings({ ...localSettings, dateFormat: e.target.value as any })}>
                                                 <option value="YYYY-MM-DD">YYYY-MM-DD (2023-10-30)</option>
                                                 <option value="DD-MMM-YYYY">DD-MMM-YYYY (30-Oct-2023)</option>
                                                 <option value="MM/DD/YYYY">MM/DD/YYYY (10/30/2023)</option>
@@ -282,7 +298,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                         </div>
                                         <div>
                                             <label className="block mb-1 text-sm font-medium text-slate-700">{t('Language')}</label>
-                                            <select className="w-full border border-slate-300 rounded p-2" value={localSettings.language} onChange={e => setLocalSettings({...localSettings, language: e.target.value as any})}>
+                                            <select className="w-full border border-slate-300 rounded p-2" value={localSettings.language} onChange={e => setLocalSettings({ ...localSettings, language: e.target.value as any })}>
                                                 <option value="en">English</option>
                                                 <option value="zh">Chinese (Simplified)</option>
                                             </select>
@@ -290,7 +306,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block mb-1 text-sm font-medium text-slate-700">{t('InterfaceSize')}</label>
-                                                <select className="w-full border border-slate-300 rounded p-2" value={localSettings.uiSize} onChange={e => setLocalSettings({...localSettings, uiSize: e.target.value as any})}>
+                                                <select className="w-full border border-slate-300 rounded p-2" value={localSettings.uiSize} onChange={e => setLocalSettings({ ...localSettings, uiSize: e.target.value as any })}>
                                                     <option value="small">{t('Small')}</option>
                                                     <option value="medium">{t('Medium')}</option>
                                                     <option value="large">{t('Large')}</option>
@@ -298,11 +314,11 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                             </div>
                                             <div>
                                                 <label className="block mb-1 text-sm font-medium text-slate-700">{t('CustomFontSize')}</label>
-                                                <input 
-                                                    type="number" 
-                                                    className="w-full border border-slate-300 rounded p-2" 
-                                                    value={localSettings.uiFontPx || 13} 
-                                                    onChange={e => setLocalSettings({...localSettings, uiFontPx: Number(e.target.value)})} 
+                                                <input
+                                                    type="number"
+                                                    className="w-full border border-slate-300 rounded p-2"
+                                                    value={localSettings.uiFontPx || 13}
+                                                    onChange={e => setLocalSettings({ ...localSettings, uiFontPx: Number(e.target.value) })}
                                                 />
                                             </div>
                                         </div>
@@ -312,31 +328,31 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                 <div>
                                     <h4 className="font-bold text-lg text-slate-800 border-b pb-2 mb-4">{t('GanttSettings')}</h4>
                                     <div className="space-y-4">
-                                         <div>
-                                             <label className="block mb-1 text-sm font-medium text-slate-700">{t('VerticalInterval')}</label>
-                                             <select 
-                                                 className="w-full border border-slate-300 rounded p-2"
-                                                 value={localSettings.gridSettings.verticalInterval || 'auto'}
-                                                 onChange={e => setLocalSettings({...localSettings, gridSettings: {...localSettings.gridSettings, verticalInterval: e.target.value as any}})}
-                                             >
-                                                 <option value="auto">{t('Auto')}</option>
-                                                 <option value="month">{t('EveryMonth')}</option>
-                                                 <option value="quarter">{t('EveryQuarter')}</option>
-                                                 <option value="year">{t('EveryYear')}</option>
-                                             </select>
-                                         </div>
+                                        <div>
+                                            <label className="block mb-1 text-sm font-medium text-slate-700">{t('VerticalInterval')}</label>
+                                            <select
+                                                className="w-full border border-slate-300 rounded p-2"
+                                                value={localSettings.gridSettings.verticalInterval || 'auto'}
+                                                onChange={e => setLocalSettings({ ...localSettings, gridSettings: { ...localSettings.gridSettings, verticalInterval: e.target.value as any } })}
+                                            >
+                                                <option value="auto">{t('Auto')}</option>
+                                                <option value="month">{t('EveryMonth')}</option>
+                                                <option value="quarter">{t('EveryQuarter')}</option>
+                                                <option value="year">{t('EveryYear')}</option>
+                                            </select>
+                                        </div>
 
                                         <div className="space-y-2">
                                             <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="checkbox" className="w-4 h-4 text-blue-600 rounded" checked={localSettings.gridSettings.showVertical} onChange={e => setLocalSettings({...localSettings, gridSettings: {...localSettings.gridSettings, showVertical: e.target.checked}})} />
+                                                <input type="checkbox" className="w-4 h-4 text-blue-600 rounded" checked={localSettings.gridSettings.showVertical} onChange={e => setLocalSettings({ ...localSettings, gridSettings: { ...localSettings.gridSettings, showVertical: e.target.checked } })} />
                                                 <span className="text-sm text-slate-700">{t('ShowVertical')}</span>
                                             </label>
                                             <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="checkbox" className="w-4 h-4 text-blue-600 rounded" checked={localSettings.gridSettings.showHorizontal} onChange={e => setLocalSettings({...localSettings, gridSettings: {...localSettings.gridSettings, showHorizontal: e.target.checked}})} />
+                                                <input type="checkbox" className="w-4 h-4 text-blue-600 rounded" checked={localSettings.gridSettings.showHorizontal} onChange={e => setLocalSettings({ ...localSettings, gridSettings: { ...localSettings.gridSettings, showHorizontal: e.target.checked } })} />
                                                 <span className="text-sm text-slate-700">{t('ShowHorizontal')}</span>
                                             </label>
-                                             <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="checkbox" className="w-4 h-4 text-blue-600 rounded" checked={localSettings.gridSettings.showWBSLines} onChange={e => setLocalSettings({...localSettings, gridSettings: {...localSettings.gridSettings, showWBSLines: e.target.checked}})} />
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" className="w-4 h-4 text-blue-600 rounded" checked={localSettings.gridSettings.showWBSLines} onChange={e => setLocalSettings({ ...localSettings, gridSettings: { ...localSettings.gridSettings, showWBSLines: e.target.checked } })} />
                                                 <span className="text-sm text-slate-700">{t('ShowWBS')}</span>
                                             </label>
                                         </div>
@@ -344,7 +360,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                 </div>
 
                                 <div className="pt-4 border-t">
-                                    <button 
+                                    <button
                                         className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold shadow-sm"
                                         onClick={handleSavePreferences}
                                     >
@@ -356,43 +372,44 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
                         {activeTab === 'subscription' && (
                             <div className="space-y-6">
-                                <div className="bg-slate-50 p-6 rounded-lg border border-slate-200">
-                                    <h3 className="font-bold text-xl mb-3 text-slate-800">{t('SubscriptionPlan')}</h3>
+                                {/* <div className="bg-slate-50 p-6 rounded-lg border border-slate-200">
                                     <div className="flex items-center gap-3 mb-2">
-                                        <span className={`px-3 py-1 rounded-full text-sm font-bold uppercase ${
-                                            user?.plannerRole === 'admin' ? 'bg-purple-100 text-purple-800' :
+                                        <span className={`px-3 py-1 rounded-full text-sm font-bold uppercase ${user?.plannerRole === 'admin' ? 'bg-purple-100 text-purple-800' :
                                             user?.plannerRole === 'premium' ? 'bg-amber-100 text-amber-800' :
-                                            user?.plannerRole === 'licensed' ? 'bg-green-100 text-green-800' :
-                                            'bg-slate-200 text-slate-700'
-                                        }`}>
+                                                user?.plannerRole === 'licensed' ? 'bg-green-100 text-green-800' :
+                                                    'bg-slate-200 text-slate-700'
+                                            }`}>
                                             {getPlanName(user?.plannerRole)}
                                         </span>
                                     </div>
-                                </div>
-                                
+                                </div> */}
+
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {/* Trial Plan */}
                                     <div className={`border p-4 rounded-lg transition-all ${user?.plannerRole === 'trial' ? 'border-blue-500 ring-2 ring-blue-100 bg-blue-50 shadow-md transform scale-105' : 'bg-white hover:border-slate-300'}`}>
                                         <h4 className="font-bold text-lg mb-2">{t('Trial')}</h4>
                                         <div className="text-sm text-slate-500 space-y-2">
-                                            <p>• 20 {t('ActivitiesLimit')}</p>
-                                            <p>• 1 {t('CloudProjectsLimit')}</p>
-                                            <p>• {t('WatermarkStatus')}: {t('Yes')}</p>
+                                            <p>• {formatLimit(getSubscriptionLimits('trial').activities)} {t('ActivitiesLimit')}</p>
+                                            <p>• {formatLimit(getSubscriptionLimits('trial').resources)} {t('ResourcesLimit')}</p>
+                                            <p>• {formatLimit(getSubscriptionLimits('trial').customFields)} {t('CustomFieldsLimit')}</p>
                                         </div>
                                     </div>
+                                    {/* Licensed Plan */}
                                     <div className={`border p-4 rounded-lg transition-all ${user?.plannerRole === 'licensed' ? 'border-green-500 ring-2 ring-green-100 bg-green-50 shadow-md transform scale-105' : 'bg-white hover:border-slate-300'}`}>
                                         <h4 className="font-bold text-lg mb-2">{t('Licensed')}</h4>
                                         <div className="text-sm text-slate-500 space-y-2">
-                                            <p>• 100 {t('ActivitiesLimit')}</p>
-                                            <p>• 3 {t('CloudProjectsLimit')}</p>
-                                            <p>• {t('WatermarkStatus')}: {t('No')}</p>
+                                            <p>• {formatLimit(getSubscriptionLimits('licensed').activities)} {t('ActivitiesLimit')}</p>
+                                            <p>• {formatLimit(getSubscriptionLimits('licensed').resources)} {t('ResourcesLimit')}</p>
+                                            <p>• {formatLimit(getSubscriptionLimits('licensed').customFields)} {t('CustomFieldsLimit')}</p>
                                         </div>
                                     </div>
+                                    {/* Premium Plan */}
                                     <div className={`border p-4 rounded-lg transition-all ${user?.plannerRole === 'premium' ? 'border-amber-500 ring-2 ring-amber-100 bg-amber-50 shadow-md transform scale-105' : 'bg-white hover:border-slate-300'}`}>
                                         <h4 className="font-bold text-lg mb-2">{t('Premium')}</h4>
                                         <div className="text-sm text-slate-500 space-y-2">
-                                            <p>• 500 {t('ActivitiesLimit')}</p>
-                                            <p>• 20 {t('CloudProjectsLimit')}</p>
-                                            <p>• {t('WatermarkStatus')}: {t('No')}</p>
+                                            <p>• {formatLimit(getSubscriptionLimits('premium').activities)} {t('ActivitiesLimit')}</p>
+                                            <p>• {formatLimit(getSubscriptionLimits('premium').resources)} {t('ResourcesLimit')}</p>
+                                            <p>• {formatLimit(getSubscriptionLimits('premium').customFields)} {t('CustomFieldsLimit')}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -400,56 +417,99 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                         )}
 
                         {activeTab === 'usage' && (
-                            <div className="space-y-6">
-                                <h3 className="font-bold text-xl mb-3 text-slate-800">{t('UsageStatistics')}</h3>
-                                {user?.usage ? (
-                                    <div className="space-y-6">
-                                        <div className="bg-white border rounded-lg p-6 shadow-sm">
-                                            <h4 className="font-bold text-lg mb-4 text-slate-700">{t('ProjectUsage')}</h4>
-                                            
-                                            <div className="mb-2 flex justify-between items-end">
-                                                <span className="text-sm text-slate-500">{t('Used')} / {t('Limit')}</span>
-                                                <span className="text-2xl font-bold text-blue-600">
-                                                    {user.usage.project_count} <span className="text-sm text-slate-400 font-normal">/ {user.usage.project_limit > 9000 ? '∞' : user.usage.project_limit}</span>
-                                                </span>
-                                            </div>
-                                            
-                                            <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden mb-2">
-                                                <div 
-                                                    className={`h-full rounded-full transition-all duration-500 ${user.usage.project_count >= user.usage.project_limit ? 'bg-red-500' : 'bg-blue-500'}`} 
-                                                    style={{ width: `${Math.min(100, (user.usage.project_count / (user.usage.project_limit > 9000 ? 100 : user.usage.project_limit)) * 100)}%` }}
-                                                />
-                                            </div>
-                                            
-                                            {user.usage.project_limit <= 9000 && (
-                                                <p className="text-right text-sm text-slate-500">
-                                                    {t('Remaining' as any)}: <span className="font-bold text-green-600">{Math.max(0, user.usage.project_limit - user.usage.project_count)}</span>
-                                                </p>
-                                            )}
-                                        </div>
+                            <div className="space-y-6 max-w-2xl">
+                                {/* Subscription Plan Info */}
+                                {/* <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h4 className="font-bold text-lg text-slate-800">{t('SubscriptionPlan')}</h4>
+                                        <span className="px-3 py-1 bg-blue-600 text-white rounded-full text-sm font-semibold capitalize">
+                                            {user?.plannerRole || 'trial'}
+                                        </span>
+                                    </div>
+                                    <div className="text-sm text-slate-600">
+                                        {user?.plannerRole === 'trial' && t('FreeTrial')}
+                                        {user?.plannerRole === 'licensed' && t('StandardPlan')}
+                                        {user?.plannerRole === 'premium' && t('ProPlan')}
+                                        {user?.plannerRole === 'admin' && t('Administrator')}
+                                    </div>
+                                </div> */}
 
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="bg-slate-50 border rounded-lg p-4 text-center">
-                                                <div className="text-sm text-slate-500 mb-1">{t('Activities' as any)}</div>
-                                                <div className="text-2xl font-bold text-slate-700">{user.usage.activity_count}</div>
+                                {/* Current Project Usage */}
+                                <div className="bg-white border rounded-lg p-6 shadow-sm">
+                                    <h4 className="font-bold text-lg mb-4 text-slate-700">{t('ProjectUsage')}</h4>
+
+                                    {(() => {
+                                        const role = user?.plannerRole || 'trial';
+                                        const limitMap: Record<string, number> = {
+                                            'trial': Number(import.meta.env.VITE_LIMIT_TRIAL) || 20,
+                                            'licensed': Number(import.meta.env.VITE_LIMIT_LICENSED) || 100,
+                                            'premium': Number(import.meta.env.VITE_LIMIT_PREMIUM) || 500,
+                                            'admin': Number(import.meta.env.VITE_LIMIT_ADMIN) || 9999
+                                        };
+                                        const resourceLimitMap: Record<string, number> = {
+                                            'trial': Number(import.meta.env.VITE_LIMIT_RESOURCE_TRIAL) || 10,
+                                            'licensed': Number(import.meta.env.VITE_LIMIT_RESOURCE_LICENSED) || 50,
+                                            'premium': Number(import.meta.env.VITE_LIMIT_RESOURCE_PREMIUM) || 200,
+                                            'admin': Number(import.meta.env.VITE_LIMIT_RESOURCE_ADMIN) || 9999
+                                        };
+                                        const customFieldLimitMap: Record<string, number> = {
+                                            'trial': 5,
+                                            'licensed': 20,
+                                            'premium': 50,
+                                            'admin': 9999
+                                        };
+
+                                        const activityLimit = limitMap[role] || 20;
+                                        const resourceLimit = resourceLimitMap[role] || 10;
+                                        const customFieldLimit = customFieldLimitMap[role] || 5;
+
+                                        // Get actual counts from useAppStore
+                                        const { data } = useAppStore.getState();
+                                        const activityCount = data?.activities?.length || 0;
+                                        const resourceCount = data?.resources?.length || 0;
+                                        const customFieldCount = (data?.meta?.customFieldDefinitions?.length || 0);
+
+                                        const renderUsageBar = (label: string, used: number, limit: number) => {
+                                            const percentage = Math.min(100, (used / (limit > 9000 ? 100 : limit)) * 100);
+                                            const isOverLimit = used >= limit && limit <= 9000;
+
+                                            return (
+                                                <div className="mb-4">
+                                                    <div className="flex justify-between items-end mb-2">
+                                                        <span className="text-sm font-medium text-slate-600">{label}</span>
+                                                        <span className={`text-lg font-bold ${isOverLimit ? 'text-red-600' : 'text-blue-600'}`}>
+                                                            {used} <span className="text-sm text-slate-400 font-normal">/ {limit > 9000 ? '∞' : limit}</span>
+                                                        </span>
+                                                    </div>
+                                                    <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full transition-all duration-500 ${isOverLimit ? 'bg-red-500' : 'bg-blue-500'}`}
+                                                            style={{ width: `${percentage}%` }}
+                                                        />
+                                                    </div>
+                                                    {limit <= 9000 && (
+                                                        <p className="text-right text-xs text-slate-500 mt-1">
+                                                            {t('Remaining')}: <span className={`font-semibold ${isOverLimit ? 'text-red-600' : 'text-green-600'}`}>{Math.max(0, limit - used)}</span>
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            );
+                                        };
+
+                                        return (
+                                            <div className="space-y-4">
+                                                {renderUsageBar(t('Activities'), activityCount, activityLimit)}
+                                                {renderUsageBar(t('Resources'), resourceCount, resourceLimit)}
+                                                {renderUsageBar(t('CustomFields'), customFieldCount, customFieldLimit)}
                                             </div>
-                                            <div className="bg-slate-50 border rounded-lg p-4 text-center">
-                                                <div className="text-sm text-slate-500 mb-1">{t('Resources' as any)}</div>
-                                                <div className="text-2xl font-bold text-slate-700">{user.usage.resource_count}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-10 text-slate-500">
-                                        {t('NoDataAvailable' as any)}
-                                    </div>
-                                )}
+                                        );
+                                    })()}
+                                </div>
                             </div>
                         )}
 
                         {activeTab === 'security' && (
                             <div className="space-y-6 max-w-md">
-                                <h4 className="font-bold text-lg text-slate-800 border-b pb-2">{t('ChangePassword')}</h4>
                                 {passwordError && (
                                     <div className="bg-red-50 text-red-600 p-3 rounded text-sm border border-red-200">
                                         {passwordError}
@@ -458,8 +518,8 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                 <div className="space-y-4">
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1">{t('OldPassword')}</label>
-                                        <input 
-                                            type="password" 
+                                        <input
+                                            type="password"
                                             className="w-full border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                                             value={oldPassword}
                                             onChange={e => setOldPassword(e.target.value)}
@@ -467,8 +527,8 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1">{t('NewPassword')}</label>
-                                        <input 
-                                            type="password" 
+                                        <input
+                                            type="password"
                                             className="w-full border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                                             value={newPassword}
                                             onChange={e => setNewPassword(e.target.value)}
@@ -476,8 +536,8 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1">{t('ConfirmPassword')}</label>
-                                        <input 
-                                            type="password" 
+                                        <input
+                                            type="password"
                                             className="w-full border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                                             value={confirmPassword}
                                             onChange={e => setConfirmPassword(e.target.value)}
@@ -486,7 +546,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                                 </div>
 
                                 <div className="pt-4 border-t">
-                                    <button 
+                                    <button
                                         className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold shadow-sm disabled:opacity-50"
                                         onClick={handlePasswordChange}
                                         disabled={loading}
@@ -500,11 +560,11 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 </div>
             </BaseModal>
 
-            <AlertModal 
-                isOpen={!!alertMsg} 
-                msg={alertMsg || ''} 
+            <AlertModal
+                isOpen={!!alertMsg}
+                msg={alertMsg || ''}
                 title={alertTitle}
-                onClose={() => setAlertMsg(null)} 
+                onClose={() => setAlertMsg(null)}
             />
         </>
     );

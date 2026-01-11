@@ -6,8 +6,8 @@ import { ProjectData, ScheduleResult, UserSettings, PrintSettings, AdminConfig, 
 interface UsePrintProps {
     data: ProjectData | null;
     schedule: ScheduleResult;
-    view: 'activities' | 'resources';
-    setView: (view: 'activities' | 'resources') => void;
+    view: 'activities' | 'resources' | 'usage';
+    setView: (view: 'activities' | 'resources' | 'usage') => void;
     user: User | null;
     adminConfig: AdminConfig;
     userSettings: UserSettings;
@@ -51,39 +51,44 @@ export const usePrint = ({
         // 1. Setup Staging Area (Clone)
         const clone = original.cloneNode(true) as HTMLElement;
         document.body.appendChild(clone);
-        
+
         // Style Clone for Capture
         clone.style.position = 'absolute';
         clone.style.top = '-10000px';
         clone.style.left = '-10000px';
-        clone.style.height = 'auto'; 
+        clone.style.height = 'auto';
         clone.style.width = 'fit-content';
         clone.style.overflow = 'visible';
         clone.style.backgroundColor = 'white';
-        clone.style.border = 'none'; 
+        clone.style.border = 'none';
         clone.style.padding = '0';
 
         // 2. Strict Column Hiding & Width Calc
         const allowedCols = userSettings.visibleColumns;
         const headerCells = clone.querySelectorAll('.p6-header > div');
         let tableWidth = 0;
-        
+
         const isColVisible = (el: Element) => {
             const colId = el.getAttribute('data-col');
             return colId && (allowedCols.includes(colId) || colId === 'index');
         };
 
         headerCells.forEach((cell: any) => {
-            if(isColVisible(cell)) {
+            if (isColVisible(cell)) {
                 // Force explicit width for index column if needed, though style.width should catch it
                 const w = parseFloat(cell.style.width || '0');
-                if(w>0) tableWidth += w;
-                
+                if (w > 0) tableWidth += w;
+
                 // Print styling for header cells
                 cell.style.display = 'flex';
                 cell.style.alignItems = 'center';
                 cell.style.justifyContent = 'center';
-                if(cell.getAttribute('data-col') === 'index') {
+                cell.style.overflow = 'visible'; // FIX: Header clipping
+                cell.style.whiteSpace = 'normal'; // FIX: Allow wrap if needed
+                cell.style.textAlign = 'center'; // FIX: Text alignment
+                cell.style.padding = '4px'; // FIX: More breathing room
+
+                if (cell.getAttribute('data-col') === 'index') {
                     cell.style.backgroundColor = '#f1f5f9'; // bg-slate-100
                     cell.style.color = '#64748b'; // text-slate-500
                 }
@@ -94,14 +99,15 @@ export const usePrint = ({
 
         const cells = clone.querySelectorAll('.p6-cell');
         cells.forEach((cell: any) => {
-            if(!isColVisible(cell)) cell.style.display = 'none';
+            if (!isColVisible(cell)) cell.style.display = 'none';
             else {
                 // Formatting for print - FORCE VISIBILITY AND ALIGNMENT
-                cell.style.display = 'flex'; 
-                cell.style.alignItems = 'center'; 
-                cell.style.overflow = 'visible'; 
+                cell.style.display = 'flex';
+                cell.style.alignItems = 'center';
+                cell.style.justifyContent = 'center'; // FIX: Horizontal centering
+                cell.style.overflow = 'visible';
                 cell.style.padding = '0 4px'; // Horizontal padding only
-                
+
                 // FORCE BORDER VISIBILITY
                 cell.style.borderRight = '1px solid #94a3b8'; // Darker color for print visibility
                 cell.style.height = 'auto'; // Allow stretch
@@ -112,19 +118,21 @@ export const usePrint = ({
                 innerDivs.forEach((d: HTMLElement) => {
                     d.style.display = 'flex';
                     d.style.alignItems = 'center';
+                    d.style.justifyContent = 'center'; // FIX: Horizontal centering inner
                     d.style.height = 'auto';
                     d.style.minHeight = '100%';
+                    d.style.width = '100%'; // Ensure full width for centering
                 });
 
                 // CRITICAL FIX: Target ALL spans to fix ID text clipping
                 // (ID cell has multiple spans: one for icon, one for text)
                 const spans = cell.querySelectorAll('span');
                 spans.forEach((span: any) => {
-                    span.style.textOverflow = 'clip'; 
-                    span.style.overflow = 'visible'; 
+                    span.style.textOverflow = 'clip';
+                    span.style.overflow = 'visible';
                     span.style.whiteSpace = 'nowrap';
                     span.style.lineHeight = '1.2'; // Tight line height
-                    span.style.height = 'auto'; 
+                    span.style.height = 'auto';
                     span.style.maxHeight = 'none'; // Ensure no max-height constraints
                     span.style.display = 'inline-block'; // Ensure proper height calculation
                     span.style.verticalAlign = 'middle';
@@ -133,8 +141,8 @@ export const usePrint = ({
         });
 
         // Resize Table Container
-        const tableWrapper = clone.querySelector('.border-r.flex-col') as HTMLElement; 
-        if(tableWrapper) {
+        const tableWrapper = clone.querySelector('.border-r.flex-col') as HTMLElement;
+        if (tableWrapper) {
             tableWrapper.style.width = `${tableWidth}px`;
             tableWrapper.style.minWidth = `${tableWidth}px`;
             tableWrapper.style.flexShrink = '0';
@@ -170,19 +178,19 @@ export const usePrint = ({
             if (!isNaN(ps) && !isNaN(pe) && pe > ps) {
                 printStart = ps;
                 printEnd = pe;
-                
+
                 // Calculate shift (how much to move left)
                 // The Gantt starts at projectStartDate
                 // If printStart > projectStartDate, we need to shift LEFT (negative margin)
                 // If printStart < projectStartDate, we need to shift RIGHT (positive margin) - but usually project starts earlier
-                
+
                 // Current visual start is at getPosition(projectStartDate) which is 0 (plus buffer)
                 // getPosition(date) = (date - projectStartDate) * px
                 const projectStart = new Date(data!.meta.projectStartDate).getTime();
                 shiftPx = (printStart - projectStart) / (1000 * 60 * 60 * 24) * px;
             }
         }
-        
+
         // Calculate strict duration for Width
         const diffDays = Math.max(1, (printEnd - printStart) / (1000 * 60 * 60 * 24));
         const ganttContentWidth = (diffDays + 2) * px; // +2 days buffer
@@ -190,8 +198,8 @@ export const usePrint = ({
         // Force Gantt Width - Strict Clipping
         const ganttSvg = clone.querySelector('svg');
         let ganttWidth = ganttContentWidth;
-        
-        if(ganttSvg) {
+
+        if (ganttSvg) {
             // Apply widths to all SVGs and Containers in the Gantt section
             const allSvgs = clone.querySelectorAll('svg');
             allSvgs.forEach((svg: any) => {
@@ -203,7 +211,7 @@ export const usePrint = ({
                 el.style.width = `${ganttWidth}px`;
                 el.style.minWidth = `${ganttWidth}px`;
                 el.style.overflow = 'hidden'; // Force clip for print
-                
+
                 // Apply Shift if needed (Clip the left part)
                 if (shiftPx !== 0) {
                     // We need to shift the CONTENT inside the wrapper
@@ -221,7 +229,7 @@ export const usePrint = ({
         // 3. SEPARATE HEADERS FROM BODY
         const tableHeader = clone.querySelector('.p6-header') as HTMLElement;
         const tableBody = clone.querySelector('.p6-table-body') as HTMLElement;
-        
+
         const ganttHeader = clone.querySelector('.gantt-header-wrapper') as HTMLElement;
         const ganttBody = clone.querySelector('.gantt-body-wrapper') as HTMLElement;
 
@@ -238,7 +246,7 @@ export const usePrint = ({
         headerAssembly.style.width = `${tableWidth + ganttWidth}px`;
         headerAssembly.style.backgroundColor = 'white';
         headerAssembly.style.borderBottom = '1px solid #cbd5e1';
-        
+
         tableHeader.style.width = `${tableWidth}px`;
         tableHeader.style.minWidth = `${tableWidth}px`; // FIX: Explicitly set min-width to match width to override CSS class
         tableHeader.style.maxWidth = `${tableWidth}px`; // FIX: Explicitly set max-width
@@ -248,11 +256,11 @@ export const usePrint = ({
         tableHeader.style.boxSizing = 'border-box'; // FIX: Ensure border is included in width
         tableHeader.style.overflow = 'hidden'; // FIX: Hide any potential overflow
         headerAssembly.appendChild(tableHeader);
-        
+
         ganttHeader.style.width = `${ganttWidth}px`;
         ganttHeader.style.minWidth = `${ganttWidth}px`; // FIX: Explicitly set min-width
         ganttHeader.style.maxWidth = `${ganttWidth}px`; // FIX: Explicitly set max-width
-        ganttHeader.style.border = 'none'; 
+        ganttHeader.style.border = 'none';
         ganttHeader.style.flex = '0 0 auto';
         ganttHeader.style.padding = '0';
         ganttHeader.style.margin = '0';
@@ -265,12 +273,12 @@ export const usePrint = ({
         bodyAssembly.style.display = 'flex';
         bodyAssembly.style.width = `${tableWidth + ganttWidth}px`;
         bodyAssembly.style.backgroundColor = 'white';
-        
+
         tableBody.style.width = `${tableWidth}px`;
         tableBody.style.height = 'auto';
         tableBody.style.overflow = 'visible';
         tableBody.style.flexShrink = '0';
-        
+
         // FIX: Ensure inner content of tableBody doesn't overflow
         const tableBodyInner = tableBody.firstElementChild as HTMLElement;
         if (tableBodyInner) {
@@ -289,16 +297,16 @@ export const usePrint = ({
         // 4. Row Alignment (Remove max-height limits)
         const tableRows = tableBody.querySelectorAll('.p6-row');
         tableRows.forEach((row: any) => {
-            const h = row.style.height; 
-            if(h) {
+            const h = row.style.height;
+            if (h) {
                 row.style.minHeight = h;
                 row.style.height = 'auto'; // FIX: Remove strict height match to allow font flex
                 row.style.overflow = 'visible'; // ALLOW content to show if slightly larger
                 row.style.maxHeight = 'none'; // Ensure no max height constraint
-                
+
                 // PRINT FIX: Ensure cells stretch to full row height for continuous vertical lines
                 row.style.display = 'flex';
-                row.style.alignItems = 'stretch'; 
+                row.style.alignItems = 'stretch';
                 row.style.borderBottom = '1px solid #cbd5e1';
             }
         });
@@ -322,13 +330,13 @@ export const usePrint = ({
             hDiv.style.fontWeight = 'bold';
             hDiv.style.color = '#334155';
             hDiv.style.textAlign = 'center';
-            hDiv.style.width = `${tableWidth + ganttWidth}px`; 
+            hDiv.style.width = `${tableWidth + ganttWidth}px`;
             hDiv.style.backgroundColor = 'white';
             hDiv.style.padding = '20px'; // Padding
             staging.appendChild(hDiv);
             try {
                 customHeaderCanvas = await html2canvas(hDiv, { scale: 2, logging: false });
-            } catch(e) { console.error("Header capture failed", e); }
+            } catch (e) { console.error("Header capture failed", e); }
             staging.removeChild(hDiv); // Clean up immediately from staging
         }
 
@@ -337,18 +345,18 @@ export const usePrint = ({
             // Increase scale to 3 for higher clarity on large prints
             const headerCanvas = await html2canvas(headerAssembly, { scale: 3, logging: false });
             const bodyCanvas = await html2canvas(bodyAssembly, { scale: 3, logging: false });
-            
+
             document.body.removeChild(clone);
             document.body.removeChild(staging);
 
             // 7. Generate PDF
-            const dims: Record<string, {w: number, h: number}> = { 'a4': {w: 595, h: 842}, 'a3': {w: 842, h: 1190}, 'a2': {w: 1190, h: 1684}, 'a1': {w: 1684, h: 2384} };
+            const dims: Record<string, { w: number, h: number }> = { 'a4': { w: 595, h: 842 }, 'a3': { w: 842, h: 1190 }, 'a2': { w: 1190, h: 1684 }, 'a1': { w: 1684, h: 2384 } };
             const isLandscape = settings.orientation === 'landscape';
             const pageW = isLandscape ? dims[settings.paperSize].h : dims[settings.paperSize].w;
             const pageH = isLandscape ? dims[settings.paperSize].w : dims[settings.paperSize].h;
-            
+
             const margin = 20;
-            
+
             // Calculate Header/Footer Heights
             const customHeaderH = customHeaderCanvas ? 60 : (settings.headerText ? 30 : 0);
             const customFooterH = (settings.footerText || settings.showPageNumber || settings.showDate) ? 30 : 0;
@@ -359,34 +367,45 @@ export const usePrint = ({
             const pdf = new jsPDF(isLandscape ? 'l' : 'p', 'pt', [pageW, pageH]);
 
             const totalImgW = headerCanvas.width;
-            
-            // --- SCALING LOGIC ---
-            // Base Ratio: Fits width to page content
-            // Note: totalImgW is at 3x scale (from html2canvas)
-            const fitRatio = contentW / totalImgW;
-            
-            // Fix overly large scaling for small content: Cap at 100% size (1/3 of 3x capture)
-            const maxAuto = 1/3;
-            // Ensure minimum readability: Don't shrink below 25% (approx 75% of screen size)
-            const minReadableScale = 0.25; 
-            
-            const autoScale = Math.max(Math.min(fitRatio, maxAuto), minReadableScale);
 
-            const scaleFactor = settings.scalingMode === 'custom' 
-                ? (1/3) * (settings.scalePercent / 100) 
+            // --- SCALING LOGIC ---
+            // Refined Scaling for different paper sizes
+            // We want to fit the content within contentW
+            // Total width is tableWidth + ganttWidth
+            const actualTotalContentW = (tableWidth + ganttWidth);
+            const fitRatio = contentW / (actualTotalContentW * 3); // *3 because capture is 3x
+
+            // On A4 (Portrait), contentW is ~555pt.
+            // On A3 (Portrait), contentW is ~800pt.
+            // If actualTotalContentW is 1500px, 3x is 4500px.
+            // fitRatio for A4: 555/4500 = 0.123
+            // fitRatio for A3: 800/4500 = 0.177
+
+            // We want a scale that makes elements look proportional.
+            // A higher fitRatio means more room per element.
+            // In A3, we expect fitRatio to be larger, allowing larger render.
+
+            // Ensure minimum readability (approx 0.1 on A4)
+            // and cap max size to prevent "giant" text when the project is narrow
+            const minReadableScale = 0.08;
+            const maxAutoScale = 0.14; // FIX: Capping scale to prevent giant text
+            const autoScale = Math.min(Math.max(fitRatio, minReadableScale), maxAutoScale);
+
+            const scaleFactor = settings.scalingMode === 'custom'
+                ? (1 / 3) * (settings.scalePercent / 100)
                 : autoScale;
 
             const headerH = headerCanvas.height * scaleFactor;
             const bodyTotalH = bodyCanvas.height * scaleFactor;
-            
+
             // Calculate Source Dimensions
-            const tableSourceW = tableWidth * 3; 
+            const tableSourceW = tableWidth * 3;
             const ganttSourceW = ganttWidth * 3;
-            
+
             const tablePdfW = tableSourceW * scaleFactor;
             const ganttAvailablePdfW = contentW - tablePdfW;
 
-            let yOffset = 0; 
+            let yOffset = 0;
             let heightLeft = bodyTotalH;
 
             // PREPARE WATERMARK
@@ -398,12 +417,12 @@ export const usePrint = ({
                 const ctx = wmCanvas.getContext('2d');
                 if (ctx) {
                     ctx.save();
-                    ctx.translate(pageW/2, pageH/2);
+                    ctx.translate(pageW / 2, pageH / 2);
                     ctx.rotate(-30 * Math.PI / 180);
-                    ctx.translate(-pageW/2, -pageH/2);
-                    
+                    ctx.translate(-pageW / 2, -pageH / 2);
+
                     ctx.globalAlpha = adminConfig.watermarkOpacity || 0.2;
-                    
+
                     const imgSource = adminConfig.watermarkImage || adminConfig.appLogo;
 
                     if (imgSource) {
@@ -413,17 +432,17 @@ export const usePrint = ({
                         const aspect = img.width / img.height;
                         const drawW = Math.min(400, img.width);
                         const drawH = drawW / aspect;
-                        ctx.drawImage(img, (pageW - drawW)/2, (pageH - drawH)/2, drawW, drawH);
+                        ctx.drawImage(img, (pageW - drawW) / 2, (pageH - drawH) / 2, drawW, drawH);
                     }
-                    
+
                     if (adminConfig.watermarkText || (!imgSource && adminConfig.copyrightText)) {
                         const text = adminConfig.watermarkText || adminConfig.appName;
                         ctx.font = `bold ${adminConfig.watermarkFontSize || 40}px Arial`;
                         ctx.fillStyle = '#94a3b8';
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
-                        const textY = imgSource ? (pageH/2 + 150) : pageH/2;
-                        ctx.fillText(text, pageW/2, textY);
+                        const textY = imgSource ? (pageH / 2 + 150) : pageH / 2;
+                        ctx.fillText(text, pageW / 2, textY);
                     }
                     ctx.restore();
                     wmDataUrl = wmCanvas.toDataURL('image/png');
@@ -436,21 +455,21 @@ export const usePrint = ({
                 const sliceH_pdf = Math.min(contentH - headerH - 10, heightLeft);
                 const sourceY = yOffset / scaleFactor;
                 const sourceH = sliceH_pdf / scaleFactor;
-                
+
                 // Horizontal Loop (Columns)
                 let xOffset = 0; // Relative to Gantt Start
                 // If ganttSourceW is 0 (just table?), loop once.
                 const loopLimit = Math.max(1, ganttSourceW);
-                
+
                 while (xOffset < loopLimit) {
                     if (yOffset > 0 || xOffset > 0) pdf.addPage();
 
                     // 1. Custom Header
                     if (customHeaderCanvas) {
                         const aspect = customHeaderCanvas.width / customHeaderCanvas.height;
-                        const drawH = 40; 
+                        const drawH = 40;
                         const drawW = drawH * aspect;
-                        const x = (pageW - drawW) / 2; 
+                        const x = (pageW - drawW) / 2;
                         pdf.addImage(customHeaderCanvas.toDataURL('image/png'), 'PNG', x, margin, drawW, drawH);
                     } else if (settings.headerText) {
                         pdf.setFontSize(14);
@@ -466,14 +485,14 @@ export const usePrint = ({
                     tHeaderCanvas.height = headerCanvas.height;
                     const thCtx = tHeaderCanvas.getContext('2d');
                     if (thCtx) {
-                         thCtx.drawImage(headerCanvas, 0, 0, tableSourceW, headerCanvas.height, 0, 0, tableSourceW, headerCanvas.height);
-                         pdf.addImage(tHeaderCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin, tableHeaderY, tablePdfW, headerH);
+                        thCtx.drawImage(headerCanvas, 0, 0, tableSourceW, headerCanvas.height, 0, 0, tableSourceW, headerCanvas.height);
+                        pdf.addImage(tHeaderCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin, tableHeaderY, tablePdfW, headerH);
                     }
 
                     // 3. Draw Gantt Header Slice
                     const sliceW_source = Math.min(ganttSourceW - xOffset, ganttAvailablePdfW / scaleFactor);
                     const sliceW_pdf = sliceW_source * scaleFactor;
-                    
+
                     if (sliceW_source > 0) {
                         const gHeaderCanvas = document.createElement('canvas');
                         gHeaderCanvas.width = sliceW_source;
@@ -484,7 +503,7 @@ export const usePrint = ({
                             pdf.addImage(gHeaderCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin + tablePdfW, tableHeaderY, sliceW_pdf, headerH);
                         }
                     }
-                    
+
                     // Draw Header Border
                     pdf.setDrawColor(203, 213, 225);
                     pdf.rect(margin, tableHeaderY, tablePdfW + sliceW_pdf, headerH);
@@ -499,19 +518,19 @@ export const usePrint = ({
                             tbCtx.drawImage(bodyCanvas, 0, sourceY, tableSourceW, sourceH, 0, 0, tableSourceW, sourceH);
                             pdf.addImage(tBodyCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin, tableHeaderY + headerH, tablePdfW, sliceH_pdf);
                         }
-                        
+
                         // 5. Draw Gantt Body Slice
                         if (sliceW_source > 0) {
-                             const gBodyCanvas = document.createElement('canvas');
-                             gBodyCanvas.width = sliceW_source;
-                             gBodyCanvas.height = sourceH;
-                             const gbCtx = gBodyCanvas.getContext('2d');
-                             if (gbCtx) {
-                                 gbCtx.drawImage(bodyCanvas, tableSourceW + xOffset, sourceY, sliceW_source, sourceH, 0, 0, sliceW_source, sourceH);
-                                 pdf.addImage(gBodyCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin + tablePdfW, tableHeaderY + headerH, sliceW_pdf, sliceH_pdf);
-                             }
+                            const gBodyCanvas = document.createElement('canvas');
+                            gBodyCanvas.width = sliceW_source;
+                            gBodyCanvas.height = sourceH;
+                            const gbCtx = gBodyCanvas.getContext('2d');
+                            if (gbCtx) {
+                                gbCtx.drawImage(bodyCanvas, tableSourceW + xOffset, sourceY, sliceW_source, sourceH, 0, 0, sliceW_source, sourceH);
+                                pdf.addImage(gBodyCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin + tablePdfW, tableHeaderY + headerH, sliceW_pdf, sliceH_pdf);
+                            }
                         }
-                        
+
                         // Body Border
                         pdf.rect(margin, tableHeaderY + headerH, tablePdfW + sliceW_pdf, sliceH_pdf);
                     }
@@ -525,7 +544,7 @@ export const usePrint = ({
                     const footerY = pageH - margin - 10;
                     pdf.setFontSize(10);
                     pdf.setTextColor(100);
-                    
+
                     if (settings.footerText) {
                         pdf.text(settings.footerText, pageW / 2, footerY, { align: 'center' });
                     }
@@ -535,10 +554,10 @@ export const usePrint = ({
                         if (settings.footerText) pdf.text(`Page ${pageNum}`, pageW - margin, footerY, { align: 'right' });
                         else pdf.text(`- ${pageNum} -`, pageW / 2, footerY, { align: 'center' });
                     }
-                    
+
                     if (settings.showDate) {
-                         const dateStr = new Date().toLocaleDateString();
-                         pdf.text(dateStr, margin, footerY);
+                        const dateStr = new Date().toLocaleDateString();
+                        pdf.text(dateStr, margin, footerY);
                     }
 
                     xOffset += sliceW_source;
@@ -555,8 +574,8 @@ export const usePrint = ({
             console.error("Print Error", e);
             setModalData({ msg: "Print generation failed. Please try again.", title: "Error" });
             setActiveModal('alert');
-            if(document.body.contains(clone)) document.body.removeChild(clone);
-            if(document.body.contains(staging)) document.body.removeChild(staging);
+            if (document.body.contains(clone)) document.body.removeChild(clone);
+            if (document.body.contains(staging)) document.body.removeChild(staging);
         }
     }, [view, setView, user, adminConfig, setModalData, setActiveModal, userSettings.visibleColumns, ganttZoom, data, schedule.activities]);
 

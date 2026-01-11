@@ -21,8 +21,8 @@ const formatDate = (date: Date): string => {
     return `${y}-${m}-${d}`;
 };
 
-export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps>(({ 
-    onScroll, headerHeight, rowHeight 
+export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps>(({
+    onScroll, headerHeight, rowHeight
 }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const headerRef = useRef<HTMLDivElement>(null);
@@ -35,10 +35,10 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
         if (onScroll) onScroll(e);
     };
 
-    const { 
-        selIds: selectedIds, 
-        setSelIds: onSelect, 
-        setCtx, 
+    const {
+        selIds: selectedIds,
+        setSelIds: onSelect,
+        setCtx,
         userSettings,
         setUserSettings,
         schedule,
@@ -56,8 +56,11 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
         overscan: 10
     });
 
-    const [colWidths, setColWidths] = useState(userSettings.columnWidths || { id: 180, name: 250, duration: 60, start: 90, finish: 90, float: 50, preds: 150 });
-    const [editing, setEditing] = useState<{id: string, field: string} | null>(null);
+    const defaultWidths: Record<string, number> = {
+        id: 180, name: 250, duration: 60, start: 90, finish: 90, float: 50, preds: 150, budget: 100
+    };
+    const [colWidths, setColWidths] = useState({ ...defaultWidths, ...userSettings.columnWidths });
+    const [editing, setEditing] = useState<{ id: string, field: string } | null>(null);
     const [editVal, setEditVal] = useState('');
 
     // Sync TO store with debounce
@@ -77,21 +80,21 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
     const customFields = allCustomFields.filter(cf => visibleCols.includes(cf.id));
 
     // Calculate total required width for columns 
-    const showVertical = userSettings.gridSettings.showVertical;
+    const showVertical = userSettings.gridSettings.showRowNumbers ?? true;
     const standardWidth = Object.entries(colWidths)
         .filter(([key]) => visibleCols.includes(key))
-        .reduce((sum, [_, width]) => sum + width, 0);
+        .reduce((sum, [_, width]) => sum + (width || 100), 0);
     const customWidth = customFields.reduce((sum, cf) => sum + (colWidths[cf.id] || 100), 0);
-    const totalContentWidth = standardWidth + customWidth + (showVertical ? 32 : 0) + 20; // +20 for buffer/padding
+    const totalContentWidth = standardWidth + customWidth + (showVertical ? 32 : 0);
 
     const startEdit = (id: string, field: string, val: any) => {
-        setEditing({id, field});
-        if(field === 'predecessors') {
+        setEditing({ id, field });
+        if (field === 'predecessors') {
             const act = schedule.activities.find(a => a.id === id);
             const s = act?.predecessors.map(p => {
-                if(p.type === 'FS' && p.lag === 0) return p.activityId;
+                if (p.type === 'FS' && p.lag === 0) return p.activityId;
                 const lagStr = p.lag > 0 ? `+${p.lag}` : p.lag < 0 ? `${p.lag}` : '';
-                return `${p.activityId}${p.type!=='FS'?p.type:''}${lagStr}`;
+                return `${p.activityId}${p.type !== 'FS' ? p.type : ''}${lagStr}`;
             }).join(',') || '';
             setEditVal(s);
         } else {
@@ -100,7 +103,7 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
     };
 
     const saveEdit = () => {
-        if(editing) {
+        if (editing) {
             if (customFields.find(f => f.id === editing.field)) {
                 const act = rows.find(r => r.id === editing.id)?.data as Activity;
                 if (act) {
@@ -115,31 +118,52 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if(e.key === 'Enter') saveEdit();
-        if(e.key === 'Escape') setEditing(null);
+        if (e.key === 'Enter') saveEdit();
+        if (e.key === 'Escape') setEditing(null);
     };
 
     const handleRowClick = (id: string, e: React.MouseEvent) => {
+        console.log('[ActivityTable] Click:', id, 'Meta:', e.metaKey, 'Ctrl:', e.ctrlKey, 'Shift:', e.shiftKey, 'CurrentSel:', selectedIds);
+
+        // Range Selection (Shift)
         if (e.shiftKey && selectedIds.length > 0) {
-            const lastId = selectedIds[selectedIds.length - 1];
-            const idx1 = rows.findIndex(r => r.id === lastId);
-            const idx2 = rows.findIndex(r => r.id === id);
-            if (idx1 !== -1 && idx2 !== -1) {
-                const start = Math.min(idx1, idx2);
-                const end = Math.max(idx1, idx2);
+            let anchorIndex = rows.findIndex(r => r.id === selectedIds[selectedIds.length - 1]);
+
+            // Fallback: If anchor is hidden/collapsed, find the last visible selected item
+            if (anchorIndex === -1) {
+                for (let i = rows.length - 1; i >= 0; i--) {
+                    if (selectedIds.includes(rows[i].id)) {
+                        anchorIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            const currentIndex = rows.findIndex(r => r.id === id);
+
+            if (anchorIndex !== -1 && currentIndex !== -1) {
+                const start = Math.min(anchorIndex, currentIndex);
+                const end = Math.max(anchorIndex, currentIndex);
                 const range = rows.slice(start, end + 1).map(r => r.id);
-                onSelect(e.ctrlKey ? [...new Set([...selectedIds, ...range])] : range);
+                // Respect Ctrl/Meta key for Union
+                const finalSel = e.ctrlKey || e.metaKey ? [...new Set([...selectedIds, ...range])] : range;
+                console.log('[ActivityTable] Range Select:', finalSel);
+                onSelect(finalSel);
                 return;
             }
         }
-        
+
+        // Toggle / Single Selection
         if (e.ctrlKey || e.metaKey) {
             if (selectedIds.includes(id)) {
+                console.log('[ActivityTable] Deselecting:', id);
                 onSelect(selectedIds.filter(x => x !== id));
             } else {
+                console.log('[ActivityTable] Adding:', id);
                 onSelect([...selectedIds, id]);
             }
         } else {
+            console.log('[ActivityTable] Single Select:', id);
             onSelect([id]);
         }
     };
@@ -147,37 +171,66 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
     const handleContextMenu = (e: React.MouseEvent, id: string, type: 'WBS' | 'Activity') => {
         e.preventDefault();
         e.stopPropagation();
+        let newSelIds = selectedIds;
         if (!selectedIds.includes(id)) {
-            onSelect([id]);
+            if (e.ctrlKey || e.metaKey) {
+                newSelIds = [...selectedIds, id];
+            } else {
+                newSelIds = [id];
+            }
+            onSelect(newSelIds);
         }
-        setCtx({ x: e.pageX, y: e.pageY, type, id });
+        setCtx({ x: e.pageX, y: e.pageY, type, id, selIds: newSelIds });
     };
 
     return (
         <div className="flex flex-col h-full border-r border-slate-300 flex-shrink-0" style={{ width: totalContentWidth, minWidth: totalContentWidth }}>
             {/* Header */}
-            <div 
+            <div
                 ref={headerRef}
-                className="overflow-hidden bg-slate-100 border-b border-slate-300 font-bold text-slate-700 shadow-sm z-20 flex-shrink-0" 
+                className="overflow-hidden bg-slate-100 border-b border-slate-300 font-bold text-slate-700 shadow-sm z-20 flex-shrink-0"
                 style={{ height: headerHeight }}
             >
                 <div className="flex h-full p6-header" style={{ minWidth: totalContentWidth }}>
-                    {userSettings.gridSettings.showVertical && (
-                        <div className="w-8 border-r border-slate-300 flex items-center justify-center bg-slate-200 text-slate-500 flex-shrink-0" data-col="index" style={{ width: 32 }}>#</div>
+                    {showVertical && (
+                        <div className="w-8 border-r border-slate-300 flex items-center justify-center bg-slate-200 text-slate-500 flex-shrink-0 print:bg-transparent sticky left-0 z-30" data-col="index" style={{ width: 32 }}>#</div>
                     )}
-                    {visibleCols.includes('id') && <ResizableHeader width={colWidths.id} onResize={w=>setColWidths({...colWidths, id:w})} dataCol="id">{t('ActivityID')}</ResizableHeader>}
-                    {visibleCols.includes('name') && <ResizableHeader width={colWidths.name} onResize={w=>setColWidths({...colWidths, name:w})} dataCol="name">{t('ActivityName')}</ResizableHeader>}
-                    {visibleCols.includes('duration') && <ResizableHeader width={colWidths.duration} onResize={w=>setColWidths({...colWidths, duration:w})} align="right" dataCol="duration">{t('Duration')}</ResizableHeader>}
-                    {visibleCols.includes('start') && <ResizableHeader width={colWidths.start} onResize={w=>setColWidths({...colWidths, start:w})} align="center" dataCol="start">{t('Start')}</ResizableHeader>}
-                    {visibleCols.includes('finish') && <ResizableHeader width={colWidths.finish} onResize={w=>setColWidths({...colWidths, finish:w})} align="center" dataCol="finish">{t('Finish')}</ResizableHeader>}
-                    {visibleCols.includes('float') && <ResizableHeader width={colWidths.float} onResize={w=>setColWidths({...colWidths, float:w})} align="right" dataCol="float">{t('TotalFloat')}</ResizableHeader>}
-                    {visibleCols.includes('preds') && <ResizableHeader width={colWidths.preds} onResize={w=>setColWidths({...colWidths, preds:w})} dataCol="preds">{t('Predecessors')}</ResizableHeader>}
+                    {visibleCols.includes('id') && (
+                        <div className="sticky z-30 bg-slate-100" style={{ left: showVertical ? 32 : 0 }}>
+                            <ResizableHeader width={colWidths.id || 180} onResize={w => setColWidths({ ...colWidths, id: w })} dataCol="id">{t('ActivityID')}</ResizableHeader>
+                        </div>
+                    )}
+                    {visibleCols.includes('name') && (
+                        <div className="sticky z-30 bg-slate-100" style={{ left: (showVertical ? 32 : 0) + (visibleCols.includes('id') ? (colWidths.id || 180) : 0) }}>
+                            <ResizableHeader width={colWidths.name || 250} onResize={w => setColWidths({ ...colWidths, name: w })} dataCol="name">{t('ActivityName')}</ResizableHeader>
+                        </div>
+                    )}
+                    {visibleCols.includes('duration') && (
+                        <div className="sticky z-30 bg-slate-100" style={{ left: (showVertical ? 32 : 0) + (visibleCols.includes('id') ? (colWidths.id || 180) : 0) + (visibleCols.includes('name') ? (colWidths.name || 250) : 0) }}>
+                            <ResizableHeader width={colWidths.duration || 60} onResize={w => setColWidths({ ...colWidths, duration: w })} align="right" dataCol="duration">{t('Duration')}</ResizableHeader>
+                        </div>
+                    )}
+                    {visibleCols.includes('start') && <ResizableHeader width={colWidths.start || 90} onResize={w => setColWidths({ ...colWidths, start: w })} align="center" dataCol="start">{t('Start')}</ResizableHeader>}
+                    {visibleCols.includes('finish') && <ResizableHeader width={colWidths.finish || 90} onResize={w => setColWidths({ ...colWidths, finish: w })} align="center" dataCol="finish">{t('Finish')}</ResizableHeader>}
+                    {visibleCols.includes('float') && <ResizableHeader width={colWidths.float || 50} onResize={w => setColWidths({ ...colWidths, float: w })} align="right" dataCol="float">{t('TotalFloat')}</ResizableHeader>}
+                    {visibleCols.includes('preds') && <ResizableHeader width={colWidths.preds || 150} onResize={w => setColWidths({ ...colWidths, preds: w })} dataCol="preds">{t('Predecessors')}</ResizableHeader>}
+                    {/* Custom Field Headers */}
+                    {customFields.map(cf => (
+                        <ResizableHeader
+                            key={cf.id}
+                            width={colWidths[cf.id] || 120}
+                            onResize={w => setColWidths({ ...colWidths, [cf.id]: w })}
+                            dataCol={cf.id}
+                        >
+                            {cf.name}
+                        </ResizableHeader>
+                    ))}
                 </div>
             </div>
 
             {/* Body */}
-            <div 
-                className="overflow-scroll bg-white flex-grow relative p6-table-body" 
+            <div
+                className="overflow-scroll bg-white flex-grow relative p6-table-body"
                 ref={containerRef}
                 onScroll={handleBodyScroll}
             >
@@ -186,22 +239,22 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
                         const row = rows[index];
                         const isSel = selectedIds.includes(row.id);
                         return (
-                            <div 
-                                key={row.id} 
-                                className={`flex border-b border-slate-100 hover:bg-blue-50 transition-colors cursor-pointer group absolute left-0 w-full p6-row ${isSel ? 'bg-blue-100' : (index%2===0?'bg-white':'bg-slate-50')}`}
+                            <div
+                                key={row.id}
+                                className={`flex border-b border-slate-100 transition-colors cursor-pointer group absolute left-0 w-full p6-row select-none ${isSel ? '!bg-blue-200 !hover:bg-blue-300' : ('hover:bg-blue-50 ' + (index % 2 === 0 ? 'bg-white' : 'bg-slate-50'))}`}
                                 style={{ height: rowHeight, top: offsetTop, fontSize: `${fontSizePx}px` }}
                                 onClick={(e) => handleRowClick(row.id, e)}
                                 onContextMenu={(e) => handleContextMenu(e, row.id, row.type)}
                             >
-                                {userSettings.gridSettings.showVertical && (
-                                    <div className="w-8 flex-shrink-0 border-r border-slate-200 flex items-center justify-center text-xs text-slate-400 select-none bg-slate-50 p6-cell" data-col="index" style={{ width: 32 }}>
+                                {showVertical && (
+                                    <div className="w-8 flex-shrink-0 border-r border-slate-200 flex items-center justify-center text-xs text-slate-400 select-none bg-slate-50 p6-cell print:bg-transparent sticky left-0 z-10" data-col="index" style={{ width: 32 }}>
                                         {index + 1}
                                     </div>
                                 )}
 
                                 {/* ID Column */}
                                 {visibleCols.includes('id') && (
-                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell" data-col="id" style={{ width: colWidths.id }}>
+                                    <div className={`flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell sticky z-10 ${isSel ? 'bg-blue-200' : (index % 2 === 0 ? 'bg-white' : 'bg-slate-50')}`} data-col="id" style={{ width: colWidths.id || 180, left: showVertical ? 32 : 0 }}>
                                         <div style={{ paddingLeft: row.depth * 16 }} className="flex items-center w-full overflow-hidden">
                                             {row.type === 'WBS' && (
                                                 <button onClick={(e) => { e.stopPropagation(); onToggleExpand(row.id); }} className="mr-1 text-slate-500 hover:text-black focus:outline-none">
@@ -209,10 +262,10 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
                                                 </button>
                                             )}
                                             {row.type === 'Activity' && <div className="w-4 mr-1"></div>}
-                                            {editing?.id===row.id && editing?.field==='id' && row.type==='WBS' ? (
-                                                <input autoFocus className="w-full h-full border-2 border-blue-400 px-1 rounded" value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} />
+                                            {editing?.id === row.id && editing?.field === 'id' && row.type === 'WBS' ? (
+                                                <input autoFocus className="w-full h-full border-2 border-blue-400 px-1 rounded" value={editVal} onChange={e => setEditVal(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} />
                                             ) : (
-                                                <span onDoubleClick={() => row.type==='WBS' && startEdit(row.id, 'id', row.id)} className={`truncate ${row.type==='WBS'?'font-bold text-slate-700':''}`}>{row.id}</span>
+                                                <span onDoubleClick={() => row.type === 'WBS' && row.depth > 0 && startEdit(row.id, 'id', row.id)} className={`truncate ${row.type === 'WBS' ? 'font-bold text-slate-700' : ''}`}>{row.id}</span>
                                             )}
                                         </div>
                                     </div>
@@ -220,20 +273,23 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
 
                                 {/* Name Column */}
                                 {visibleCols.includes('name') && (
-                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell" data-col="name" style={{ width: colWidths.name }}>
-                                            {editing?.id===row.id && editing?.field==='name' ? (
-                                            <input autoFocus className="w-full h-full border-2 border-blue-400 px-1 rounded" value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} />
+                                    <div className={`flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell sticky z-10 ${isSel ? 'bg-blue-200' : (index % 2 === 0 ? 'bg-white' : 'bg-slate-50')}`} data-col="name" style={{ width: colWidths.name || 250, left: (showVertical ? 32 : 0) + (visibleCols.includes('id') ? (colWidths.id || 180) : 0) }}>
+                                        {editing?.id === row.id && editing?.field === 'name' ? (
+                                            <input autoFocus className="w-full h-full border-2 border-blue-400 px-1 rounded" value={editVal} onChange={e => setEditVal(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} />
                                         ) : (
-                                            <span onDoubleClick={() => startEdit(row.id, 'name', row.data.name)} className={`truncate w-full ${row.type==='WBS'?'font-bold':''}`}>{row.data.name}</span>
+                                            <span onDoubleClick={() => {
+                                                if (row.type === 'WBS' && row.depth === 0) return;
+                                                startEdit(row.id, 'name', row.data.name);
+                                            }} className={`truncate w-full ${row.type === 'WBS' ? 'font-bold' : ''}`}>{row.data.name}</span>
                                         )}
                                     </div>
                                 )}
 
                                 {/* Duration */}
                                 {visibleCols.includes('duration') && (
-                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-end p6-cell" data-col="duration" style={{ width: colWidths.duration }}>
-                                        {row.type === 'Activity' && (editing?.id===row.id && editing?.field==='duration' ? (
-                                            <input autoFocus type="number" className="w-full h-full border-2 border-blue-400 px-1 rounded text-right" value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} />
+                                    <div className={`flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-end p6-cell sticky z-10 ${isSel ? 'bg-blue-200' : (index % 2 === 0 ? 'bg-white' : 'bg-slate-50')}`} data-col="duration" style={{ width: colWidths.duration || 60, left: (showVertical ? 32 : 0) + (visibleCols.includes('id') ? (colWidths.id || 180) : 0) + (visibleCols.includes('name') ? (colWidths.name || 250) : 0) }}>
+                                        {row.type === 'Activity' && (editing?.id === row.id && editing?.field === 'duration' ? (
+                                            <input autoFocus type="number" className="w-full h-full border-2 border-blue-400 px-1 rounded text-right" value={editVal} onChange={e => setEditVal(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} />
                                         ) : (
                                             <span onDoubleClick={() => startEdit(row.id, 'duration', row.data.duration)}>{row.data.duration}</span>
                                         ))}
@@ -243,54 +299,54 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
 
                                 {/* Start Date */}
                                 {visibleCols.includes('start') && (
-                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-center text-sm text-slate-600 p6-cell" data-col="start" style={{ width: colWidths.start }}>
-                                        {formatDate(row.type==='Activity'?row.data.startDate:row.startDate)}
+                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-center text-sm text-slate-600 p6-cell" data-col="start" style={{ width: colWidths.start || 90 }}>
+                                        {formatDate(row.type === 'Activity' ? row.data.startDate : row.startDate)}
                                     </div>
                                 )}
 
                                 {/* Finish Date */}
                                 {visibleCols.includes('finish') && (
-                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-center text-sm text-slate-600 p6-cell" data-col="finish" style={{ width: colWidths.finish }}>
-                                        {formatDate(row.type==='Activity'?row.data.endDate:row.endDate)}
+                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-center text-sm text-slate-600 p6-cell" data-col="finish" style={{ width: colWidths.finish || 90 }}>
+                                        {formatDate(row.type === 'Activity' ? row.data.endDate : row.endDate)}
                                     </div>
                                 )}
 
                                 {/* Float */}
                                 {visibleCols.includes('float') && (
-                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-end p6-cell" data-col="float" style={{ width: colWidths.float }}>
+                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-end p6-cell" data-col="float" style={{ width: colWidths.float || 50 }}>
                                         {row.type === 'Activity' && (
-                                            <span className={`${(row.data.totalFloat||0)<=0?'text-red-600 font-bold':''}`}>{row.data.totalFloat}</span>
+                                            <span className={`${(row.data.totalFloat || 0) <= 0 ? 'text-red-600 font-bold' : ''}`}>{row.data.totalFloat}</span>
                                         )}
                                     </div>
                                 )}
 
                                 {/* Predecessors */}
                                 {visibleCols.includes('preds') && (
-                                    <div 
-                                        className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell" data-col="preds" 
-                                        style={{ width: colWidths.preds }}
+                                    <div
+                                        className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell" data-col="preds"
+                                        style={{ width: colWidths.preds || 150 }}
                                         onDoubleClick={() => {
                                             if (row.type === 'Activity' && (!editing || editing.id !== row.id || editing.field !== 'predecessors')) {
                                                 startEdit(row.id, 'predecessors', null);
                                             }
                                         }}
                                     >
-                                        {row.type === 'Activity' && (editing?.id===row.id && editing?.field==='predecessors' ? (
-                                            <input 
-                                                autoFocus 
-                                                className="w-full h-full border-2 border-blue-400 px-1 rounded text-xs" 
-                                                value={editVal} 
-                                                onChange={e=>setEditVal(e.target.value)} 
-                                                onBlur={saveEdit} 
-                                                onKeyDown={handleKeyDown} 
+                                        {row.type === 'Activity' && (editing?.id === row.id && editing?.field === 'predecessors' ? (
+                                            <input
+                                                autoFocus
+                                                className="w-full h-full border-2 border-blue-400 px-1 rounded text-xs"
+                                                value={editVal}
+                                                onChange={e => setEditVal(e.target.value)}
+                                                onBlur={saveEdit}
+                                                onKeyDown={handleKeyDown}
                                                 onDoubleClick={(e) => e.stopPropagation()}
                                             />
                                         ) : (
-                                            <span className="truncate text-xs w-full block" title={row.data.predecessors?.map((p:any)=>p.activityId).join(',')}>
-                                                {row.data.predecessors?.map((p:any) => {
-                                                    if(p.type === 'FS' && p.lag === 0) return p.activityId;
+                                            <span className="truncate text-xs w-full block" title={row.data.predecessors?.map((p: any) => p.activityId).join(',')}>
+                                                {row.data.predecessors?.map((p: any) => {
+                                                    if (p.type === 'FS' && p.lag === 0) return p.activityId;
                                                     const lagStr = p.lag > 0 ? `+${p.lag}` : p.lag < 0 ? `${p.lag}` : '';
-                                                    return `${p.activityId}${p.type!=='FS'?p.type:''}${lagStr}`;
+                                                    return `${p.activityId}${p.type !== 'FS' ? p.type : ''}${lagStr}`;
                                                 }).join(', ')}
                                             </span>
                                         ))}
@@ -299,16 +355,26 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
 
                                 {/* Custom Fields */}
                                 {customFields.map(cf => (
-                                    <div key={cf.id} className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell" style={{ width: colWidths[cf.id] || 100 }}>
-                                        {row.type === 'Activity' && (editing?.id===row.id && editing?.field===cf.id ? (
+                                    <div
+                                        key={cf.id}
+                                        className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell"
+                                        style={{ width: colWidths[cf.id] || 100 }}
+                                        onDoubleClick={() => {
+                                            if (row.type === 'Activity' && (!editing || editing.id !== row.id || editing.field !== cf.id)) {
+                                                startEdit(row.id, cf.id, row.data.customFields?.[cf.id] || '');
+                                            }
+                                        }}
+                                    >
+                                        {row.type === 'Activity' && (editing?.id === row.id && editing?.field === cf.id ? (
                                             cf.type === 'list' && cf.options ? (
-                                                <select 
+                                                <select
                                                     autoFocus
                                                     className="w-full h-full border-2 border-blue-400 px-1 rounded bg-white"
                                                     value={editVal}
-                                                    onChange={e=>setEditVal(e.target.value)}
+                                                    onChange={e => setEditVal(e.target.value)}
                                                     onBlur={saveEdit}
                                                     onKeyDown={handleKeyDown}
+                                                    onDoubleClick={(e) => e.stopPropagation()}
                                                 >
                                                     <option value="">-</option>
                                                     {cf.options.map(opt => (
@@ -316,22 +382,20 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
                                                     ))}
                                                 </select>
                                             ) : (
-                                                <input 
-                                                    autoFocus 
+                                                <input
+                                                    autoFocus
                                                     type={cf.type === 'number' ? 'number' : cf.type === 'date' ? 'date' : 'text'}
-                                                    className="w-full h-full border-2 border-blue-400 px-1 rounded" 
-                                                    value={editVal} 
-                                                    onChange={e=>setEditVal(e.target.value)} 
-                                                    onBlur={saveEdit} 
-                                                    onKeyDown={handleKeyDown} 
+                                                    className="w-full h-full border-2 border-blue-400 px-1 rounded"
+                                                    value={editVal}
+                                                    onChange={e => setEditVal(e.target.value)}
+                                                    onBlur={saveEdit}
+                                                    onKeyDown={handleKeyDown}
+                                                    onDoubleClick={(e) => e.stopPropagation()}
                                                 />
                                             )
                                         ) : (
-                                            <span 
-                                                onDoubleClick={() => startEdit(row.id, cf.id, row.data.customFields?.[cf.id] || '')} 
-                                                className="truncate w-full block"
-                                            >
-                                                {row.data.customFields?.[cf.id]}
+                                            <span className="truncate w-full block text-xs">
+                                                {row.data.customFields?.[cf.id] || '-'}
                                             </span>
                                         ))}
                                     </div>

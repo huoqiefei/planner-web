@@ -36,8 +36,9 @@ Manage labor, material, and equipment:
 - **Batch Assign:** Select multiple activities, right-click, and choose "Assign Resource".
 - **Analysis:** View the Resource Histogram to check for over-allocation.
 
-## 6. Printing
-- Go to **File > Print Preview**.
-- Select **Paper Size** (A4, A3, A2, A1) and **Orientation**.
-- Select which **Columns** to include in the table.
-- Click **Print Preview** to generate a PDF. The system will auto-scale the timeline to fit the page width.
+## 6. Printing & PDF Export
+- **Page Setup:** Go to **File > Page Setup** to select **Paper Size** (A4, A3, A2, A1) and **Orientation** (Landscape/Portrait).
+- **Columns:** Use the **Columns** setup to choose which data to include in the printed table.
+- **Export PDF:** Click **Export PDF** to generate a high-quality document. The system automatically centers the table and optimizes scaling for the selected paper size.
+- **System Print:** Use the **System Print** button for a dedicated browser-based print view. This mode preserves the side-by-side layout of the Activity Table and Gantt Chart, formatted perfectly for PDF output or physical printers.
+- **Scaling:** On standard sizes like A4, the system caps scaling to ensure text remains professional and readable.

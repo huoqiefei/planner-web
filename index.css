@@ -1,189 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* P6 / Windows Classic Scrollbar Style */
+@layer base {
+  body {
+    @apply font-sans text-slate-800 bg-slate-50 antialiased;
+    font-size: 13px; /* Keep precision */
+    overflow: hidden; /* Prevent body scroll */
+  }
+}
+
+/* Modern Scrollbar */
 ::-webkit-scrollbar {
-    width: 14px;
-    height: 14px;
+    width: 6px;
+    height: 6px;
 }
 ::-webkit-scrollbar-track {
-    background: #f0f0f0;
-    border-left: 1px solid #d1d5db;
+    @apply bg-transparent;
 }
 ::-webkit-scrollbar-thumb {
-    background: #cdcdcd;
-    border: 2px solid #f0f0f0;
-    background-clip: padding-box;
-    border-radius: 0;
+    @apply bg-slate-300 rounded-full;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background: #a0a0a0;
-}
-.custom-scrollbar {
-    scrollbar-width: auto;
-    scrollbar-color: #cdcdcd #f0f0f0;
+    @apply bg-slate-400;
 }
 
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 13px; /* STRICT REQUIREMENT: Minimum 13px */
-    line-height: 1.2;
-    user-select: none;
-    overflow: hidden;
-    color: #333;
-}
-
-/* Input Focus */
-input:focus, select:focus {
-    outline: 1px solid #2563eb;
-    z-index: 10;
-}
-
-/* P6 Table Styles */
+/* P6 Table Modernization */
 .p6-row {
-    border-bottom: 1px solid #e5e7eb;
-    display: flex;
-    align-items: center;
-    box-sizing: border-box;
-    background: white;
-    flex-shrink: 0; /* Prevent collapsing in flex containers, especially during print/clone */
+    @apply border-b border-slate-200 flex items-center bg-white transition-colors duration-75 box-border shrink-0;
 }
 .p6-row:hover {
-    background-color: #e0f2fe;
+    @apply bg-slate-50;
 }
 .p6-row.selected {
-    background-color: #bfdbfe;
+    @apply bg-blue-50 border-l-2 border-l-blue-500; 
 }
 .p6-row.wbs {
-    background-color: #f0f9ff;
-    color: #0369a1;
-    font-weight: 600;
+    @apply bg-slate-50 font-semibold text-slate-700;
 }
-.p6-row.wbs:hover {
-    background-color: #e0f2fe;
+/* Adjust padding for selected row to account for border-l */
+.p6-row.selected .p6-cell:first-child {
+    padding-left: 2px; /* 4px original - 2px border */
 }
 
 .p6-cell {
-    border-right: 1px solid #e5e7eb;
-    padding-left: 4px;
-    padding-right: 4px;
-    padding-top: 3px; /* Balanced padding */
-    padding-bottom: 5px; /* Increased to ensure descenders visibility */
-    height: 100%;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-    white-space: nowrap;
-    line-height: normal; /* Ensure text flows naturally */
-    flex-shrink: 0; /* Prevent shrinking when scrollbar appears */
+    @apply border-r border-slate-100 px-2 h-full flex items-center overflow-hidden whitespace-nowrap text-xs text-slate-700 shrink-0;
+    line-height: normal;
+    padding-top: 3px;
+    padding-bottom: 3px;
 }
 
 .p6-header {
-    background: #e2e8f0;
-    border-bottom: 1px solid #94a3b8;
-    border-top: 1px solid #94a3b8;
-    font-weight: 600;
-    color: #334155;
-    display: flex;
-    align-items: center;
-    box-sizing: border-box;
+    @apply bg-slate-100 border-y border-slate-200 font-semibold text-slate-600 flex items-center box-border text-xs uppercase tracking-wide;
 }
 
-/* Context Menu */
+/* Context Menu - Glassmorphism */
 .ctx-menu {
-    position: fixed;
-    z-index: 9999;
-    background: white;
-    border: 1px solid #9ca3af;
-    box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
-    min-width: 180px;
-    padding: 2px;
+    @apply fixed z-[9999] bg-white/90 backdrop-blur-md border border-slate-200 shadow-lg rounded-lg overflow-hidden min-w-[180px] py-1 animate-scale-in origin-top-left;
 }
 .ctx-item {
-    padding: 4px 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #333;
-    font-size: 13px;
-}
-.ctx-item:hover {
-    background: #2563eb;
-    color: white;
+    @apply px-3 py-1.5 cursor-pointer flex items-center gap-2 text-slate-700 text-xs hover:bg-blue-500 hover:text-white transition-colors;
 }
 .ctx-sep {
-    height: 1px;
-    background: #e5e7eb;
-    margin: 2px 0;
+    @apply h-px bg-slate-200 my-1;
 }
 
-/* Modal Overlay */
+/* Modal Overlay - Glassmorphism */
 .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.4);
-    z-index: 50;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    @apply fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in;
 }
 
-/* System Print Support (Ctrl+P) */
+/* Animations */
+@keyframes pulse-subtle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+.animate-pulse-subtle {
+    animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Print Styles */
 @media print {
-    /* Hide non-printable elements */
-    .menu-bar, .toolbar, .details-panel, .resources-panel, .modal-overlay, .ctx-menu, button {
-        display: none !important;
-    }
-
-    /* Reset layout constraints */
-    body, #root, .app-container {
-        height: auto !important;
-        overflow: visible !important;
-        display: block !important;
-    }
-
-    /* Combined View Layout for Print */
-    .combined-view-container {
-        border: none !important;
-        height: auto !important;
-        overflow: visible !important;
-        display: flex !important;
-        flex-direction: row !important; /* Ensure side-by-side */
-        flex-wrap: nowrap !important;
-        width: 100% !important;
-        align-items: flex-start !important;
-    }
-
-    /* Ensure children take proper width */
-    .combined-view-container > div {
-        overflow: visible !important;
-        height: auto !important;
-    }
-
-    .gantt-component {
-        overflow: visible !important;
-        height: auto !important;
-        display: block !important;
-        flex: 1 1 auto !important;
-    }
-
-    /* Table Body expansion */
-    .p6-table-body {
-        overflow: visible !important;
-        height: auto !important;
-    }
-
-    /* Gantt Body expansion */
-    .gantt-body-wrapper {
-        overflow: visible !important;
-        height: auto !important;
-    }
-
-    /* Hide scrollbars */
-    ::-webkit-scrollbar {
-        display: none;
-    }
+    ::-webkit-scrollbar { display: none; }
+    body { background: white !important; }
 }

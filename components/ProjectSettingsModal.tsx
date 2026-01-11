@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ProjectData, Calendar, CalendarException, CustomFieldDefinition } from '../types';
 import { AlertModal, BaseModal } from './Modals';
 import { useTranslation } from '../utils/i18n';
+import { useAppStore } from '../stores/useAppStore';
 
 interface ProjectSettingsModalProps {
     isOpen: boolean;
@@ -9,16 +10,18 @@ interface ProjectSettingsModalProps {
     projectData: ProjectData;
     onUpdateProject: (meta: ProjectData['meta'], calendars: Calendar[]) => void;
     lang?: 'en' | 'zh';
+    initialTab?: 'general' | 'defaults' | 'calendars' | 'custom_fields';
 }
 
-const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onClose, projectData, onUpdateProject, lang='en' }) => {
+const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onClose, projectData, onUpdateProject, lang = 'en', initialTab }) => {
     const { t } = useTranslation(lang);
+    const { user } = useAppStore();
     const [meta, setMeta] = useState(projectData.meta!);
     const [calendars, setCalendars] = useState<Calendar[]>(projectData.calendars || []);
     const [customFieldDefinitions, setCustomFieldDefinitions] = useState<CustomFieldDefinition[]>(projectData.meta?.customFieldDefinitions || []);
     const [activeTab, setActiveTab] = useState<'General' | 'Defaults' | 'Calendars' | 'Custom Fields'>('General');
     const [selectedCalId, setSelectedCalId] = useState<string>('');
-    
+
     // Holiday Range State
     const [holidayStart, setHolidayStart] = useState('');
     const [holidayEnd, setHolidayEnd] = useState('');
@@ -28,17 +31,27 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
     const [newField, setNewField] = useState<Partial<CustomFieldDefinition>>({ name: '', scope: 'activity', type: 'text' });
 
     useEffect(() => {
-        if(projectData.meta) {
+        if (projectData.meta) {
             setMeta(projectData.meta);
             setCustomFieldDefinitions(projectData.meta.customFieldDefinitions || []);
         }
-        if(projectData.calendars) {
+        if (projectData.calendars) {
             setCalendars(projectData.calendars);
-            if(projectData.calendars.length > 0 && !selectedCalId) {
+            if (projectData.calendars.length > 0 && !selectedCalId) {
                 setSelectedCalId(projectData.calendars[0].id);
             }
         }
-    }, [projectData, isOpen]);
+        // Set initial tab if provided
+        if (isOpen && initialTab) {
+            const tabMap = {
+                'general': 'General',
+                'defaults': 'Defaults',
+                'calendars': 'Calendars',
+                'custom_fields': 'Custom Fields'
+            } as const;
+            setActiveTab(tabMap[initialTab] as any);
+        }
+    }, [projectData, isOpen, initialTab]);
 
     const handleSave = () => {
         const updatedMeta = { ...meta, customFieldDefinitions };
@@ -52,20 +65,20 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
 
     const toggleWeekDay = (calId: string, dayIndex: number) => {
         const cal = calendars.find(c => c.id === calId);
-        if(!cal) return;
+        if (!cal) return;
         const newWeek = [...cal.weekDays];
         newWeek[dayIndex] = !newWeek[dayIndex];
         handleUpdateCalendar(calId, { weekDays: newWeek });
     };
 
     const addHolidayRange = () => {
-        if(!selectedCalId || !holidayStart) return;
+        if (!selectedCalId || !holidayStart) return;
         const cal = calendars.find(c => c.id === selectedCalId);
-        if(!cal) return;
-        
+        if (!cal) return;
+
         const start = new Date(holidayStart);
         const end = holidayEnd ? new Date(holidayEnd) : new Date(holidayStart);
-        
+
         // Ensure start <= end
         if (start > end) {
             setAlertMsg("Start date must be before end date");
@@ -86,7 +99,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
             curr.setDate(curr.getDate() + 1);
             count++;
         }
-        
+
         handleUpdateCalendar(selectedCalId, { exceptions: newExceptions });
         setHolidayStart('');
         setHolidayEnd('');
@@ -94,10 +107,10 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
 
     const deleteException = (date: string) => {
         const cal = calendars.find(c => c.id === selectedCalId);
-        if(!cal) return;
+        if (!cal) return;
         handleUpdateCalendar(selectedCalId, { exceptions: cal.exceptions.filter(e => e.date !== date) });
     };
-    
+
     const addNewCalendar = () => {
         const newCal: Calendar = {
             id: `cal-${Date.now()}`,
@@ -113,6 +126,17 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
 
     const addCustomField = () => {
         if (!newField.name) return;
+
+        // Check limits
+        const role = user?.plannerRole || 'trial';
+        const limitVar = `VITE_LIMIT_CF_${role.toUpperCase()}`;
+        const limit = parseInt(import.meta.env[limitVar] || (role === 'trial' ? '0' : role === 'licensed' ? '5' : '20'));
+
+        if (customFieldDefinitions.length >= limit && role !== 'admin') {
+            setAlertMsg(`${t('CustomFieldLimitReached') || 'Custom Field limit reached for your plan'} (${limit})`);
+            return;
+        }
+
         const id = `cf_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
         setCustomFieldDefinitions([...customFieldDefinitions, { ...newField, id } as CustomFieldDefinition]);
         setNewField({ name: '', scope: 'activity', type: 'text' });
@@ -128,9 +152,9 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     return (
-        <BaseModal 
-            isOpen={isOpen} 
-            title={t('ProjectSettings')} 
+        <BaseModal
+            isOpen={isOpen}
+            title={t('ProjectSettings')}
             onClose={onClose}
             className="w-[800px] max-h-[90vh] flex flex-col"
             footer={
@@ -143,9 +167,9 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
             <div className="flex flex-col h-full">
                 <div className="flex gap-2 mb-6 border-b border-slate-100 pb-2">
                     {['General', 'Defaults', 'Calendars', 'Custom Fields'].map((tab) => (
-                        <button 
+                        <button
                             key={tab}
-                            onClick={() => setActiveTab(tab as any)} 
+                            onClick={() => setActiveTab(tab as any)}
                             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === tab ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
                         >
                             {tab === 'Custom Fields' ? t('CustomFields') : t(tab as any)}
@@ -158,36 +182,36 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                         <div className="space-y-4 max-w-lg">
                             <div>
                                 <label className="block text-slate-500 text-xs font-bold mb-1">{t('ProjectCode')}</label>
-                                <input 
+                                <input
                                     className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                     value={meta.projectCode || ''}
-                                    onChange={e => setMeta({...meta, projectCode: e.target.value})}
+                                    onChange={e => setMeta({ ...meta, projectCode: e.target.value })}
                                     placeholder="e.g. PROJ-01"
                                 />
                             </div>
                             <div>
                                 <label className="block text-slate-500 text-xs font-bold mb-1">{t('ProjectName')}</label>
-                                <input 
+                                <input
                                     className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                     value={meta.title}
-                                    onChange={e => setMeta({...meta, title: e.target.value})}
+                                    onChange={e => setMeta({ ...meta, title: e.target.value })}
                                 />
                             </div>
                             <div>
                                 <label className="block text-slate-500 text-xs font-bold mb-1">{t('StartDate')}</label>
-                                <input 
+                                <input
                                     type="date"
                                     className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                     value={meta.projectStartDate}
-                                    onChange={e => setMeta({...meta, projectStartDate: e.target.value})}
+                                    onChange={e => setMeta({ ...meta, projectStartDate: e.target.value })}
                                 />
                             </div>
-                             <div>
+                            <div>
                                 <label className="block text-slate-500 text-xs font-bold mb-1">{t('DefaultCal')}</label>
-                                <select 
+                                <select
                                     className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                     value={meta.defaultCalendarId}
-                                    onChange={e => setMeta({...meta, defaultCalendarId: e.target.value})}
+                                    onChange={e => setMeta({ ...meta, defaultCalendarId: e.target.value })}
                                 >
                                     {calendars.map(c => (
                                         <option key={c.id} value={c.id}>{c.name}</option>
@@ -204,19 +228,19 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-slate-500 text-xs font-bold mb-1">{t('Prefix')}</label>
-                                        <input 
+                                        <input
                                             className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                             value={meta.activityIdPrefix || 'A'}
-                                            onChange={e => setMeta({...meta, activityIdPrefix: e.target.value})}
+                                            onChange={e => setMeta({ ...meta, activityIdPrefix: e.target.value })}
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-slate-500 text-xs font-bold mb-1">{t('Increment')}</label>
-                                        <input 
+                                        <input
                                             type="number"
                                             className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                             value={meta.activityIdIncrement || 10}
-                                            onChange={e => setMeta({...meta, activityIdIncrement: Number(e.target.value)})}
+                                            onChange={e => setMeta({ ...meta, activityIdIncrement: Number(e.target.value) })}
                                         />
                                     </div>
                                 </div>
@@ -227,19 +251,19 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-slate-500 text-xs font-bold mb-1">{t('Prefix')}</label>
-                                        <input 
+                                        <input
                                             className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                             value={meta.resourceIdPrefix || 'R'}
-                                            onChange={e => setMeta({...meta, resourceIdPrefix: e.target.value})}
+                                            onChange={e => setMeta({ ...meta, resourceIdPrefix: e.target.value })}
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-slate-500 text-xs font-bold mb-1">{t('Increment')}</label>
-                                        <input 
+                                        <input
                                             type="number"
                                             className="w-full bg-white text-slate-800 rounded p-2 text-sm border border-slate-300 focus:border-blue-500 focus:outline-none"
                                             value={meta.resourceIdIncrement || 10}
-                                            onChange={e => setMeta({...meta, resourceIdIncrement: Number(e.target.value)})}
+                                            onChange={e => setMeta({ ...meta, resourceIdIncrement: Number(e.target.value) })}
                                         />
                                     </div>
                                 </div>
@@ -257,7 +281,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                 </div>
                                 <ul className="space-y-1">
                                     {calendars.map(cal => (
-                                        <li 
+                                        <li
                                             key={cal.id}
                                             onClick={() => setSelectedCalId(cal.id)}
                                             className={`p-2 rounded cursor-pointer text-sm transition-colors ${selectedCalId === cal.id ? 'bg-white shadow text-blue-700 font-medium border border-blue-100' : 'text-slate-600 hover:bg-slate-200'}`}
@@ -272,16 +296,16 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                             {selectedCal && (
                                 <div className="w-2/3 space-y-4 overflow-y-auto pr-2">
                                     <div>
-                                        <label className="block text-slate-500 text-xs font-bold mb-1">Calendar Name</label>
-                                        <input 
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">{t('CalendarName')}</label>
+                                        <input
                                             className="w-full bg-white border border-slate-300 p-2 rounded text-slate-800 text-sm focus:border-blue-500 focus:outline-none"
                                             value={selectedCal.name}
                                             onChange={e => handleUpdateCalendar(selectedCal.id, { name: e.target.value })}
                                         />
                                     </div>
-                                    
+
                                     <div>
-                                        <label className="block text-slate-500 text-xs font-bold mb-2">Standard Work Week</label>
+                                        <label className="block text-slate-500 text-xs font-bold mb-2">{t('StandardWorkWeek')}</label>
                                         <div className="flex gap-2">
                                             {selectedCal.weekDays.map((isWorking, idx) => (
                                                 <button
@@ -296,8 +320,8 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                     </div>
 
                                     <div>
-                                        <label className="block text-slate-500 text-xs font-bold mb-1">Daily Work Hours</label>
-                                        <input 
+                                        <label className="block text-slate-500 text-xs font-bold mb-1">{t('DailyWorkHours')}</label>
+                                        <input
                                             type="number"
                                             className="w-24 bg-white border border-slate-300 p-2 rounded text-slate-800 text-sm focus:border-blue-500 focus:outline-none"
                                             value={selectedCal.hoursPerDay}
@@ -306,36 +330,36 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                     </div>
 
                                     <div>
-                                        <label className="block text-slate-500 text-xs font-bold mb-2">Exceptions (Holidays/Non-Work)</label>
+                                        <label className="block text-slate-500 text-xs font-bold mb-2">{t('ExceptionsOrHolidays')}</label>
                                         <div className="flex gap-2 mb-3 items-end bg-slate-50 p-3 rounded border border-slate-200">
                                             <div>
-                                                <label className="block text-[10px] text-slate-500 mb-1">Start Date</label>
-                                                <input 
-                                                    type="date" 
+                                                <label className="block text-[10px] text-slate-500 mb-1">{t('StartDate')}</label>
+                                                <input
+                                                    type="date"
                                                     className="bg-white border border-slate-300 text-slate-800 p-1.5 rounded text-xs w-32 focus:border-blue-500 focus:outline-none"
                                                     value={holidayStart}
                                                     onChange={e => setHolidayStart(e.target.value)}
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-[10px] text-slate-500 mb-1">End Date (Optional)</label>
-                                                <input 
-                                                    type="date" 
+                                                <label className="block text-[10px] text-slate-500 mb-1">{t('EndDate')} ({t('Optional')})</label>
+                                                <input
+                                                    type="date"
                                                     className="bg-white border border-slate-300 text-slate-800 p-1.5 rounded text-xs w-32 focus:border-blue-500 focus:outline-none"
                                                     value={holidayEnd}
                                                     onChange={e => setHolidayEnd(e.target.value)}
                                                 />
                                             </div>
-                                            <button onClick={addHolidayRange} className="bg-slate-600 hover:bg-slate-700 px-3 py-1.5 rounded text-xs text-white shadow-sm transition-colors">Add Range</button>
+                                            <button onClick={addHolidayRange} className="bg-slate-600 hover:bg-slate-700 px-3 py-1.5 rounded text-xs text-white shadow-sm transition-colors">{t('AddRange')}</button>
                                         </div>
-                                        
+
                                         <div className="max-h-40 overflow-y-auto bg-white border border-slate-200 p-2 rounded shadow-inner">
-                                            {selectedCal.exceptions.length === 0 && <div className="text-center text-slate-400 text-xs py-4">No exceptions defined.</div>}
-                                            {selectedCal.exceptions.sort((a,b)=>a.date.localeCompare(b.date)).map((ex, i) => (
+                                            {selectedCal.exceptions.length === 0 && <div className="text-center text-slate-400 text-xs py-4">{t('NoExceptionsDefined')}</div>}
+                                            {selectedCal.exceptions.sort((a, b) => a.date.localeCompare(b.date)).map((ex, i) => (
                                                 <div key={i} className="flex justify-between items-center text-xs text-slate-600 py-2 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 rounded">
-                                                    <span>{ex.date} <span className="text-red-500 font-medium ml-2">({ex.isWorking ? 'Work' : 'Non-Work'})</span></span>
+                                                    <span>{ex.date} <span className="text-red-500 font-medium ml-2">({ex.isWorking ? t('IsWorkDay') : t('IsNonWork')})</span></span>
                                                     <button onClick={() => deleteException(ex.date)} className="text-slate-400 hover:text-red-500 transition-colors p-1">
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                                                     </button>
                                                 </div>
                                             ))}
@@ -353,19 +377,19 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                 <div className="flex gap-4 items-end">
                                     <div className="flex-grow">
                                         <label className="block text-slate-500 text-xs font-bold mb-1">{t('FieldName')}</label>
-                                        <input 
+                                        <input
                                             className="w-full bg-white border border-slate-300 p-2 rounded text-slate-800 text-sm focus:border-blue-500 focus:outline-none"
                                             value={newField.name || ''}
-                                            onChange={e => setNewField({...newField, name: e.target.value})}
+                                            onChange={e => setNewField({ ...newField, name: e.target.value })}
                                             placeholder="e.g. Budget Code"
                                         />
                                     </div>
                                     <div className="w-40">
                                         <label className="block text-slate-500 text-xs font-bold mb-1">{t('FieldScope')}</label>
-                                        <select 
+                                        <select
                                             className="w-full bg-white border border-slate-300 p-2 rounded text-slate-800 text-sm focus:border-blue-500 focus:outline-none"
                                             value={newField.scope}
-                                            onChange={e => setNewField({...newField, scope: e.target.value as any})}
+                                            onChange={e => setNewField({ ...newField, scope: e.target.value as any })}
                                         >
                                             <option value="activity">{t('ScopeActivity')}</option>
                                             <option value="resource">{t('ScopeResource')}</option>
@@ -373,10 +397,10 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                     </div>
                                     <div className="w-40">
                                         <label className="block text-slate-500 text-xs font-bold mb-1">{t('FieldType')}</label>
-                                        <select 
+                                        <select
                                             className="w-full bg-white border border-slate-300 p-2 rounded text-slate-800 text-sm focus:border-blue-500 focus:outline-none"
                                             value={newField.type}
-                                            onChange={e => setNewField({...newField, type: e.target.value as any})}
+                                            onChange={e => setNewField({ ...newField, type: e.target.value as any })}
                                         >
                                             <option value="text">{t('TypeString')}</option>
                                             <option value="number">{t('TypeNumber')}</option>
@@ -386,11 +410,11 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ isOpen, onC
                                     </div>
                                     {newField.type === 'list' && (
                                         <div className="flex-grow">
-                                            <label className="block text-slate-500 text-xs font-bold mb-1">Options (comma separated)</label>
-                                            <input 
+                                            <label className="block text-slate-500 text-xs font-bold mb-1">{t('FieldOptions')}</label>
+                                            <input
                                                 className="w-full bg-white border border-slate-300 p-2 rounded text-slate-800 text-sm focus:border-blue-500 focus:outline-none"
                                                 value={newField.options?.join(',') || ''}
-                                                onChange={e => setNewField({...newField, options: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})}
+                                                onChange={e => setNewField({ ...newField, options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
                                                 placeholder="Option 1, Option 2"
                                             />
                                         </div>
