@@ -340,7 +340,8 @@ export function calculateSchedule(projectData: ProjectData): ScheduleResult {
         return { start: minStart?.getTime() || null, end: maxEnd?.getTime() || null };
     }
 
-    projectData.wbs.filter(w => !w.parentId || w.parentId === 'null').forEach(r => processWBS(r.id));
+    // Process root WBS nodes (handle various parentId formats)
+    projectData.wbs.filter(w => !w.parentId || w.parentId === 'null' || w.parentId === 'root' || w.parentId === '').forEach(r => processWBS(r.id));
 
     return { activities: activities.map(a => activityMap[a.id]), wbsMap };
 }

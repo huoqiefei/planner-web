@@ -323,6 +323,15 @@ export const translations = {
         // Other
         DefaultValues: 'Default Values',
         Optional: 'Optional',
+        // Sorting
+        Sort: 'Sort',
+        SortByWBS: 'By WBS Code',
+        SortByActivity: 'By Activity Code',
+        SortByWBSThenActivity: 'By WBS, then Activity',
+        SortByActivityThenWBS: 'By Activity, then WBS',
+        Ascending: 'Ascending',
+        Descending: 'Descending',
+        ClearSort: 'Clear Sort',
         // Project Settings Modal Keys
         CalendarName: 'Calendar Name',
         StandardWorkWeek: 'Standard Work Week',
@@ -642,6 +651,15 @@ export const translations = {
         DefaultValues: '默认值',
         EndDate: '结束日期',
         Optional: '可选',
+        // Sorting
+        Sort: '排序',
+        SortByWBS: '按 WBS 编号',
+        SortByActivity: '按作业代码',
+        SortByWBSThenActivity: '按 WBS，再按作业',
+        SortByActivityThenWBS: '按作业，再按 WBS',
+        Ascending: '升序',
+        Descending: '降序',
+        ClearSort: '清除排序',
         // Print Settings
         HeaderFooter: '页眉页脚',
         HeaderText: '页眉文本（居中）',

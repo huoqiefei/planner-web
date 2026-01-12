@@ -45,6 +45,10 @@ interface AppState {
     setActivityFilters: (filters: FilterCondition[] | ((prev: FilterCondition[]) => FilterCondition[])) => void;
     setResourceFilters: (filters: FilterCondition[] | ((prev: FilterCondition[]) => FilterCondition[])) => void;
 
+    // Sorting
+    activitySort: { field: 'wbs' | 'activity' | 'wbs-activity' | 'activity-wbs' | null; direction: 'asc' | 'desc' };
+    setActivitySort: (sort: { field: 'wbs' | 'activity' | 'wbs-activity' | 'activity-wbs' | null; direction: 'asc' | 'desc' }) => void;
+
 
     // Modals
     activeModal: string | null;
@@ -87,6 +91,7 @@ export const useAppStore = create<AppState>()(
                 clipboard: null,
                 activityFilters: [],
                 resourceFilters: [],
+                activitySort: { field: null, direction: 'asc' },
                 activeModal: null,
                 modalData: null,
                 settingsTab: 'profile',
@@ -138,6 +143,7 @@ export const useAppStore = create<AppState>()(
                 setClipboard: (clipboard) => set({ clipboard }),
                 setActivityFilters: (filters) => set((state) => ({ activityFilters: typeof filters === 'function' ? filters(state.activityFilters) : filters })),
                 setResourceFilters: (filters) => set((state) => ({ resourceFilters: typeof filters === 'function' ? filters(state.resourceFilters) : filters })),
+                setActivitySort: (sort) => set({ activitySort: sort }),
                 setActiveModal: (activeModal) => set({ activeModal }),
                 setModalData: (modalData) => set({ modalData }),
                 setSettingsTab: (settingsTab) => set({ settingsTab }),

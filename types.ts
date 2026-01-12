@@ -149,6 +149,8 @@ export interface PrintSettings {
   footerText?: string;
   showPageNumber: boolean;
   showDate: boolean;
+  showLegend: boolean;
+  showBorder: boolean;
   startDate?: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
 }

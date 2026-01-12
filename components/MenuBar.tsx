@@ -154,7 +154,7 @@ const MenuBar: React.FC<MenuBarProps> = ({ onAction, onRefreshUser }) => {
 
             {/* Project Info Display */}
             {projectData && (
-                <div className="flex-1 flex items-center justify-center gap-3 text-xs text-slate-600 px-4">
+                <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-3 text-xs text-slate-600">
                     <span className="font-semibold text-slate-800 truncate max-w-md" title={projectData.meta?.title}>
                         {projectData.meta?.title || 'Untitled Project'}
                     </span>

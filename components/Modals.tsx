@@ -17,7 +17,7 @@ interface ModalProps {
 export const BaseModal: React.FC<ModalProps> = ({ isOpen, title, onClose, children, footer, className, bodyClassName }) => {
     if (!isOpen) return null;
     return (
-        <div className="modal-overlay fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={onClose}>
+        <div className="modal-overlay fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-[100]">
             <div className={`bg-white shadow-2xl rounded-lg overflow-hidden border border-slate-200 transform transition-all ${className || 'w-96 max-w-[95vw]'}`} onClick={e => e.stopPropagation()}>
                 <div className="px-4 py-3 border-b border-slate-200 flex justify-between items-center select-none bg-gradient-to-r from-slate-50 to-slate-100">
                     <span className="font-semibold text-slate-800 text-base">{title}</span>
@@ -235,8 +235,7 @@ export const ColumnSetupModal: React.FC<{
         { id: 'start', label: t('Start') },
         { id: 'finish', label: t('Finish') },
         { id: 'float', label: t('TotalFloat') },
-        { id: 'preds', label: t('Predecessors') },
-        { id: 'budget', label: 'Budget Cost' }
+        { id: 'preds', label: t('Predecessors') }
     ];
 
     const resourceCols = [
@@ -409,110 +408,30 @@ export const UserSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void,
 };
 
 export const PrintSettingsModal: React.FC<{ isOpen: boolean, onClose: () => void, onPrint: (s: PrintSettings) => void, onSystemPrint: () => void, lang?: 'en' | 'zh' }> = ({ isOpen, onClose, onPrint, onSystemPrint, lang = 'en' }) => {
-    const [settings, setSettings] = useState<PrintSettings>({
-        paperSize: 'a3',
-        orientation: 'landscape',
-        scalingMode: 'fit',
-        scalePercent: 100,
-        headerText: '',
-        footerText: '',
-        showPageNumber: true,
-        showDate: true
-    });
     const { t } = useTranslation(lang as 'en' | 'zh');
 
+    const handlePrint = () => {
+        onSystemPrint();
+        onClose();
+    };
+
     return (
-        <BaseModal isOpen={isOpen} title={t('PageSetup')} onClose={onClose} footer={
+        <BaseModal isOpen={isOpen} title={t('Print')} onClose={onClose} footer={
             <>
-                <button onClick={onSystemPrint} className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 mr-auto">{t('SystemPrint') || 'Browser Print'}</button>
                 <button onClick={onClose} className="px-3 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50">{t('Cancel')}</button>
-                <button onClick={() => { onPrint(settings); onClose(); }} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">{t('ExportPDF') || 'Export PDF'}</button>
+                <button onClick={handlePrint} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">{t('Print')}</button>
             </>
         }>
             <div className="space-y-4 text-sm">
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block mb-1 font-bold">{t('PaperSize')}</label>
-                        <select className="w-full border p-1 rounded" value={settings.paperSize} onChange={e => setSettings({ ...settings, paperSize: e.target.value as any })}>
-                            <option value="a4">A4</option>
-                            <option value="a3">A3</option>
-                            <option value="a2">A2</option>
-                            <option value="a1">A1</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block mb-1 font-bold">{t('Orientation')}</label>
-                        <select className="w-full border p-1 rounded" value={settings.orientation} onChange={e => setSettings({ ...settings, orientation: e.target.value as any })}>
-                            <option value="landscape">{t('Landscape')}</option>
-                            <option value="portrait">{t('Portrait')}</option>
-                        </select>
-                    </div>
+                <div className="bg-blue-50 border border-blue-200 rounded p-3 text-blue-800">
+                    <p className="font-medium mb-2">{lang === 'zh' ? '打印说明' : 'Print Instructions'}</p>
+                    <ul className="list-disc list-inside space-y-1 text-xs">
+                        <li>{lang === 'zh' ? '甘特图将自动缩放以适应纸张宽度' : 'Gantt chart will auto-scale to fit paper width'}</li>
+                        <li>{lang === 'zh' ? '建议使用横向打印以获得最佳效果' : 'Landscape orientation recommended for best results'}</li>
+                        <li>{lang === 'zh' ? '在浏览器打印对话框中可以调整更多设置' : 'More settings available in browser print dialog'}</li>
+                    </ul>
                 </div>
-
-                <div className="border-t pt-2">
-                    <label className="block mb-1 font-bold">{t('HeaderFooter')}</label>
-                    <div className="space-y-2">
-                        <input
-                            type="text"
-                            placeholder={t('HeaderText') as string}
-                            className="w-full border p-1 rounded"
-                            value={settings.headerText || ''}
-                            onChange={e => setSettings({ ...settings, headerText: e.target.value })}
-                        />
-                        <input
-                            type="text"
-                            placeholder={t('FooterText') as string}
-                            className="w-full border p-1 rounded"
-                            value={settings.footerText || ''}
-                            onChange={e => setSettings({ ...settings, footerText: e.target.value })}
-                        />
-                        <div className="flex gap-4 pt-1">
-                            <label className="flex items-center gap-2">
-                                <input type="checkbox" checked={settings.showPageNumber} onChange={e => setSettings({ ...settings, showPageNumber: e.target.checked })} />
-                                {t('ShowPageNumbers')}
-                            </label>
-                            <label className="flex items-center gap-2">
-                                <input type="checkbox" checked={settings.showDate} onChange={e => setSettings({ ...settings, showDate: e.target.checked })} />
-                                {t('ShowDate')}
-                            </label>
-                        </div>
-                    </div>
-
-                    <div className="border-t pt-2">
-                        <label className="block mb-1 font-bold">{t('TimeRange')}</label>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs text-slate-500 mb-1">{t('StartDate')}</label>
-                                <input type="date" className="w-full border p-1 rounded" value={settings.startDate || ''} onChange={e => setSettings({ ...settings, startDate: e.target.value })} />
-                            </div>
-                            <div>
-                                <label className="block text-xs text-slate-500 mb-1">{t('EndDate')}</label>
-                                <input type="date" className="w-full border p-1 rounded" value={settings.endDate || ''} onChange={e => setSettings({ ...settings, endDate: e.target.value })} />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="border-t pt-2">
-                    <label className="block mb-1 font-bold">{t('Scaling')}</label>
-                    <div className="flex items-center gap-4">
-                        <label className="flex items-center gap-2">
-                            <input type="radio" name="scale" checked={settings.scalingMode === 'fit'} onChange={() => setSettings({ ...settings, scalingMode: 'fit' })} />
-                            {t('FitToWidth')}
-                        </label>
-                        <label className="flex items-center gap-2">
-                            <input type="radio" name="scale" checked={settings.scalingMode === 'custom'} onChange={() => setSettings({ ...settings, scalingMode: 'custom' })} />
-                            {t('CustomPercent')}
-                        </label>
-                    </div>
-                    {settings.scalingMode === 'custom' && (
-                        <div className="mt-1 flex items-center gap-2">
-                            <input type="number" className="border w-20 p-1" value={settings.scalePercent} onChange={e => setSettings({ ...settings, scalePercent: parseInt(e.target.value) || 100 })} />
-                            <span>%</span>
-                        </div>
-                    )}
-                </div>
-                <p className="text-xs text-slate-500 italic mt-2">{t('PrintNote')}</p>
+                <p className="text-xs text-slate-500 italic">{lang === 'zh' ? '点击打印按钮后，将打开浏览器打印对话框' : 'Clicking Print will open the browser print dialog'}</p>
             </div>
         </BaseModal>
     );

@@ -7,7 +7,7 @@ import CombinedView from './CombinedView';
 import DetailsPanel from './DetailsPanel';
 import ResourcesPanel from './ResourcesPanel';
 import ProjectSettingsModal from './ProjectSettingsModal';
-import { AlertModal, ConfirmModal, AboutModal, PrintSettingsModal, HelpModal, ColumnSetupModal, AdminModal } from './Modals';
+import { AlertModal, ConfirmModal, AboutModal, HelpModal, ColumnSetupModal, AdminModal } from './Modals';
 import { AccountSettingsModal } from './AccountSettingsModal';
 import { UserPreferencesModal } from './UserPreferencesModal';
 import { LoginModal } from './LoginModal';
@@ -15,6 +15,7 @@ import { BatchAssignModal } from './BatchAssignModal';
 import { CloudLoadModal, CloudSaveModal } from './CloudModals';
 import { ExportOptionsModal } from './ExportOptionsModal';
 import { FilterModal } from './FilterModal';
+import { PrintPreviewModal } from './PrintPreviewModal';
 import ResourceUsagePanel from './ResourceUsagePanel';
 import { AdminConfig, User } from '../types';
 
@@ -75,9 +76,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         ctx, setCtx,
         adminConfig,
         userSettings, setUserSettings,
-        settingsTab
+        settingsTab,
+        activitySort, setActivitySort
     } = useAppStore();
-    const [systemPrintMode, setSystemPrintMode] = React.useState(false);
+    const [sortModalOpen, setSortModalOpen] = React.useState(false);
 
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -105,6 +107,60 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [handleMenuAction]);
 
+    // Sort Modal Component
+    const SortModal = () => {
+        if (!sortModalOpen) return null;
+        
+        const sortOptions: { field: 'wbs' | 'activity' | 'wbs-activity' | 'activity-wbs'; label: string }[] = [
+            { field: 'wbs', label: t('SortByWBS' as any) },
+            { field: 'activity', label: t('SortByActivity' as any) },
+            { field: 'wbs-activity', label: t('SortByWBSThenActivity' as any) },
+            { field: 'activity-wbs', label: t('SortByActivityThenWBS' as any) },
+        ];
+        
+        return (
+            <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[100]" onClick={() => setSortModalOpen(false)}>
+                <div className="bg-white rounded-lg shadow-xl p-4 min-w-[280px]" onClick={e => e.stopPropagation()} style={{ fontSize: `${userSettings.uiFontPx || 13}px` }}>
+                    <div className="font-bold text-slate-700 mb-3 pb-2 border-b">{t('Sort' as any)}</div>
+                    <div className="space-y-1">
+                        {sortOptions.map(opt => (
+                            <div key={opt.field} className="flex items-center gap-2">
+                                <button
+                                    onClick={() => { setActivitySort({ field: opt.field, direction: 'asc' }); setSortModalOpen(false); }}
+                                    className={`flex-1 text-left px-3 py-1.5 rounded hover:bg-slate-100 flex items-center gap-2 ${activitySort.field === opt.field && activitySort.direction === 'asc' ? 'bg-blue-50 text-blue-700' : ''}`}
+                                >
+                                    {activitySort.field === opt.field && activitySort.direction === 'asc' && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>}
+                                    <span className={activitySort.field === opt.field && activitySort.direction === 'asc' ? '' : 'ml-5'}>{opt.label} ↑</span>
+                                </button>
+                                <button
+                                    onClick={() => { setActivitySort({ field: opt.field, direction: 'desc' }); setSortModalOpen(false); }}
+                                    className={`flex-1 text-left px-3 py-1.5 rounded hover:bg-slate-100 flex items-center gap-2 ${activitySort.field === opt.field && activitySort.direction === 'desc' ? 'bg-blue-50 text-blue-700' : ''}`}
+                                >
+                                    {activitySort.field === opt.field && activitySort.direction === 'desc' && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>}
+                                    <span className={activitySort.field === opt.field && activitySort.direction === 'desc' ? '' : 'ml-5'}>{opt.label} ↓</span>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                    {activitySort.field && (
+                        <div className="mt-3 pt-2 border-t">
+                            <button
+                                onClick={() => { setActivitySort({ field: null, direction: 'asc' }); setSortModalOpen(false); }}
+                                className="w-full text-left px-3 py-1.5 rounded hover:bg-red-50 text-red-600"
+                            >
+                                {t('ClearSort' as any)}
+                            </button>
+                        </div>
+                    )}
+                    <div className="mt-3 pt-2 border-t flex justify-end">
+                        <button onClick={() => setSortModalOpen(false)} className="px-4 py-1.5 rounded bg-slate-100 hover:bg-slate-200">
+                            {t('Close')}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     const ContextMenu = ({ data, onAction }: any) => {
         if (!data) return null;
@@ -115,7 +171,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             WBS: <svg className="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>,
             User: <svg className="w-3 h-3 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>,
             Delete: <svg className="w-3 h-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>,
-            Number: <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>
+            Number: <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>,
+            Sort: <svg className="w-3 h-3 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
+        };
+
+        const handleOpenSort = () => {
+            setCtx(null);
+            setSortModalOpen(true);
         };
 
         return (
@@ -135,6 +197,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                         <div className="ctx-item" onClick={() => onAction('addAct')}>{Icons.Task} {t('AddActivity')}</div>
                         <div className="ctx-item" onClick={() => onAction('addWBS')}>{Icons.WBS} {t('AddChildWBS')}</div>
                         <div className="ctx-sep"></div>
+                        <div className="ctx-item" onClick={handleOpenSort}>{Icons.Sort} {t('Sort' as any)}...</div>
+                        <div className="ctx-sep"></div>
                         <div className="ctx-item" onClick={() => onAction('renumber')}>{Icons.Number} {t('RenumberActivities')}</div>
                         <div className="ctx-sep"></div>
                         <div className="ctx-item text-red-600" onClick={() => onAction('delWBS')}>{Icons.Delete} {t('DeleteWBS')}</div>
@@ -144,6 +208,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                     <>
                         <div className="ctx-item" onClick={() => onAction('addActSame')}>{Icons.Task} {t('AddActivity')}</div>
                         <div className="ctx-item" onClick={() => onAction('assignRes')}>{Icons.User} {t('AssignResource')}</div>
+                        <div className="ctx-sep"></div>
+                        <div className="ctx-item" onClick={handleOpenSort}>{Icons.Sort} {t('Sort' as any)}...</div>
                         <div className="ctx-sep"></div>
                         <div className="ctx-item" onClick={() => onAction('renumber')}>{Icons.Number} {t('RenumberActivities')}</div>
                         <div className="ctx-sep"></div>
@@ -164,45 +230,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             <div className="flex flex-col h-full bg-slate-100 items-center justify-center">
                 <div className="animate-pulse text-slate-500 font-bold">Loading Interface...</div>
                 <LoginModal isOpen={isLoginOpen} onLoginSuccess={handleLoginSuccess} onClose={() => { }} lang={userSettings.language} adminConfig={adminConfig} />
-            </div>
-        );
-    }
-
-    if (systemPrintMode) {
-        return (
-            <div className="flex flex-col h-full bg-white print-only-view">
-                <style>{`
-                    @media print {
-                        @page { size: auto; margin: 5mm; }
-                        body { background: white !important; }
-                        .print-only-view {
-                            display: flex !important;
-                            flex-direction: row !important;
-                            width: 100% !important;
-                            height: auto !important;
-                            overflow: visible !important;
-                        }
-                        .combined-view-container {
-                            display: flex !important;
-                            flex-direction: row !important;
-                            width: 100% !important;
-                            height: auto !important;
-                            overflow: visible !important;
-                        }
-                        .combined-view-container > div,
-                        .p6-table-body,
-                        .p6-gantt-body,
-                        div[style*="overflow: scroll"],
-                        div[style*="overflow: auto"] {
-                            overflow: visible !important;
-                            height: auto !important;
-                            max-height: none !important;
-                        }
-                    }
-                `}</style>
-                <div className="flex-grow flex overflow-visible combined-view-container">
-                    <CombinedView />
-                </div>
             </div>
         );
     }
@@ -310,7 +337,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             />
             <input type="file" ref={fileInputRef} onChange={handleOpen} className="hidden" accept=".json" />
             <div className="flex-grow flex flex-col overflow-hidden">
-                <div className="view-tabs-container bg-slate-300 border-b flex px-2 pt-1 gap-1 shrink-0" style={{ fontSize: `${userSettings.uiFontPx || 13}px` }}>
+                <div className="view-tabs-container bg-slate-100 border-b border-slate-300 flex px-2 pt-1 gap-1 shrink-0" style={{ fontSize: `${userSettings.uiFontPx || 13}px` }}>
                     {['Activities', 'Resources', 'ResourceAllocation'].map(v => {
                         const viewVal = v === 'ResourceAllocation' ? 'usage' : v.toLowerCase() as any;
                         return (
@@ -320,7 +347,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                                     if (view !== viewVal) setSelIds([]);
                                     setView(viewVal);
                                 }}
-                                className={`px-4 py-1 font-bold rounded-t ${view === viewVal ? 'bg-white text-blue-900 border-t border-x border-slate-400 -mb-[1px]' : 'text-slate-600 hover:bg-slate-200'}`}
+                                className={`px-4 py-1 font-bold rounded-t ${view === viewVal ? 'bg-white text-blue-900 border-t border-x border-slate-300 -mb-[1px]' : 'text-slate-600 hover:bg-slate-200'}`}
                             >
                                 {t(v as any)}
                             </button>
@@ -372,6 +399,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             </div>
 
             <ContextMenu data={ctx} onClose={() => setCtx(null)} onAction={handleCtxAction} />
+            <SortModal />
             <AlertModal isOpen={activeModal === 'alert'} msg={modalData?.msg} title={modalData?.title} onClose={() => setActiveModal(null)} />
             <ConfirmModal
                 isOpen={activeModal === 'confirm'}
@@ -398,18 +426,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                 onSaveSettings={setUserSettings}
                 onClose={() => setActiveModal(null)}
             />
-            <PrintSettingsModal
+            <PrintPreviewModal
                 isOpen={activeModal === 'print'}
                 onClose={() => setActiveModal(null)}
-                onPrint={executePrint}
-                onSystemPrint={() => {
-                    setActiveModal(null);
-                    setSystemPrintMode(true);
-                    setTimeout(() => {
-                        window.print();
-                        setSystemPrintMode(false);
-                    }, 500);
-                }}
                 lang={userSettings.language}
             />
             <ColumnSetupModal

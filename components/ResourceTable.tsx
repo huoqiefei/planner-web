@@ -178,7 +178,9 @@ const ResourceTable: React.FC<ResourceTableProps> = () => {
                             {editing?.id === r.id && editing?.field === 'unitPrice' ? (
                                 <input
                                     autoFocus
-                                    type="number"
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                     className="w-full h-full px-1 border-2 border-blue-400 rounded text-right"
                                     value={val}
                                     onChange={e => setVal(e.target.value)}
@@ -192,7 +194,7 @@ const ResourceTable: React.FC<ResourceTableProps> = () => {
                         </div>}
                         {visibleCols.includes('maxUnits') && <div className="border-r border-slate-200 px-2 flex items-center truncate text-right justify-end" style={{ width: colWidths.maxUnits || 100 }}>
                             {editing?.id === r.id && editing?.field === 'maxUnits' ? (
-                                <input autoFocus type="number" className="w-full h-full px-1 border-2 border-blue-400 rounded text-right" value={val} onChange={e => setVal(e.target.value)} onBlur={saveEdit} onKeyDown={e => e.key === 'Enter' && saveEdit()} />
+                                <input autoFocus type="text" inputMode="numeric" pattern="[0-9]*" className="w-full h-full px-1 border-2 border-blue-400 rounded text-right" value={val} onChange={e => setVal(e.target.value)} onBlur={saveEdit} onKeyDown={e => e.key === 'Enter' && saveEdit()} />
                             ) : (
                                 <span onDoubleClick={() => startEdit(r.id, 'maxUnits', r.maxUnits)} className="w-full text-right">{r.maxUnits}</span>
                             )}
@@ -227,7 +229,9 @@ const ResourceTable: React.FC<ResourceTableProps> = () => {
                                     ) : (
                                         <input
                                             autoFocus
-                                            type={cf.type === 'number' ? 'number' : cf.type === 'date' ? 'date' : 'text'}
+                                            type={cf.type === 'number' ? 'text' : cf.type === 'date' ? 'date' : 'text'}
+                                            inputMode={cf.type === 'number' ? 'numeric' : undefined}
+                                            pattern={cf.type === 'number' ? '[0-9]*' : undefined}
                                             className="w-full h-full px-1 border-2 border-blue-400 rounded"
                                             value={val}
                                             onChange={e => setVal(e.target.value)}
@@ -255,6 +259,8 @@ const ResourceTable: React.FC<ResourceTableProps> = () => {
                         <span>{t('NoResourcesDefined')}</span>
                     </div>
                 )}
+                {/* Bottom padding for easier data entry - hidden in print */}
+                <div className="h-72 w-full print:hidden" />
             </div>
 
 

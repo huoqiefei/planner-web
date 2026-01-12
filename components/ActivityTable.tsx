@@ -193,23 +193,11 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
             >
                 <div className="flex h-full p6-header" style={{ minWidth: totalContentWidth }}>
                     {showVertical && (
-                        <div className="w-8 border-r border-slate-300 flex items-center justify-center bg-slate-200 text-slate-500 flex-shrink-0 print:bg-transparent sticky left-0 z-30" data-col="index" style={{ width: 32 }}>#</div>
+                        <div className="w-8 border-r border-slate-300 flex items-center justify-center bg-slate-100 text-slate-500 flex-shrink-0 print:bg-transparent" data-col="index" style={{ width: 32 }}>#</div>
                     )}
-                    {visibleCols.includes('id') && (
-                        <div className="sticky z-30 bg-slate-100" style={{ left: showVertical ? 32 : 0 }}>
-                            <ResizableHeader width={colWidths.id || 180} onResize={w => setColWidths({ ...colWidths, id: w })} dataCol="id">{t('ActivityID')}</ResizableHeader>
-                        </div>
-                    )}
-                    {visibleCols.includes('name') && (
-                        <div className="sticky z-30 bg-slate-100" style={{ left: (showVertical ? 32 : 0) + (visibleCols.includes('id') ? (colWidths.id || 180) : 0) }}>
-                            <ResizableHeader width={colWidths.name || 250} onResize={w => setColWidths({ ...colWidths, name: w })} dataCol="name">{t('ActivityName')}</ResizableHeader>
-                        </div>
-                    )}
-                    {visibleCols.includes('duration') && (
-                        <div className="sticky z-30 bg-slate-100" style={{ left: (showVertical ? 32 : 0) + (visibleCols.includes('id') ? (colWidths.id || 180) : 0) + (visibleCols.includes('name') ? (colWidths.name || 250) : 0) }}>
-                            <ResizableHeader width={colWidths.duration || 60} onResize={w => setColWidths({ ...colWidths, duration: w })} align="right" dataCol="duration">{t('Duration')}</ResizableHeader>
-                        </div>
-                    )}
+                    {visibleCols.includes('id') && <ResizableHeader width={colWidths.id || 180} onResize={w => setColWidths({ ...colWidths, id: w })} dataCol="id">{t('ActivityID')}</ResizableHeader>}
+                    {visibleCols.includes('name') && <ResizableHeader width={colWidths.name || 250} onResize={w => setColWidths({ ...colWidths, name: w })} dataCol="name">{t('ActivityName')}</ResizableHeader>}
+                    {visibleCols.includes('duration') && <ResizableHeader width={colWidths.duration || 60} onResize={w => setColWidths({ ...colWidths, duration: w })} align="right" dataCol="duration">{t('Duration')}</ResizableHeader>}
                     {visibleCols.includes('start') && <ResizableHeader width={colWidths.start || 90} onResize={w => setColWidths({ ...colWidths, start: w })} align="center" dataCol="start">{t('Start')}</ResizableHeader>}
                     {visibleCols.includes('finish') && <ResizableHeader width={colWidths.finish || 90} onResize={w => setColWidths({ ...colWidths, finish: w })} align="center" dataCol="finish">{t('Finish')}</ResizableHeader>}
                     {visibleCols.includes('float') && <ResizableHeader width={colWidths.float || 50} onResize={w => setColWidths({ ...colWidths, float: w })} align="right" dataCol="float">{t('TotalFloat')}</ResizableHeader>}
@@ -234,28 +222,33 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
                 ref={containerRef}
                 onScroll={handleBodyScroll}
             >
-                <div style={{ minWidth: totalContentWidth, height: totalHeight, position: 'relative' }}>
+                <div style={{ minWidth: totalContentWidth, height: totalHeight + 300, position: 'relative' }}>
                     {virtualItems.map(({ index, offsetTop }) => {
                         const row = rows[index];
                         const isSel = selectedIds.includes(row.id);
+                        // WBS depth-based background colors (very light slate theme)
+                        const depthBgColors = ['bg-slate-100/60', 'bg-slate-50/80', 'bg-slate-50/40', 'bg-white'];
+                        const rowBg = row.type === 'WBS' 
+                            ? (depthBgColors[Math.min(row.depth, depthBgColors.length - 1)] || 'bg-white')
+                            : (index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30');
                         return (
                             <div
                                 key={row.id}
-                                className={`flex border-b border-slate-100 transition-colors cursor-pointer group absolute left-0 w-full p6-row select-none ${isSel ? '!bg-blue-200 !hover:bg-blue-300' : ('hover:bg-blue-50 ' + (index % 2 === 0 ? 'bg-white' : 'bg-slate-50'))}`}
+                                className={`flex border-b border-slate-100 transition-colors cursor-pointer group absolute left-0 w-full p6-row select-none ${isSel ? '!bg-blue-200 !hover:bg-blue-300' : ('hover:bg-blue-50 ' + rowBg)}`}
                                 style={{ height: rowHeight, top: offsetTop, fontSize: `${fontSizePx}px` }}
                                 onClick={(e) => handleRowClick(row.id, e)}
                                 onContextMenu={(e) => handleContextMenu(e, row.id, row.type)}
                             >
                                 {showVertical && (
-                                    <div className="w-8 flex-shrink-0 border-r border-slate-200 flex items-center justify-center text-xs text-slate-400 select-none bg-slate-50 p6-cell print:bg-transparent sticky left-0 z-10" data-col="index" style={{ width: 32 }}>
+                                    <div className="w-8 flex-shrink-0 border-r border-slate-200 flex items-center justify-center text-xs text-slate-400 select-none bg-slate-50 p6-cell print:bg-transparent" data-col="index" style={{ width: 32 }}>
                                         {index + 1}
                                     </div>
                                 )}
 
                                 {/* ID Column */}
                                 {visibleCols.includes('id') && (
-                                    <div className={`flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell sticky z-10 ${isSel ? 'bg-blue-200' : (index % 2 === 0 ? 'bg-white' : 'bg-slate-50')}`} data-col="id" style={{ width: colWidths.id || 180, left: showVertical ? 32 : 0 }}>
-                                        <div style={{ paddingLeft: row.depth * 16 }} className="flex items-center w-full overflow-hidden">
+                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell" data-col="id" style={{ width: colWidths.id || 180 }}>
+                                        <div style={{ paddingLeft: row.depth * 8 }} className="flex items-center w-full overflow-hidden">
                                             {row.type === 'WBS' && (
                                                 <button onClick={(e) => { e.stopPropagation(); onToggleExpand(row.id); }} className="mr-1 text-slate-500 hover:text-black focus:outline-none">
                                                     {row.expanded ? '▼' : '▶'}
@@ -273,7 +266,7 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
 
                                 {/* Name Column */}
                                 {visibleCols.includes('name') && (
-                                    <div className={`flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell sticky z-10 ${isSel ? 'bg-blue-200' : (index % 2 === 0 ? 'bg-white' : 'bg-slate-50')}`} data-col="name" style={{ width: colWidths.name || 250, left: (showVertical ? 32 : 0) + (visibleCols.includes('id') ? (colWidths.id || 180) : 0) }}>
+                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center p6-cell" data-col="name" style={{ width: colWidths.name || 250 }}>
                                         {editing?.id === row.id && editing?.field === 'name' ? (
                                             <input autoFocus className="w-full h-full border-2 border-blue-400 px-1 rounded" value={editVal} onChange={e => setEditVal(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} />
                                         ) : (
@@ -287,9 +280,9 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
 
                                 {/* Duration */}
                                 {visibleCols.includes('duration') && (
-                                    <div className={`flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-end p6-cell sticky z-10 ${isSel ? 'bg-blue-200' : (index % 2 === 0 ? 'bg-white' : 'bg-slate-50')}`} data-col="duration" style={{ width: colWidths.duration || 60, left: (showVertical ? 32 : 0) + (visibleCols.includes('id') ? (colWidths.id || 180) : 0) + (visibleCols.includes('name') ? (colWidths.name || 250) : 0) }}>
+                                    <div className="flex-shrink-0 border-r border-slate-200 px-2 flex items-center justify-end p6-cell" data-col="duration" style={{ width: colWidths.duration || 60 }}>
                                         {row.type === 'Activity' && (editing?.id === row.id && editing?.field === 'duration' ? (
-                                            <input autoFocus type="number" className="w-full h-full border-2 border-blue-400 px-1 rounded text-right" value={editVal} onChange={e => setEditVal(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} />
+                                            <input autoFocus type="text" inputMode="numeric" pattern="[0-9]*" className="w-full h-full border-2 border-blue-400 px-1 rounded text-right" value={editVal} onChange={e => setEditVal(e.target.value)} onBlur={saveEdit} onKeyDown={handleKeyDown} />
                                         ) : (
                                             <span onDoubleClick={() => startEdit(row.id, 'duration', row.data.duration)}>{row.data.duration}</span>
                                         ))}
@@ -384,7 +377,9 @@ export const ActivityTable = React.forwardRef<HTMLDivElement, ActivityTableProps
                                             ) : (
                                                 <input
                                                     autoFocus
-                                                    type={cf.type === 'number' ? 'number' : cf.type === 'date' ? 'date' : 'text'}
+                                                    type={cf.type === 'number' ? 'text' : cf.type === 'date' ? 'date' : 'text'}
+                                                    inputMode={cf.type === 'number' ? 'numeric' : undefined}
+                                                    pattern={cf.type === 'number' ? '[0-9]*' : undefined}
                                                     className="w-full h-full border-2 border-blue-400 px-1 rounded"
                                                     value={editVal}
                                                     onChange={e => setEditVal(e.target.value)}

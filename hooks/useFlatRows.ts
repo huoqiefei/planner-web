@@ -19,10 +19,11 @@ export const useFlatRows = () => {
         schedule,
         expandedWbsIds,
         setExpandedWbsIds,
-        activityFilters
+        activityFilters,
+        activitySort
     } = useAppStore();
 
-    const wbsMap = schedule.wbsMap;
+    const wbsMap = schedule?.wbsMap || {};
 
     // Initial Expand
     useEffect(() => {
@@ -41,22 +42,78 @@ export const useFlatRows = () => {
         const rows: FlatRow[] = [];
         if (!projectData) return rows;
 
+        // Natural sort comparator for alphanumeric strings (e.g., "A10" vs "A2")
+        const naturalCompare = (a: string, b: string): number => {
+            const aParts = a.split(/(\d+)/);
+            const bParts = b.split(/(\d+)/);
+            for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+                const aPart = aParts[i] || '';
+                const bPart = bParts[i] || '';
+                const aNum = parseInt(aPart, 10);
+                const bNum = parseInt(bPart, 10);
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    if (aNum !== bNum) return aNum - bNum;
+                } else {
+                    const cmp = aPart.localeCompare(bPart);
+                    if (cmp !== 0) return cmp;
+                }
+            }
+            return 0;
+        };
+
         // Optimization: Pre-process maps for O(1) lookup
         const wbsChildrenMap: Record<string, typeof projectData.wbs> = { root: [] };
         const wbsParentMap: Record<string, string> = {}; // For upward traversal
 
         projectData.wbs.forEach(w => {
-            const pid = w.parentId && w.parentId !== 'null' ? w.parentId : 'root';
+            // Handle various parentId formats: null, undefined, 'null', '', 'root'
+            const isRoot = !w.parentId || w.parentId === 'null' || w.parentId === 'root' || w.parentId === '';
+            const pid = isRoot ? 'root' : w.parentId;
             if (!wbsChildrenMap[pid]) wbsChildrenMap[pid] = [];
             wbsChildrenMap[pid].push(w);
-            if (pid !== 'root') wbsParentMap[w.id] = pid;
+            if (!isRoot) wbsParentMap[w.id] = pid;
         });
 
+        // Sort WBS children based on sort field
+        if (activitySort.field === 'wbs' || activitySort.field === 'wbs-activity') {
+            Object.keys(wbsChildrenMap).forEach(key => {
+                wbsChildrenMap[key].sort((a, b) => {
+                    const cmp = naturalCompare(a.id, b.id);
+                    return activitySort.direction === 'asc' ? cmp : -cmp;
+                });
+            });
+        }
+
         const wbsActivitiesMap: Record<string, typeof schedule.activities> = {};
-        schedule.activities.forEach(a => {
+        (schedule?.activities || []).forEach(a => {
             if (!wbsActivitiesMap[a.wbsId]) wbsActivitiesMap[a.wbsId] = [];
             wbsActivitiesMap[a.wbsId].push(a);
         });
+
+        // Sort activities based on sort field
+        if (activitySort.field === 'activity' || activitySort.field === 'wbs-activity' || activitySort.field === 'activity-wbs') {
+            Object.keys(wbsActivitiesMap).forEach(key => {
+                wbsActivitiesMap[key].sort((a, b) => {
+                    const cmp = naturalCompare(a.id, b.id);
+                    return activitySort.direction === 'asc' ? cmp : -cmp;
+                });
+            });
+        }
+        
+        // For activity-wbs sort, also sort WBS by activity order (based on first activity in each WBS)
+        if (activitySort.field === 'activity-wbs') {
+            Object.keys(wbsChildrenMap).forEach(key => {
+                wbsChildrenMap[key].sort((a, b) => {
+                    const aFirstAct = wbsActivitiesMap[a.id]?.[0];
+                    const bFirstAct = wbsActivitiesMap[b.id]?.[0];
+                    if (!aFirstAct && !bFirstAct) return naturalCompare(a.id, b.id);
+                    if (!aFirstAct) return 1;
+                    if (!bFirstAct) return -1;
+                    const cmp = naturalCompare(aFirstAct.id, bFirstAct.id);
+                    return activitySort.direction === 'asc' ? cmp : -cmp;
+                });
+            });
+        }
 
         const isFiltering = activityFilters && activityFilters.length > 0;
         const visibleIds = new Set<string>();
@@ -86,7 +143,7 @@ export const useFlatRows = () => {
                         currId = wbsParentMap[currId];
                         visibleIds.add(currId);
                     }
-                    if (w.parentId && w.parentId !== 'null' && w.parentId !== 'root') visibleIds.add(w.parentId); // Ensure immediate parent always added
+                    if (w.parentId && w.parentId !== 'null' && w.parentId !== 'root' && w.parentId !== '') visibleIds.add(w.parentId); // Ensure immediate parent always added
                 }
             });
         }
@@ -132,7 +189,7 @@ export const useFlatRows = () => {
         };
         recurse('root', 0);
         return rows;
-    }, [projectData, schedule, wbsMap, expandedWbsIds, activityFilters]);
+    }, [projectData, schedule, wbsMap, expandedWbsIds, activityFilters, activitySort]);
 
     return { flatRows, toggleExpand };
 };

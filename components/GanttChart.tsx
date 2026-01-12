@@ -21,12 +21,12 @@ interface GanttChartProps {
     rowHeight: number;
 }
 
-const ZOOM_CONFIG: Record<string, { pixelPerDay: number }> = {
-    day: { pixelPerDay: 40 },
-    week: { pixelPerDay: 15 },
-    month: { pixelPerDay: 5 },
-    quarter: { pixelPerDay: 2 },
-    year: { pixelPerDay: 0.5 },
+const ZOOM_CONFIG: Record<string, { pixelPerDay: number; leftPadding: number }> = {
+    day: { pixelPerDay: 40, leftPadding: 20 },
+    week: { pixelPerDay: 15, leftPadding: 20 },
+    month: { pixelPerDay: 5, leftPadding: 20 },
+    quarter: { pixelPerDay: 2, leftPadding: 20 },
+    year: { pixelPerDay: 0.5, leftPadding: 20 },
 };
 
 const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
@@ -103,6 +103,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
     }, [zoomLevel]);
 
     const pixelPerDay = manualPixelPerDay || ZOOM_CONFIG[zoomLevel].pixelPerDay;
+    const leftPadding = ZOOM_CONFIG[zoomLevel].leftPadding;
 
     const showVertLines = userSettings.gridSettings.showVertical;
     const showHorizontalLines = userSettings.gridSettings.showHorizontal;
@@ -127,15 +128,15 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
         return Math.ceil((maxEnd - minStart) / (24 * 3600 * 1000));
     }, [schedule, projectStartDate]);
 
-    // Position Calculation: Returns X at START of day
+    // Position Calculation: Returns X at START of day with left padding for easier link dragging
     const getPosition = (date: Date | string | undefined): number => {
-        if (!date) return 0;
+        if (!date) return leftPadding;
         const d = new Date(date);
         const diffTime = d.getTime() - projectStartDate.getTime();
-        return (diffTime / (1000 * 60 * 60 * 24)) * pixelPerDay;
+        return leftPadding + (diffTime / (1000 * 60 * 60 * 24)) * pixelPerDay;
     };
 
-    const chartWidth = Math.max((totalDuration + 120) * pixelPerDay, 800);
+    const chartWidth = Math.max((totalDuration + 120) * pixelPerDay + leftPadding, 800);
 
     const timeHeaders = useMemo(() => {
         const visibleStart = Math.max(0, scrollLeft - 500);
@@ -336,14 +337,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                 let startX: number;
                 let endX: number;
 
-                // Predecessor is the "Source" (from), Row is the "Target" (to)
-                // FS: Pred End -> Succ Start
-                // FF: Pred End -> Succ End
-                // SS: Pred Start -> Succ Start
-                // SF: Pred Start -> Succ End
-
                 const type = pred.type || 'FS';
-                // Explicitly wrap in new Date() to satisfy potential strict type checking of Date | string vs Date
                 const predStart = getPosition(predRow.startDate ? new Date(predRow.startDate) : undefined) + globalOffset;
                 const predEnd = getPosition(predRow.endDate ? new Date(predRow.endDate) : undefined) + pixelPerDay + globalOffset;
                 const currStart = getPosition(row.startDate ? new Date(row.startDate) : undefined) + globalOffset;
@@ -370,43 +364,70 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
 
                 if (maxX < viewportLeft || minX > viewportRight) return;
 
-                const bendOffset = 12;
-                const midX = endX >= startX + bendOffset * 2 ? startX + bendOffset : startX + (endX - startX) / 2;
-
                 let path = '';
-                const gap = 15;
-                const r = 5; // Corner radius
+                const gap = 8; // Minimum gap from bar edge
+                const r = 4; // Corner radius
+                const dy = endY - startY;
+                const signY = dy >= 0 ? 1 : -1;
+                // Vertical bend offset: 0.3 times row height from the source bar
+                const verticalBendOffset = rowHeight * 0.5;
 
                 // Logic for Orthogonal Routing with Rounded Corners
-                if (type === 'FF' || type === 'SF') {
+                if (type === 'SS') {
+                    // SS: Start to Start - only one bend allowed
+                    // Simple L-shape: go left from source, then straight to target
+                    const leftX = Math.min(startX, endX) - gap;
+                    
+                    if (Math.abs(dy) < 2 * r) {
+                        // Nearly same row - direct horizontal line
+                        path = `M ${startX} ${startY} L ${endX} ${endY}`;
+                    } else {
+                        // L-shape with one bend
+                        path = `M ${startX} ${startY} L ${leftX} ${startY}
+                                Q ${leftX - r} ${startY} ${leftX - r} ${startY + signY * r}
+                                L ${leftX - r} ${endY - signY * r}
+                                Q ${leftX - r} ${endY} ${leftX} ${endY}
+                                L ${endX} ${endY}`;
+                    }
+                } else if (type === 'FF' || type === 'SF') {
                     // Target is Finish - Approach from the right
                     const targetX = currEnd;
                     const rightOuter = Math.max(startX, targetX) + gap;
 
-                    path = `M ${startX} ${startY} L ${rightOuter - r} ${startY}
-                            Q ${rightOuter} ${startY} ${rightOuter} ${startY + (endY > startY ? 1 : -1) * r}
-                            L ${rightOuter} ${endY - (endY > startY ? 1 : -1) * r}
-                            Q ${rightOuter} ${endY} ${rightOuter - r} ${endY}
-                            L ${targetX} ${endY}`;
-                } else if (endX >= startX + gap) {
-                    // Standard Forward (FS, SS)
-                    const dy = endY - startY;
-                    const signY = dy >= 0 ? 1 : -1;
-
                     if (Math.abs(dy) < 2 * r) {
-                        path = `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`;
+                        path = `M ${startX} ${startY} L ${rightOuter} ${startY} L ${rightOuter} ${endY} L ${targetX} ${endY}`;
                     } else {
-                        path = `M ${startX} ${startY} L ${midX - r} ${startY} 
-                                Q ${midX} ${startY} ${midX} ${startY + signY * r} 
-                                L ${midX} ${endY - signY * r} 
-                                Q ${midX} ${endY} ${midX + r} ${endY} 
+                        path = `M ${startX} ${startY} L ${rightOuter - r} ${startY}
+                                Q ${rightOuter} ${startY} ${rightOuter} ${startY + signY * r}
+                                L ${rightOuter} ${endY - signY * r}
+                                Q ${rightOuter} ${endY} ${rightOuter - r} ${endY}
+                                L ${targetX} ${endY}`;
+                    }
+                } else if (endX >= startX + gap * 2) {
+                    // Standard Forward FS - Bend at 1.2x row height vertically
+                    const bendX = startX + gap;
+                    // Calculate the Y position for the horizontal segment
+                    const bendY = startY + signY * verticalBendOffset;
+                    // Clamp bendY to not overshoot endY
+                    const actualBendY = signY > 0 ? Math.min(bendY, endY) : Math.max(bendY, endY);
+                    
+                    if (Math.abs(actualBendY - startY) < 2 * r || Math.abs(endY - actualBendY) < 2 * r) {
+                        // Too close, use simple path
+                        path = `M ${startX} ${startY} L ${bendX} ${startY} L ${bendX} ${endY} L ${endX} ${endY}`;
+                    } else {
+                        path = `M ${startX} ${startY} L ${bendX - r} ${startY} 
+                                Q ${bendX} ${startY} ${bendX} ${startY + signY * r} 
+                                L ${bendX} ${endY - signY * r} 
+                                Q ${bendX} ${endY} ${bendX + r} ${endY} 
                                 L ${endX} ${endY}`;
                     }
                 } else {
-                    // Backward / Overlap (FS, SS)
-                    const p1x = startX + gap;
-                    const p2x = endX - gap;
-                    const midY = startY + (endY - startY) / 2;
+                    // Backward / Overlap (FS) - Need to go around
+                    const p1x = startX + gap; // First vertical segment (right of start)
+                    const p2x = endX - gap;   // Second vertical segment (left of end)
+                    
+                    // Bend at 1.2x row height from source
+                    const midY = startY + signY * verticalBendOffset;
 
                     const dy1 = midY - startY;
                     const signY1 = dy1 >= 0 ? 1 : -1;
@@ -434,11 +455,11 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                         d={path}
                         fill="none"
                         stroke="#94a3b8"
-                        strokeWidth="1.2"
+                        strokeWidth="1"
                         strokeLinejoin="round"
                         markerEnd="url(#arrow)"
-                        opacity="0.6"
-                        className="hover:stroke-blue-500 hover:opacity-100 hover:stroke-2 transition-all"
+                        className="hover:stroke-blue-500 hover:stroke-2 transition-all"
+                        style={{ isolation: 'isolate' }}
                     />
                 );
             });
@@ -457,7 +478,7 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
         }
 
         return <g style={{ pointerEvents: 'none' }}>{rels}</g>;
-    }, [showRelations, rows, rowIndexMap, startIndex, endIndex, rowHeight, pixelPerDay, projectStartDate, scrollLeft, viewportWidth, linkDrag]);
+    }, [showRelations, rows, rowIndexMap, startIndex, endIndex, rowHeight, pixelPerDay, projectStartDate, scrollLeft, viewportWidth, linkDrag, leftPadding]);
 
 
     useEffect(() => {
@@ -559,13 +580,13 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
             {/* 1. Header Container */}
             <div
                 ref={headerContainerRef}
-                className="bg-slate-50 border-b border-slate-300 overflow-hidden shrink-0 relative gantt-header-wrapper"
+                className="bg-slate-50 border-b border-slate-200 overflow-hidden shrink-0 relative gantt-header-wrapper"
                 style={{ height: headerHeight, width: '100%' }}
             >
                 <div style={{ width: chartWidth, height: headerHeight }} className="relative">
                     <svg width={chartWidth} height={headerHeight} xmlns="http://www.w3.org/2000/svg">
                         <rect x="0" y="0" width={chartWidth} height={headerHeight} fill="#f8fafc" className="cursor-ew-resize" onMouseDown={handleMouseDown} />
-                        <line x1="0" y1={headerHeight} x2={chartWidth} y2={headerHeight} stroke="#cbd5e1" strokeWidth="1" />
+                        <line x1="0" y1={headerHeight} x2={chartWidth} y2={headerHeight} stroke="#e2e8f0" strokeWidth="1" />
                         <g style={{ pointerEvents: 'none' }}>{timeHeaders}</g>
                     </svg>
                 </div>
@@ -577,11 +598,11 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                 className="flex-grow overflow-scroll relative custom-scrollbar bg-white gantt-body-wrapper"
                 onScroll={handleBodyScroll}
             >
-                <div style={{ width: chartWidth, height: Math.max(totalHeight, 100) }} className="relative">
-                    <svg width={chartWidth} height={Math.max(totalHeight, 100)} xmlns="http://www.w3.org/2000/svg">
+                <div style={{ width: chartWidth, height: Math.max(totalHeight + 300, 100) }} className="relative">
+                    <svg width={chartWidth} height={Math.max(totalHeight, 100)} xmlns="http://www.w3.org/2000/svg" className="print-content">
                         <defs>
-                            <marker id="arrow" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto">
-                                <path d="M0,0 L0,6 L6,3 z" fill="#64748b" />
+                            <marker id="arrow" markerWidth="5" markerHeight="5" refX="5" refY="2.5" orient="auto">
+                                <path d="M0,0 L0,5 L5,2.5 z" fill="#94a3b8" />
                             </marker>
                         </defs>
 
@@ -597,10 +618,10 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
                                 return (
                                     <React.Fragment key={`grid-h-${row.id}`}>
                                         {showHorizontalLines && (
-                                            <line x1="0" y1={y + rowHeight} x2={chartWidth} y2={y + rowHeight} stroke="#f1f5f9" strokeWidth="1" />
+                                            <line x1="0" y1={y + rowHeight} x2={chartWidth} y2={y + rowHeight} stroke="#e2e8f0" strokeWidth="0.5" />
                                         )}
                                         {isWBS && showWBSLines && (
-                                            <line x1="0" y1={y + rowHeight} x2={chartWidth} y2={y + rowHeight} stroke="#cbd5e1" strokeWidth="2" />
+                                            <line x1="0" y1={y + rowHeight} x2={chartWidth} y2={y + rowHeight} stroke="#e2e8f0" strokeWidth="1" />
                                         )}
                                     </React.Fragment>
                                 );
@@ -628,14 +649,13 @@ const GanttChart = forwardRef<HTMLDivElement, GanttChartProps>(({
 
                                 if (row.type === 'WBS') {
                                     if (!row.startDate) return null;
-                                    const wbsBarH = 5;
+                                    const wbsBarH = 4;
                                     const wbsY = y + (rowHeight - wbsBarH) / 2;
                                     return (
                                         <g key={row.id}>
-                                            <rect x="0" y={y} width={chartWidth} height={rowHeight} fill="#f1f5f9" opacity="0.4" />
-                                            <rect x={left} y={wbsY + 1} width={width} height={2} fill="#64748b" />
-                                            <path d={`M ${left} ${wbsY} L ${left + 5} ${wbsY} L ${left} ${wbsY + 5} Z`} fill="#334155" />
-                                            <path d={`M ${right} ${wbsY} L ${right - 5} ${wbsY} L ${right} ${wbsY + 5} Z`} fill="#334155" />
+                                            <rect x={left} y={wbsY + 1} width={width} height={3} fill="#cccccc" />
+                                            <path d={`M ${left} ${wbsY} L ${left + 5} ${wbsY} L ${left} ${wbsY + 5} Z`} fill="#999999" />
+                                            <path d={`M ${right} ${wbsY} L ${right - 5} ${wbsY} L ${right} ${wbsY + 5} Z`} fill="#999999" />
                                         </g>
                                     );
                                 } else {

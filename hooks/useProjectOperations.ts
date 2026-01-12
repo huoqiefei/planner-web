@@ -89,31 +89,104 @@ export const useProjectOperations = ({ fileInputRef }: UseProjectOperationsProps
         setData(prev => prev ? { ...prev, resources: newResources } : null);
     }, [setData]);
 
+    const { setExpandedWbsIds } = useAppStore();
+    
     const handleProjectUpdate = useCallback((meta: any, calendars: any) => {
+        // Get current data to compute ID mapping before state update
+        const currentData = useAppStore.getState().data;
+        if (!currentData) return;
+        
+        let wbsIdMap: Map<string, string> | null = null;
+        
+        // Find the root WBS node (the one without a parent)
+        // Handle various parentId formats: null, undefined, 'null', '', 'root', or any falsy value
+        const root = currentData.wbs.find(w => {
+            const pid = w.parentId;
+            return pid === null || 
+                   pid === undefined || 
+                   pid === 'null' || 
+                   pid === 'root' || 
+                   pid === '' ||
+                   (typeof pid === 'string' && pid.trim() === '');
+        });
+        
+        // Check if we need to update WBS IDs
+        if (root && meta.projectCode) {
+            const oldRootId = root.id;
+            const newRootId = meta.projectCode;
+            
+            // Only update if the root ID is different from the new project code
+            // and the new project code doesn't conflict with existing WBS IDs
+            if (oldRootId !== newRootId) {
+                const conflictingWbs = currentData.wbs.find(w => w.id === newRootId && w.id !== oldRootId);
+                if (!conflictingWbs) {
+                    // Build map of oldId -> newId for all WBS nodes recursively
+                    const idMap = new Map<string, string>();
+                    idMap.set(oldRootId, newRootId);
+
+                    // Recursively find and update all descendant WBS IDs
+                    const findDescendants = (pId: string, newPId: string) => {
+                        const children = currentData.wbs.filter(w => w.parentId === pId);
+                        children.forEach(c => {
+                            let childNewId = c.id;
+                            // Auto-update child ID if it starts with parent ID followed by a separator
+                            if (c.id.startsWith(pId + '.')) {
+                                childNewId = newPId + c.id.substring(pId.length);
+                            } else if (c.id.startsWith(pId + '-')) {
+                                childNewId = newPId + c.id.substring(pId.length);
+                            } else if (c.id.startsWith(pId + '_')) {
+                                childNewId = newPId + c.id.substring(pId.length);
+                            }
+                            idMap.set(c.id, childNewId);
+                            findDescendants(c.id, childNewId);
+                        });
+                    };
+                    findDescendants(oldRootId, newRootId);
+                    wbsIdMap = idMap;
+                }
+            }
+        }
+        
         setData(prev => {
             if (!prev) return null;
             let newWbs = [...prev.wbs];
             let newActs = [...prev.activities];
 
-            if (meta.title !== prev.meta.title) newWbs = newWbs.map(w => (!w.parentId || w.parentId === 'null') ? { ...w, name: meta.title } : w);
-            if (meta.projectCode !== prev.meta.projectCode) {
-                const root = newWbs.find(w => !w.parentId || w.parentId === 'null');
-                if (root) {
-                    const oldId = root.id;
-                    const newId = meta.projectCode;
-                    if (!newWbs.some(w => w.id === newId)) {
-                        newWbs = newWbs.map(w => {
-                            if (w.id === oldId) return { ...w, id: newId };
-                            if (w.parentId === oldId) return { ...w, parentId: newId };
-                            return w;
-                        });
-                        newActs = newActs.map(a => a.wbsId === oldId ? { ...a, wbsId: newId } : a);
-                    }
-                }
+            // Update root WBS name if project title changes
+            if (meta.title !== prev.meta.title) {
+                newWbs = newWbs.map(w => {
+                    const isRoot = !w.parentId || w.parentId === 'null' || w.parentId === 'root' || w.parentId === '';
+                    return isRoot ? { ...w, name: meta.title } : w;
+                });
             }
+            
+            if (wbsIdMap) {
+                // Apply the ID mapping to all WBS nodes
+                newWbs = newWbs.map(w => {
+                    const nId = wbsIdMap!.has(w.id) ? wbsIdMap!.get(w.id)! : w.id;
+                    const pId = (w.parentId && wbsIdMap!.has(w.parentId)) ? wbsIdMap!.get(w.parentId)! : w.parentId;
+                    return { ...w, id: nId, parentId: pId };
+                });
+
+                // Update activity wbsId references
+                newActs = newActs.map(a => wbsIdMap!.has(a.wbsId) ? { ...a, wbsId: wbsIdMap!.get(a.wbsId)! } : a);
+            }
+            
             return { ...prev, meta, calendars, wbs: newWbs, activities: newActs };
         });
-    }, [setData]);
+        
+        // Update expandedWbsIds with new WBS IDs
+        if (wbsIdMap) {
+            const idMap = wbsIdMap;
+            const currentExpanded = useAppStore.getState().expandedWbsIds;
+            const newExpanded: Record<string, boolean> = {};
+            Object.entries(currentExpanded).forEach(([oldId, expanded]) => {
+                const newId = idMap.get(oldId) || oldId;
+                newExpanded[newId] = expanded;
+            });
+            setExpandedWbsIds(newExpanded);
+        }
+    }, [setData, setExpandedWbsIds]);
 
     const createNew = useCallback(() => {
         const pCode = 'PROJ-01';
