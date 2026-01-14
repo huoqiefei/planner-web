@@ -16,7 +16,7 @@ const ResourcesPanel: React.FC = () => {
     const { t } = useTranslation(userSettings.language);
 
     return (
-        <div className="flex-grow flex flex-col h-full bg-white select-none">
+        <div className="flex-grow flex flex-col h-full bg-white dark:bg-slate-800 select-none">
             {/* Content: Split View */}
             <div className="flex-grow flex flex-col overflow-hidden relative">
                 {/* Top: Resource Table */}

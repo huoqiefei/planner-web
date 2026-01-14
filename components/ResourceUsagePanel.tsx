@@ -250,14 +250,14 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({ onCtxAction }) 
     }, []);
 
     return (
-        <div className="flex-grow flex flex-col h-full bg-white overflow-hidden relative" onClick={() => setCtx(null)}>
+        <div className="flex-grow flex flex-col h-full bg-white dark:bg-slate-800 overflow-hidden relative" onClick={() => setCtx(null)}>
             {/* Header */}
-            <div className="h-10 border-b bg-slate-50 flex items-center px-4 shrink-0 z-30">
-                <div className="text-sm font-bold text-slate-700">{t('ResourceAllocation')}</div>
+            <div className="h-10 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 flex items-center px-4 shrink-0 z-30">
+                <div className="text-sm font-bold text-slate-700 dark:text-slate-200">{t('ResourceAllocation')}</div>
             </div>
 
             {/* Matrix Area */}
-            <div className="flex-grow overflow-auto relative p6-table-body custom-scrollbar bg-slate-100/50 p-4 md:p-8">
+            <div className="flex-grow overflow-auto relative p6-table-body custom-scrollbar bg-slate-100/50 dark:bg-slate-900/50 p-4 md:p-8">
                 <style>{`
                     @media print {
                         .resource-usage-container {
@@ -295,10 +295,10 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({ onCtxAction }) 
                     }
                 `}</style>
                 <div className="resource-usage-container min-h-full">
-                    <div className="resource-usage-table-wrapper mx-auto w-fit bg-white border border-slate-200 overflow-hidden">
+                    <div className="resource-usage-table-wrapper mx-auto w-fit bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden">
                         {assignedActivities.length > 0 ? (
                             <table className="border-collapse text-[12px] min-w-full table-fixed">
-                                <thead className="sticky top-0 z-20 bg-slate-100 shadow-sm">
+                                <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-700 shadow-sm">
                                     <tr>
                                         {baseCols.map((c, i) => {
                                             const isFrozen = c.id === 'id' || c.id === 'name';
@@ -306,7 +306,7 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({ onCtxAction }) 
                                             return (
                                                 <th
                                                     key={c.id}
-                                                    className={`border-b border-r border-slate-300 px-2 py-2 text-left text-slate-600 font-bold bg-slate-100 relative group
+                                                    className={`border-b border-r border-slate-300 dark:border-slate-600 px-2 py-2 text-left text-slate-600 dark:text-slate-300 font-bold bg-slate-100 dark:bg-slate-700 relative group
                                                         ${isFrozen ? 'sticky z-20' : ''}`}
                                                     style={{
                                                         width: colWidths[c.id],
@@ -325,12 +325,12 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({ onCtxAction }) 
                                         {resources.map(res => (
                                             <th
                                                 key={res.id}
-                                                className="border-b border-r border-slate-300 px-2 py-2 text-left text-slate-600 font-bold bg-slate-50 relative group"
+                                                className="border-b border-r border-slate-300 dark:border-slate-600 px-2 py-2 text-left text-slate-600 dark:text-slate-300 font-bold bg-slate-50 dark:bg-slate-600 relative group"
                                                 style={{ width: resWidths[res.id] || 100, minWidth: resWidths[res.id] || 100 }}
                                                 title={res.name}
                                             >
                                                 <div className="truncate">{res.name}</div>
-                                                <div className="text-[10px] font-normal text-slate-400 capitalize">({t(res.type as any)})</div>
+                                                <div className="text-[10px] font-normal text-slate-400 dark:text-slate-500 capitalize">({t(res.type as any)})</div>
                                                 <div
                                                     className="absolute right-0 top-0 w-1.5 h-full cursor-col-resize hover:bg-blue-400/50 active:bg-blue-600 transition-colors z-10 print:hidden"
                                                     onMouseDown={(e) => handleMouseDown(e, res.id, true)}
@@ -344,29 +344,29 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({ onCtxAction }) 
                                         <tr
                                             key={act.id}
                                             className={`
-                                                ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'} 
-                                                ${selIds.includes(act.id) ? '!bg-blue-200 hover:!bg-blue-300' : 'hover:bg-blue-50'} 
+                                                ${idx % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-700'} 
+                                                ${selIds.includes(act.id) ? '!bg-blue-200 dark:!bg-blue-900 hover:!bg-blue-300 dark:hover:!bg-blue-800' : 'hover:bg-blue-50 dark:hover:bg-slate-600'} 
                                                 transition-colors group cursor-pointer
                                             `}
                                             onClick={(e) => handleRowClick(act.id, idx, e)}
                                             onContextMenu={(e) => handleContextMenu(e, act.id)}
                                         >
                                             <td
-                                                className="border-b border-r border-slate-200 px-2 py-1 font-bold text-slate-700 sticky left-0 z-10 bg-inherit"
+                                                className="border-b border-r border-slate-200 dark:border-slate-600 px-2 py-1 font-bold text-slate-700 dark:text-slate-200 sticky left-0 z-10 bg-inherit"
                                                 style={{ width: colWidths.id, minWidth: colWidths.id }}
                                             >
                                                 {act.id}
                                             </td>
                                             <td
-                                                className="border-b border-r border-slate-200 px-2 py-1 truncate sticky z-10 bg-inherit"
+                                                className="border-b border-r border-slate-200 dark:border-slate-600 px-2 py-1 truncate sticky z-10 bg-inherit text-slate-700 dark:text-slate-300"
                                                 style={{ width: colWidths.name, minWidth: colWidths.name, left: colWidths.id }}
                                                 title={act.name}
                                             >
                                                 {act.name}
                                             </td>
-                                            <td className="border-b border-r border-slate-200 px-2 py-1 text-left" style={{ width: colWidths.duration }}>{act.duration}</td>
-                                            <td className="border-b border-r border-slate-200 px-2 py-1 text-left font-mono text-slate-600" style={{ width: colWidths.start }}>{formatDate(act.startDate)}</td>
-                                            <td className="border-b border-r border-slate-200 px-2 py-1 text-left font-mono text-slate-600" style={{ width: colWidths.finish }}>{formatDate(act.endDate)}</td>
+                                            <td className="border-b border-r border-slate-200 dark:border-slate-600 px-2 py-1 text-left text-slate-700 dark:text-slate-300" style={{ width: colWidths.duration }}>{act.duration}</td>
+                                            <td className="border-b border-r border-slate-200 dark:border-slate-600 px-2 py-1 text-left font-mono text-slate-600 dark:text-slate-400" style={{ width: colWidths.start }}>{formatDate(act.startDate)}</td>
+                                            <td className="border-b border-r border-slate-200 dark:border-slate-600 px-2 py-1 text-left font-mono text-slate-600 dark:text-slate-400" style={{ width: colWidths.finish }}>{formatDate(act.endDate)}</td>
 
                                             {resources.map(res => {
                                                 const val = getAssignmentValue(act.id, res.id);
@@ -375,7 +375,7 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({ onCtxAction }) 
                                                 return (
                                                     <td
                                                         key={res.id}
-                                                        className={`border-b border-r border-slate-200 px-2 py-1 text-left select-none cursor-pointer hover:bg-blue-100/50 ${val !== null ? 'bg-blue-50/30' : ''}`}
+                                                        className={`border-b border-r border-slate-200 dark:border-slate-600 px-2 py-1 text-left select-none cursor-pointer hover:bg-blue-100/50 dark:hover:bg-blue-900/30 ${val !== null ? 'bg-blue-50/30 dark:bg-blue-900/20' : ''}`}
                                                         style={{ width: resWidths[res.id] || 100, minWidth: resWidths[res.id] || 100 }}
                                                         onDoubleClick={(e) => { e.stopPropagation(); handleStartEdit(act.id, res.id, val); }}
                                                     >
@@ -387,13 +387,13 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({ onCtxAction }) 
                                                                 onChange={(e) => setEditValue(e.target.value)}
                                                                 onBlur={handleSaveEdit}
                                                                 onKeyDown={handleKeyDown}
-                                                                className="w-full h-full border border-blue-500 rounded outline-none px-1 text-left font-semibold"
+                                                                className="w-full h-full border border-blue-500 rounded outline-none px-1 text-left font-semibold bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
                                                             />
                                                         ) : (
                                                             val !== null ? (
-                                                                <span className="font-semibold text-blue-900">{val}</span>
+                                                                <span className="font-semibold text-blue-900 dark:text-blue-300">{val}</span>
                                                             ) : (
-                                                                <span className="text-slate-300">-</span>
+                                                                <span className="text-slate-300 dark:text-slate-600">-</span>
                                                             )
                                                         )}
                                                     </td>
@@ -405,7 +405,7 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({ onCtxAction }) 
                             </table>
                         ) : (
                             <div
-                                className="p-8 text-center text-slate-400 flex flex-grow flex-col items-center gap-2"
+                                className="p-8 text-center text-slate-400 dark:text-slate-500 flex flex-grow flex-col items-center gap-2"
                                 onContextMenu={(e) => {
                                     e.preventDefault();
                                     setCtx({ x: e.pageX, y: e.pageY, type: 'Assignment', id: 'null' });

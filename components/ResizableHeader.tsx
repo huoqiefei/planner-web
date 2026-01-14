@@ -23,7 +23,7 @@ export const ResizableHeader: React.FC<ResizableHeaderProps> = ({ width, onResiz
     };
     return (
         <div 
-            className="border-r border-slate-300 px-2 h-full flex items-center relative overflow-visible select-none flex-shrink-0" 
+            className="border-r border-slate-300 dark:border-slate-600 px-2 h-full flex items-center relative overflow-visible select-none flex-shrink-0" 
             style={{ width, justifyContent: align === 'right' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start' }}
             data-col={dataCol}
         >

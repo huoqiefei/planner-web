@@ -120,21 +120,21 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         
         return (
             <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[100]" onClick={() => setSortModalOpen(false)}>
-                <div className="bg-white rounded-lg shadow-xl p-4 min-w-[280px]" onClick={e => e.stopPropagation()} style={{ fontSize: `${userSettings.uiFontPx || 13}px` }}>
-                    <div className="font-bold text-slate-700 mb-3 pb-2 border-b">{t('Sort' as any)}</div>
+                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-4 min-w-[280px]" onClick={e => e.stopPropagation()} style={{ fontSize: `${userSettings.uiFontPx || 13}px` }}>
+                    <div className="font-bold text-slate-700 dark:text-slate-200 mb-3 pb-2 border-b dark:border-slate-600">{t('Sort' as any)}</div>
                     <div className="space-y-1">
                         {sortOptions.map(opt => (
                             <div key={opt.field} className="flex items-center gap-2">
                                 <button
                                     onClick={() => { setActivitySort({ field: opt.field, direction: 'asc' }); setSortModalOpen(false); }}
-                                    className={`flex-1 text-left px-3 py-1.5 rounded hover:bg-slate-100 flex items-center gap-2 ${activitySort.field === opt.field && activitySort.direction === 'asc' ? 'bg-blue-50 text-blue-700' : ''}`}
+                                    className={`flex-1 text-left px-3 py-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 ${activitySort.field === opt.field && activitySort.direction === 'asc' ? 'bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'}`}
                                 >
                                     {activitySort.field === opt.field && activitySort.direction === 'asc' && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>}
                                     <span className={activitySort.field === opt.field && activitySort.direction === 'asc' ? '' : 'ml-5'}>{opt.label} ↑</span>
                                 </button>
                                 <button
                                     onClick={() => { setActivitySort({ field: opt.field, direction: 'desc' }); setSortModalOpen(false); }}
-                                    className={`flex-1 text-left px-3 py-1.5 rounded hover:bg-slate-100 flex items-center gap-2 ${activitySort.field === opt.field && activitySort.direction === 'desc' ? 'bg-blue-50 text-blue-700' : ''}`}
+                                    className={`flex-1 text-left px-3 py-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 ${activitySort.field === opt.field && activitySort.direction === 'desc' ? 'bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'}`}
                                 >
                                     {activitySort.field === opt.field && activitySort.direction === 'desc' && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>}
                                     <span className={activitySort.field === opt.field && activitySort.direction === 'desc' ? '' : 'ml-5'}>{opt.label} ↓</span>
@@ -143,17 +143,17 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                         ))}
                     </div>
                     {activitySort.field && (
-                        <div className="mt-3 pt-2 border-t">
+                        <div className="mt-3 pt-2 border-t dark:border-slate-600">
                             <button
                                 onClick={() => { setActivitySort({ field: null, direction: 'asc' }); setSortModalOpen(false); }}
-                                className="w-full text-left px-3 py-1.5 rounded hover:bg-red-50 text-red-600"
+                                className="w-full text-left px-3 py-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400"
                             >
                                 {t('ClearSort' as any)}
                             </button>
                         </div>
                     )}
-                    <div className="mt-3 pt-2 border-t flex justify-end">
-                        <button onClick={() => setSortModalOpen(false)} className="px-4 py-1.5 rounded bg-slate-100 hover:bg-slate-200">
+                    <div className="mt-3 pt-2 border-t dark:border-slate-600 flex justify-end">
+                        <button onClick={() => setSortModalOpen(false)} className="px-4 py-1.5 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300">
                             {t('Close')}
                         </button>
                     </div>
@@ -167,12 +167,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         const { x, y, type } = data;
         const style = { top: Math.min(y, window.innerHeight - 150), left: Math.min(x, window.innerWidth - 180) };
         const Icons = {
-            Task: <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" /></svg>,
-            WBS: <svg className="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>,
-            User: <svg className="w-3 h-3 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>,
-            Delete: <svg className="w-3 h-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>,
-            Number: <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>,
-            Sort: <svg className="w-3 h-3 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
+            Task: <svg className="w-3 h-3 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" /></svg>,
+            WBS: <svg className="w-3 h-3 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>,
+            User: <svg className="w-3 h-3 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>,
+            Delete: <svg className="w-3 h-3 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>,
+            Number: <svg className="w-3 h-3 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>,
+            Sort: <svg className="w-3 h-3 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
         };
 
         const handleOpenSort = () => {
@@ -181,8 +181,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         };
 
         return (
-            <div className="ctx-menu" style={{ ...style, fontSize: `${userSettings.uiFontPx || 13}px` }} onClick={e => e.stopPropagation()}>
-                <div className="bg-slate-100 px-3 py-1 font-bold border-b text-slate-500">{type} {t('Actions')}</div>
+            <div className="ctx-menu dark:bg-slate-800 dark:border-slate-600" style={{ ...style, fontSize: `${userSettings.uiFontPx || 13}px` }} onClick={e => e.stopPropagation()}>
+                <div className="bg-slate-100 dark:bg-slate-700 px-3 py-1 font-bold border-b dark:border-slate-600 text-slate-500 dark:text-slate-300">{type} {t('Actions')}</div>
                 {type === 'Resource' && (
                     <>
                         <div className="ctx-item" onClick={() => onAction('addRes')}>{Icons.User} {t('AddResource')}</div>
@@ -235,7 +235,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     }
 
     return (
-        <div className="flex flex-col h-full" onClick={() => setCtx(null)}>
+        <div className="flex flex-col h-full dark:bg-slate-900" onClick={() => setCtx(null)}>
             <style>{`
                 @media print {
                     @page {
@@ -322,7 +322,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             <div className="h-8 flex-shrink-0 relative z-[60]">
                 <MenuBar
                     onAction={handleMenuAction}
-                    onRefreshUser={handleRefreshUser}
                 />
             </div>
 
@@ -334,10 +333,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                 onPrint={() => { if (checkPermission('print')) setActiveModal('print'); }}
                 onSettings={() => { if (checkPermission('project_info')) setActiveModal('project_settings'); }}
                 onAddResource={view === 'resources' ? handleAddResource : undefined}
+                onUserMenuAction={handleMenuAction}
+                onRefreshUser={handleRefreshUser}
             />
             <input type="file" ref={fileInputRef} onChange={handleOpen} className="hidden" accept=".json" />
             <div className="flex-grow flex flex-col overflow-hidden">
-                <div className="view-tabs-container bg-slate-100 border-b border-slate-300 flex px-2 pt-1 gap-1 shrink-0" style={{ fontSize: `${userSettings.uiFontPx || 13}px` }}>
+                <div className="view-tabs-container bg-slate-100 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700 flex px-2 pt-1 gap-1 shrink-0" style={{ fontSize: `${userSettings.uiFontPx || 13}px` }}>
                     {['Activities', 'Resources', 'ResourceAllocation'].map(v => {
                         const viewVal = v === 'ResourceAllocation' ? 'usage' : v.toLowerCase() as any;
                         return (
@@ -347,7 +348,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                                     if (view !== viewVal) setSelIds([]);
                                     setView(viewVal);
                                 }}
-                                className={`px-4 py-1 font-bold rounded-t ${view === viewVal ? 'bg-white text-blue-900 border-t border-x border-slate-300 -mb-[1px]' : 'text-slate-600 hover:bg-slate-200'}`}
+                                className={`px-4 py-1 font-bold rounded-t ${view === viewVal ? 'bg-white dark:bg-slate-700 text-blue-900 dark:text-blue-300 border-t border-x border-slate-300 dark:border-slate-600 -mb-[1px]' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                             >
                                 {t(v as any)}
                             </button>
@@ -360,7 +361,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                             {view === 'usage' ? (
                                 <button
                                     onClick={() => window.dispatchEvent(new CustomEvent('export-allocation-csv'))}
-                                    className="px-4 py-0.5 text-[11px] font-bold border rounded bg-white text-emerald-700 hover:bg-emerald-50 border-emerald-200 transition-colors flex items-center gap-1.5 shadow-sm"
+                                    className="px-4 py-0.5 text-[11px] font-bold border rounded bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 border-emerald-200 dark:border-emerald-700 transition-colors flex items-center gap-1.5 shadow-sm"
                                 >
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                                     {t('ExportCSV')}
@@ -371,7 +372,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                                         <button
                                             key={z}
                                             onClick={() => setGanttZoom(z)}
-                                            className={`px-2 py-0.5 text-[10px] uppercase font-bold border rounded ${ganttZoom === z ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+                                            className={`px-2 py-0.5 text-[10px] uppercase font-bold border rounded ${ganttZoom === z ? 'bg-blue-600 text-white border-blue-700' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 border-slate-300 dark:border-slate-600'}`}
                                         >
                                             {t(z as any)}
                                         </button>
@@ -384,7 +385,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
                 {view === 'activities' && (
                     <>
-                        <div className="flex-grow overflow-hidden bg-white relative flex flex-col combined-view-container">
+                        <div className="flex-grow overflow-hidden bg-white dark:bg-slate-800 relative flex flex-col combined-view-container">
                             <CombinedView />
                         </div>
                         <DetailsPanel />

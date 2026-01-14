@@ -5,10 +5,34 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-tertiary: #f1f5f9;
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
+    --border-strong: #cbd5e1;
+  }
+
+  .dark {
+    --bg-primary: #1e293b;
+    --bg-secondary: #334155;
+    --bg-tertiary: #475569;
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --border-color: #475569;
+    --border-strong: #64748b;
+  }
+
   body {
-    @apply font-sans text-slate-800 bg-slate-50 antialiased;
-    font-size: 13px; /* Keep precision */
-    overflow: hidden; /* Prevent body scroll */
+    @apply font-sans antialiased;
+    font-size: 13px;
+    overflow: hidden;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
   }
 
   /* Unified font for editing areas and table data */
@@ -27,55 +51,96 @@
     @apply bg-transparent;
 }
 ::-webkit-scrollbar-thumb {
-    @apply bg-slate-300 rounded-full;
+    background-color: var(--border-strong);
+    border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-    @apply bg-slate-400;
+    background-color: var(--text-muted);
 }
 
 /* P6 Table Modernization */
 .p6-row {
-    @apply border-b border-slate-200 flex items-center bg-white transition-colors duration-75 box-border shrink-0;
+    @apply flex items-center transition-colors duration-75 box-border shrink-0;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-primary);
 }
 .p6-row:hover {
-    @apply bg-slate-50;
+    background-color: var(--bg-secondary);
 }
 .p6-row.selected {
-    @apply bg-blue-50 border-l-2 border-l-blue-500; 
+    @apply border-l-2 border-l-blue-500; 
+    background-color: #dbeafe;
+}
+.dark .p6-row.selected {
+    background-color: rgba(59, 130, 246, 0.3);
 }
 .p6-row.wbs {
-    @apply bg-slate-50 font-semibold text-slate-700;
+    @apply font-semibold;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
 }
-/* Adjust padding for selected row to account for border-l */
 .p6-row.selected .p6-cell:first-child {
-    padding-left: 2px; /* 4px original - 2px border */
+    padding-left: 2px;
 }
 
 .p6-cell {
-    @apply border-r border-slate-100 px-2 h-full flex items-center overflow-hidden whitespace-nowrap text-xs text-slate-700 shrink-0;
+    @apply px-2 h-full flex items-center overflow-hidden whitespace-nowrap text-xs shrink-0;
+    border-right: 1px solid var(--border-color);
+    color: var(--text-secondary);
     line-height: normal;
     padding-top: 3px;
     padding-bottom: 3px;
 }
 
 .p6-header {
-    @apply bg-slate-100 border-y border-slate-200 font-semibold text-slate-600 flex items-center box-border text-xs uppercase tracking-wide;
+    @apply font-semibold flex items-center box-border text-xs uppercase tracking-wide;
+    background-color: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-strong);
+    color: var(--text-secondary);
 }
 
 /* Context Menu - Glassmorphism */
 .ctx-menu {
-    @apply fixed z-[9999] bg-white/90 backdrop-blur-md border border-slate-200 shadow-lg rounded-lg overflow-hidden min-w-[180px] py-1 animate-scale-in origin-top-left;
+    @apply fixed z-[9999] backdrop-blur-md shadow-lg rounded-lg overflow-hidden min-w-[180px] py-1 animate-scale-in origin-top-left;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
 }
 .ctx-item {
-    @apply px-3 py-1.5 cursor-pointer flex items-center gap-2 text-slate-700 text-xs hover:bg-blue-500 hover:text-white transition-colors;
+    @apply px-3 py-1.5 cursor-pointer flex items-center gap-2 text-xs hover:bg-blue-500 hover:text-white transition-colors;
+    color: var(--text-primary);
 }
 .ctx-sep {
-    @apply h-px bg-slate-200 my-1;
+    @apply h-px my-1;
+    background-color: var(--border-color);
 }
 
 /* Modal Overlay - Glassmorphism */
 .modal-overlay {
     @apply fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in;
+}
+
+/* Gantt Chart Dark Mode */
+.dark .gantt-component {
+    background-color: var(--bg-primary) !important;
+}
+.dark .gantt-header-wrapper {
+    background-color: var(--bg-secondary) !important;
+}
+.dark .gantt-body-wrapper {
+    background-color: var(--bg-primary) !important;
+}
+
+/* 打印预览强制使用浅色模式 */
+.print-preview-modal,
+.print-preview-modal * {
+    --bg-primary: #ffffff !important;
+    --bg-secondary: #f8fafc !important;
+    --bg-tertiary: #f1f5f9 !important;
+    --text-primary: #1e293b !important;
+    --text-secondary: #475569 !important;
+    --text-muted: #64748b !important;
+    --border-color: #e2e8f0 !important;
+    --border-strong: #cbd5e1 !important;
 }
 
 /* Animations */
@@ -87,38 +152,49 @@
     animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Print Styles */
+/* Print Styles - 打印时始终使用浅色主题 */
 @media print {
+    :root {
+        --bg-primary: #ffffff !important;
+        --bg-secondary: #f8fafc !important;
+        --bg-tertiary: #f1f5f9 !important;
+        --text-primary: #1e293b !important;
+        --text-secondary: #475569 !important;
+        --text-muted: #64748b !important;
+        --border-color: #e2e8f0 !important;
+        --border-strong: #cbd5e1 !important;
+    }
+    
     ::-webkit-scrollbar { display: none; }
     body { 
         background: white !important;
         overflow: visible !important;
+        color: #1e293b !important;
     }
     
-    /* Print border for the entire content area */
     .print-only-view {
         border: 1px solid #94a3b8 !important;
     }
     
-    /* Ensure consistent row heights and borders */
     .p6-row {
         box-sizing: border-box !important;
         border-bottom: 1px solid #e2e8f0 !important;
         page-break-inside: avoid !important;
+        background: white !important;
+        color: #334155 !important;
     }
     
-    /* Hide bottom padding spacers */
     .print\:hidden {
         display: none !important;
     }
     
-    /* Gantt chart left border */
     .p6-gantt-body {
         border-left: 1px solid #cbd5e1 !important;
     }
     
-    /* Header styling for print */
     .p6-header {
         border-bottom: 1px solid #94a3b8 !important;
+        background: #f1f5f9 !important;
+        color: #475569 !important;
     }
 }

@@ -20,7 +20,7 @@ export const useProjectOperations = ({ fileInputRef }: UseProjectOperationsProps
     } = useAppStore();
 
     const { t } = useTranslation(userSettings.language);
-    const { checkPermission } = usePermissions(user, userSettings.language, setModalData, setActiveModal);
+    const { checkPermission, getFeatureLimits } = usePermissions(user, userSettings.language, setModalData, setActiveModal);
 
     const handleUpdate = useCallback((id: string, field: string, val: any) => {
         if (!data) return;
@@ -37,12 +37,42 @@ export const useProjectOperations = ({ fileInputRef }: UseProjectOperationsProps
 
                 const findDescendants = (pId: string, newPId: string) => {
                     const children = data.wbs.filter(w => w.parentId === pId);
-                    children.forEach(c => {
+                    children.forEach((c, index) => {
                         let childNewId = c.id;
-                        // Auto-update child ID if it follows the specific pattern parentId + '.'
-                        if (c.id.startsWith(pId + '.')) {
-                            childNewId = newPId + c.id.substring(pId.length);
+                        // Check if child ID starts with parent ID followed by a separator
+                        const separators = ['.', '-', '_'];
+                        let matched = false;
+                        
+                        for (const sep of separators) {
+                            if (c.id.startsWith(pId + sep)) {
+                                childNewId = newPId + c.id.substring(pId.length);
+                                matched = true;
+                                break;
+                            }
                         }
+                        
+                        // If child ID starts with parent ID directly (no separator)
+                        if (!matched && c.id.startsWith(pId) && c.id.length > pId.length) {
+                            childNewId = newPId + c.id.substring(pId.length);
+                            matched = true;
+                        }
+                        
+                        // If child ID starts with old root ID
+                        if (!matched && c.id.startsWith(oldId)) {
+                            childNewId = newId + c.id.substring(oldId.length);
+                            matched = true;
+                        }
+                        
+                        // If still no match, generate a new ID based on new parent ID
+                        if (!matched) {
+                            const suffixMatch = c.id.match(/[\.\-_]?(\d+)$/);
+                            if (suffixMatch) {
+                                childNewId = newPId + '.' + suffixMatch[1];
+                            } else {
+                                childNewId = newPId + '.' + (index + 1);
+                            }
+                        }
+                        
                         idMap.set(c.id, childNewId);
                         findDescendants(c.id, childNewId);
                     });
@@ -125,18 +155,48 @@ export const useProjectOperations = ({ fileInputRef }: UseProjectOperationsProps
                     idMap.set(oldRootId, newRootId);
 
                     // Recursively find and update all descendant WBS IDs
+                    // Strategy: All child WBS IDs should be prefixed with the new root ID
                     const findDescendants = (pId: string, newPId: string) => {
                         const children = currentData.wbs.filter(w => w.parentId === pId);
-                        children.forEach(c => {
+                        children.forEach((c, index) => {
                             let childNewId = c.id;
-                            // Auto-update child ID if it starts with parent ID followed by a separator
-                            if (c.id.startsWith(pId + '.')) {
-                                childNewId = newPId + c.id.substring(pId.length);
-                            } else if (c.id.startsWith(pId + '-')) {
-                                childNewId = newPId + c.id.substring(pId.length);
-                            } else if (c.id.startsWith(pId + '_')) {
-                                childNewId = newPId + c.id.substring(pId.length);
+                            // Check if child ID starts with parent ID followed by a separator
+                            const separators = ['.', '-', '_'];
+                            let matched = false;
+                            
+                            for (const sep of separators) {
+                                if (c.id.startsWith(pId + sep)) {
+                                    // Replace parent prefix with new parent prefix
+                                    childNewId = newPId + c.id.substring(pId.length);
+                                    matched = true;
+                                    break;
+                                }
                             }
+                            
+                            // If child ID starts with parent ID directly (no separator)
+                            if (!matched && c.id.startsWith(pId) && c.id.length > pId.length) {
+                                childNewId = newPId + c.id.substring(pId.length);
+                                matched = true;
+                            }
+                            
+                            // If child ID starts with old root ID (for nested children)
+                            if (!matched && c.id.startsWith(oldRootId)) {
+                                childNewId = newRootId + c.id.substring(oldRootId.length);
+                                matched = true;
+                            }
+                            
+                            // If still no match, generate a new ID based on new parent ID
+                            if (!matched) {
+                                // Find the suffix part of the child ID (e.g., "001" from "WBS-001")
+                                const suffixMatch = c.id.match(/[\.\-_]?(\d+)$/);
+                                if (suffixMatch) {
+                                    childNewId = newPId + '.' + suffixMatch[1];
+                                } else {
+                                    // Use index-based suffix
+                                    childNewId = newPId + '.' + (index + 1);
+                                }
+                            }
+                            
                             idMap.set(c.id, childNewId);
                             findDescendants(c.id, childNewId);
                         });
@@ -251,6 +311,10 @@ export const useProjectOperations = ({ fileInputRef }: UseProjectOperationsProps
         setUser(null);
         setData(null);
         setIsLoginOpen(true);
+        // 强制清除 zustand 持久化存储中可能残留的用户相关数据
+        localStorage.removeItem('planner-storage');
+        // 刷新页面确保完全清除状态
+        window.location.reload();
     }, [setUser, setData, setIsLoginOpen]);
 
     const handleDeleteItems = useCallback((ids: string[]) => {
@@ -677,7 +741,7 @@ export const useProjectOperations = ({ fileInputRef }: UseProjectOperationsProps
                 }
                 setActiveModal(action === 'cloud_projects' ? 'cloud_load' : 'cloud_save');
                 break;
-            case 'license': setModalData({ msg: "License: Standard Edition\nExpires: 2025-12-31" }); setActiveModal('alert'); break;
+            case 'license': setActiveModal('license'); break;
             case 'usage': setModalData({ msg: "Usage: 5/10 Projects Used\nStorage: 120MB / 1GB" }); setActiveModal('alert'); break;
         }
     }, [checkPermission, data, selIds, clipboard, fileInputRef, handleSave, handleNew, handleLogout, setActiveModal, setClipboard, handleDeleteItems, setModalData, user, t, view, setData, setView, setSettingsTab]);

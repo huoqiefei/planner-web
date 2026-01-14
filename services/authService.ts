@@ -140,10 +140,30 @@ export const authService = {
                 body: JSON.stringify({ username, password, mail: email })
             });
 
-            const data = await response.json();
+            // 先获取响应文本
+            const text = await response.text();
+            
+            // 尝试解析 JSON
+            let data: any = {};
+            if (text) {
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    // 如果不是 JSON，检查是否成功
+                    if (!response.ok) {
+                        throw new Error(text || 'Registration failed');
+                    }
+                    // 如果响应成功但不是 JSON，认为注册成功
+                    return;
+                }
+            }
 
             if (!response.ok) {
-                throw new Error(data.error || 'Registration failed');
+                throw new Error(data.error || data.message || 'Registration failed');
+            }
+            
+            if (data.error) {
+                throw new Error(data.error);
             }
         } catch (error: any) {
             console.error('Registration error:', error);
@@ -236,13 +256,31 @@ export const authService = {
             body: JSON.stringify({ oldPassword, newPassword })
         });
 
-        if (!response.ok) {
-            const text = await response.text().catch(() => '');
-            throw new Error(`Password change failed (${response.status}): ${text}`);
+        // 先获取响应文本
+        const text = await response.text();
+        
+        // 尝试解析 JSON
+        let data: any = {};
+        if (text) {
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                // 如果不是 JSON，检查是否成功
+                if (!response.ok) {
+                    throw new Error(text || `Password change failed (${response.status})`);
+                }
+                // 如果响应成功但不是 JSON，认为修改成功
+                return;
+            }
         }
 
-        const data = await response.json();
-        if (data.error) throw new Error(data.error);
+        if (!response.ok) {
+            throw new Error(data.error || data.message || `Password change failed (${response.status})`);
+        }
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
     },
 
     async getPublicConfig(): Promise<any> {
@@ -252,6 +290,8 @@ export const authService = {
 
     logout() {
         localStorage.removeItem(STORAGE_KEY);
+        // 清除可能的其他缓存
+        sessionStorage.clear();
     },
 
     getCurrentUser(): User | null {

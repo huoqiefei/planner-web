@@ -21,6 +21,14 @@ interface AppState {
     setView: (view: 'activities' | 'resources' | 'usage') => void;
     ganttZoom: 'day' | 'week' | 'month' | 'quarter' | 'year';
     setGanttZoom: (zoom: 'day' | 'week' | 'month' | 'quarter' | 'year') => void;
+    ganttPixelPerDay: number | null;  // 用户手动拖拽设置的缩放比例
+    setGanttPixelPerDay: (ppd: number | null) => void;
+    ganttTimeScale: 'year-month' | 'year-quarter' | 'quarter-month' | 'month-week' | 'year-quarter-month' | 'auto';  // 时间标尺显示模式
+    setGanttTimeScale: (scale: 'year-month' | 'year-quarter' | 'quarter-month' | 'month-week' | 'year-quarter-month' | 'auto') => void;
+    
+    // 主题
+    theme: 'light' | 'dark';
+    setTheme: (theme: 'light' | 'dark') => void;
 
     expandedWbsIds: Record<string, boolean>;
     setExpandedWbsIds: (ids: Record<string, boolean> | ((prev: Record<string, boolean>) => Record<string, boolean>)) => void;
@@ -83,6 +91,9 @@ export const useAppStore = create<AppState>()(
                 schedule: { activities: [], wbsMap: {} },
                 view: 'activities',
                 ganttZoom: 'day',
+                ganttPixelPerDay: null,
+                ganttTimeScale: 'auto',
+                theme: 'light',
                 expandedWbsIds: {},
                 showRelations: true,
                 showCritical: false,
@@ -131,8 +142,12 @@ export const useAppStore = create<AppState>()(
                 setView: (view) => set({ view }),
                 setGanttZoom: (ganttZoom) => set((state) => ({
                     ganttZoom,
+                    ganttPixelPerDay: null,  // 切换缩放级别时重置手动缩放
                     userSettings: { ...state.userSettings, ganttZoom }
                 })),
+                setGanttPixelPerDay: (ganttPixelPerDay) => set({ ganttPixelPerDay }),
+                setGanttTimeScale: (ganttTimeScale) => set({ ganttTimeScale }),
+                setTheme: (theme) => set({ theme }),
                 setExpandedWbsIds: (expandedWbsIds) => set((state) => ({
                     expandedWbsIds: typeof expandedWbsIds === 'function' ? expandedWbsIds(state.expandedWbsIds) : expandedWbsIds
                 })),
@@ -173,7 +188,9 @@ export const useAppStore = create<AppState>()(
                     view: state.view,
                     showDetails: state.showDetails,
                     showRelations: state.showRelations,
-                    expandedWbsIds: state.expandedWbsIds // Also persist expanded state
+                    showCritical: state.showCritical, // 持久化关键线路显示状态
+                    expandedWbsIds: state.expandedWbsIds, // Also persist expanded state
+                    theme: state.theme // 持久化主题设置
                 }),
             }
         ), {

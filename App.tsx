@@ -24,14 +24,24 @@ const App: React.FC = () => {
         setActiveModal,
         setModalData,
         adminConfig, setAdminConfig,
-        userSettings, setUserSettings // Restore userSettings usage as it is needed to pass safe defaults in self-healing
+        userSettings, setUserSettings, // Restore userSettings usage as it is needed to pass safe defaults in self-healing
+        theme
     } = useAppStore(); // Removed unused selectors to satisfy lint, but check logic
 
     const { t } = useTranslation(userSettings.language);
     // checkPermission is needed to be passed to Layout? Yes.
-    const { checkPermission } = usePermissions(user, userSettings.language, setModalData, setActiveModal);
+    const { checkPermission, shouldShowWatermark, getFeatureLimits } = usePermissions(user, userSettings.language, setModalData, setActiveModal);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // 应用主题到 document
+    useEffect(() => {
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    }, [theme]);
 
     // Load User Session & Admin Config
     useEffect(() => {
